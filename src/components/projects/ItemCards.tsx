@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { MapOverview } from "../api";
 import { formatRelativeTime } from "../api";
 import { IconOpen, MapPlaceholder } from "../gallery-icons";
+import { LayerCount } from "../LayerCount";
 import { MapStrip } from "../MapStrip";
 import { nodeWord, sourceWord, type WorkflowListing } from "../workflow-model";
 import { WorkflowStatusChip } from "../WorkflowStatusChip";
@@ -83,12 +84,6 @@ export function MapCard({
       <CardLink label={`Open ${m.name}`} href={`/maps/${m.id}`}>
         <div className={gallery.strip} style={{ height: stripHeight }} data-strip>
           <MapStrip map={m} />
-          <span className={gallery.overlay}>
-            <b>
-              <span className={gallery.num}>{m.layerCount}</span>{" "}
-              layer{m.layerCount === 1 ? "" : "s"}
-            </b>
-          </span>
         </div>
         <div className={gallery.cardBody}>
           <div className={gallery.cardTop}>
@@ -107,6 +102,7 @@ export function MapCard({
               <i />
               {m.published ? "Published" : "Draft"}
             </span>
+            <LayerCount count={m.layerCount} colors={m.layerColors} />
           </div>
         </div>
       </CardLink>

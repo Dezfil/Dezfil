@@ -17,6 +17,7 @@ import {
   IconSearch,
 } from "./gallery-icons";
 import { CardDelete } from "./CardDelete";
+import { LayerCount, LayerDots } from "./LayerCount";
 import { MapStrip } from "./MapStrip";
 import { PictureCredit } from "./PictureCredit";
 import { readPictureListing } from "./picture-poll";
@@ -47,7 +48,6 @@ type Filter = "all" | "published" | "drafts";
 export type MapsSort = "edited" | "created" | "name";
 const MAPS_SORTS = ["edited", "created", "name"] as const;
 
-const MAX_LAYER_DOTS = 6;
 
 /** The listing load, as a user sentence when the network itself fails —
  * server answers already carry documented sentences via the API error
@@ -67,17 +67,6 @@ async function fetchMaps(scope?: string): Promise<MapOverview[]> {
   }
   if (!response.ok) throw new Error(await readApiError(response));
   return (await response.json()) as MapOverview[];
-}
-
-function LayerDots({ colors }: { colors: string[] }) {
-  if (colors.length === 0) return null;
-  return (
-    <span className={gallery.layerDots} aria-hidden>
-      {colors.slice(0, MAX_LAYER_DOTS).map((c, i) => (
-        <i key={i} style={{ background: c }} />
-      ))}
-    </span>
-  );
 }
 
 function StateChip({ live }: { live: boolean }) {
@@ -602,13 +591,6 @@ export function MapsScreen({
               >
                 <div className={gallery.strip} style={{ height: 148 }}>
                   <MapStrip map={m} />
-                  <span className={gallery.overlay}>
-                    <LayerDots colors={m.layerColors} />
-                    <b>
-                      <span className={gallery.num}>{m.layerCount}</span> layer
-                      {m.layerCount === 1 ? "" : "s"}
-                    </b>
-                  </span>
                 </div>
                 <div className={gallery.cardBody}>
                   <div className={gallery.cardTop}>
@@ -619,6 +601,7 @@ export function MapsScreen({
                   </div>
                   <div className={gallery.cardChipsLine}>
                     <StateChip live={m.published} />
+                    <LayerCount count={m.layerCount} colors={m.layerColors} />
                     <ProjectTag
                       projectId={m.projectId}
                       projects={world?.projects ?? []}

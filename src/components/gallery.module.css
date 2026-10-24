@@ -426,6 +426,17 @@
   gap: 3px;
 }
 
+/* A map card's layer count in its body, beside the publication pill. */
+.layerCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 2px;
+  color: var(--fg-muted);
+  font-size: var(--text-meta);
+  white-space: nowrap;
+}
+
 .layerDots i {
   width: 7px;
   height: 7px;
