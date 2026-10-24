@@ -556,4 +556,8 @@ export const MIGRATIONS: string[] = [
   // anew for every upload; null while they have none, and always null on a
   // deleted account, like the rest of its profile.
   `ALTER TABLE accounts ADD COLUMN picture_version TEXT CHECK (picture_version IS NULL OR status <> 'deleted');`,
+  // A published picture framed at the map's saved view whose re-make
+  // failed for the third time: kept on disk, served to no one, until a
+  // new picture lands.
+  `ALTER TABLE map_pictures ADD COLUMN retired INTEGER NOT NULL DEFAULT 0;`,
 ];

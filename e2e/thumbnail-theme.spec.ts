@@ -21,6 +21,7 @@ import {
   trackConsole,
 } from "./support";
 import { waitForPicture } from "./picture-support";
+import { DEFAULT_WIDTH, pictureHeight } from "../src/lib/pictures/shapes";
 import { isAllowedConsoleError } from "./console-allowlist";
 
 test.beforeEach(async ({ baseURL }) => { if (!baseURL || new URL(baseURL).port === "3000") throw new Error("Use an isolated instance with the picture style fixture preload."); });
@@ -196,8 +197,8 @@ test.describe("card images by theme", () => {
     expect(Math.abs(l.marks - d.marks) / l.marks).toBeLessThan(0.2);
     expect(Math.abs(l.cx - d.cx)).toBeLessThan(0.01);
     expect(Math.abs(l.cy - d.cy)).toBeLessThan(0.01);
-    expect([l.width, l.height]).toEqual([692, 296]);
-    expect([d.width, d.height]).toEqual([692, 296]);
+    expect([l.width, l.height]).toEqual([DEFAULT_WIDTH, pictureHeight(DEFAULT_WIDTH)]);
+    expect([d.width, d.height]).toEqual([DEFAULT_WIDTH, pictureHeight(DEFAULT_WIDTH)]);
 
     await test.step("the Maps card follows a theme toggle with no reload", async () => {
       await page.goto("/maps");

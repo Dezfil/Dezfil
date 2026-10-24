@@ -49,6 +49,30 @@ const keeps = cssRules("src/components/projects/ItemCards.module.css")
 const fades = cssRules("src/components/gallery.module.css")
   .filter((r) => r.selector.includes("cardWhen") && /opacity:\s*0\s*;/.test(r.body));
 
+it.each([
+  [2, ["rgb(1, 2, 3)", "rgb(4, 5, 6)"], "2 layers"],
+  [1, ["rgb(7, 8, 9)"], "1 layer"],
+  [0, [], "0 layers"],
+] as const)("counts a map's %i layers in its body after the publication pill, with their colour dots, nothing over its picture; the owner's pill and the published view's action stay", async (layerCount, layerColors, words) => {
+  await act(async () => {
+    root.render(
+      <SignedIn account={{ name: "Bo Lindqvist", sqlName: "bo" }}>
+        <MapCard map={{ ...depot, layerCount, layerColors: [...layerColors] } as MapOverview} owner={ada} />
+      </SignedIn>,
+    );
+  });
+  const card = container.querySelector("article")!;
+  expect(card.querySelector("[data-strip]")!.children, "the picture alone in its strip").toHaveLength(0);
+  const count = card.querySelector("[data-layer-count]")!;
+  expect(count.textContent).toBe(words);
+  expect(count.querySelectorAll("i").map((dot) => dot.style.getPropertyValue("background"))).toEqual(layerColors);
+  const [pill, next] = count.parentElement!.children;
+  expect(pill.textContent).toBe("Published");
+  expect(next).toBe(count);
+  expect(card.children.some((child) => child.hasAttribute("data-owner-pill")), "the owner's pill on the card").toBe(true);
+  expect(card.querySelector('[aria-label="Open the published view of Depot"]')?.parentElement?.parentElement).toBe(card);
+});
+
 it.each(["hover", "focus-within"])("keeps a lone card's time under :%s, outranking the gallery's fade", async (state) => {
   await act(async () => {
     root.render(

@@ -13,8 +13,9 @@ export interface PictureFrame {
   padding: FitPadding;
 }
 
-/** The empty map: the world, flat and north up, its width across the
- * frame, centred on the latitudes where the inhabited continents sit. */
+/** The world once across the frame, flat and north up, centred on the
+ * prime meridian at the latitudes where the inhabited continents sit: an
+ * empty map's picture, and a picture of data wider than one world. */
 export function worldCamera(size: { width: number }): FitCamera {
   return { lng: 0, lat: 20, zoom: Math.log2(size.width / 512), pitch: 0, bearing: 0 };
 }
@@ -67,16 +68,30 @@ function containTilted(camera: FitCamera, bounds: Bounds, size: { width: number;
   return { ...camera, zoom: inside };
 }
 
+/**
+ * Whether these bounds are wider than one world in this frame: framed as
+ * Fit frames them, flat and north up with the frame's margin, the world
+ * would be narrower than the frame, so the basemap would repeat it side
+ * by side. Tall data (most latitudes) and wide data (most longitudes)
+ * both qualify. The zoom read is Fit's own, before any clamp the canvas
+ * applies.
+ */
+export function widerThanOneWorld(bounds: Bounds, size: { width: number; height: number }, padding: FitPadding): boolean {
+  const flat = fitCamera(bounds, size, padding, { bearing: 0, pitch: 0 });
+  return !flat || flat.zoom < worldCamera(size).zoom;
+}
+
 /** The camera a picture is drawn at: the drawn data framed as Fit frames
- * it, keeping the saved tilt and rotation and the data inside the margin,
- * or the world when nothing is drawn. */
+ * it, keeping the saved tilt and rotation and the data inside the margin;
+ * the world once across the frame, as for an empty map, when the data is
+ * wider than one world or nothing is drawn. */
 export function pictureCamera(
   bounds: Bounds | null,
   size: { width: number; height: number },
   frame: PictureFrame,
   saved: { pitch?: number; bearing?: number },
 ): FitCamera {
-  if (!bounds) return worldCamera(size);
+  if (!bounds || widerThanOneWorld(bounds, size, frame.padding)) return worldCamera(size);
   const fitted = fitCamera(bounds, size, frame.padding, { bearing: saved.bearing ?? 0, pitch: saved.pitch ?? 0 });
   return fitted ? containTilted(fitted, bounds, size, frame.padding) : worldCamera(size);
 }

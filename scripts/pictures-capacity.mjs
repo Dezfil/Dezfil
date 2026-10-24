@@ -181,7 +181,7 @@ if (mode.startsWith('seed-')) {
     }
     if (baseline) assert.ok(report.capacityElapsedMs <= baseline.limits.capacity300Ms, 'Capacity exceeded the frozen first-run ceiling');
     if (fixture.kind === 'first') {
-      report.timings = firstMeasurement(fixture.maps, events(), load('lib/pictures/shapes.ts').PICTURE_SHAPE_NAMES.length);
+      report.timings = firstMeasurement(fixture.maps, events(), load('lib/pictures/shapes.ts').RENDERED_SHAPES.length);
       report.startupMs = events().find(event => event.kind === 'admitted' && event.background).at - initialBoot.at;
       report.restartMs = await restart();
       await sleep(2000);

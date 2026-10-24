@@ -298,6 +298,17 @@ describe("the lead", () => {
     expect(button("Open Harbour depths").getAttribute("data-variant")).not.toBe("primary");
   });
 
+  it("drops the fade over the template lead's picture once it is drawn, its place kept in its words", async () => {
+    await open();
+    const strip = leadPlace().querySelector("[data-strip]")!;
+    const img = strip.querySelector("img")!;
+    expect(img.hasAttribute("data-loaded")).toBe(false);
+    await act(async () => { img.dispatchEvent(new HostEvent("load")); });
+    expect(img.hasAttribute("data-loaded")).toBe(true);
+    expect(strip.querySelector('[data-field="place"]')).toBeNull();
+    expect(leadPlace().querySelector('[data-field="place"]')!.textContent).toBe("Hamburg");
+  });
+
   it("says the template's sources on a credit line of their own at the foot of its words, as a Templates card does, the credits in full in its hint", async () => {
     await open();
     const sources = leadPlace().querySelector('[data-field="sources"]')!;

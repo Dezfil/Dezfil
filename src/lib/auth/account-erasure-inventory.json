@@ -7117,16 +7117,6 @@
         "memory:picture-data"
       ]
     },
-    "memory:src/lib/pictures/shapes.ts#PICTURE_SHAPES": {
-      "stores": [
-        "memory:immutable-configuration"
-      ]
-    },
-    "memory:src/lib/pictures/shapes.ts#WIDE_FRAME": {
-      "stores": [
-        "memory:immutable-configuration"
-      ]
-    },
     "location:src/lib/map-thumbnails.ts#readPublished:inDir": {
       "stores": [
         "file:thumbnails"
@@ -7308,6 +7298,53 @@
       ],
       "roots": [
         "profile-pictures/*"
+      ]
+    },
+    "memory:src/lib/pictures/card.ts#CARD_STORED_SIZE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/pictures/shapes.ts#FRAME": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/pictures/shapes.ts#PICTURE_SHAPE": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureFormat:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureDigests.names:thumbnailPath": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*.png"
+      ]
+    },
+    "location:src/lib/map-thumbnails.ts#publishedPictureDigests:inDir": {
+      "stores": [
+        "file:thumbnails"
+      ],
+      "roots": [
+        "thumbnails/*"
+      ]
+    },
+    "location:src/lib/templates/picture-digests.ts#installedTemplatePictureDigests:downloadedTemplatesDir": {
+      "stores": [
+        "file:templates"
+      ],
+      "roots": [
+        "templates"
       ]
     }
   },

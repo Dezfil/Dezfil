@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { alignmentPoint, alignmentPositionError, alignmentStats, startAlignmentBasemap } from "../scripts/map-alignment-fixture.mjs";
 import { addLayer, createMap, patchLayer, patchMap, routeHouse, seedCsv } from "./support";
 import { waitForPicture } from "./picture-support";
+import { PICTURE_SHAPE } from "../src/lib/pictures/shapes";
 import { expectPaintedCamera, imageDefinition, coveredCamera } from "./camera-bounds-support";
 
 test.use({ viewport: { width: 1600, height: 1100 } });
@@ -60,10 +61,11 @@ for (const [pole, sign] of [["north", 1], ["south", -1]] as const) {
       expect(painted.padding.bottom).toBe(14);
       expect(painted.padding.left).toBeGreaterThan(painted.padding.right);
       const saved = await (await page.request.get(`/api/maps/${id}`)).json();
-      const cardCamera = coveredCamera(saved.viewport, 424);
+      const { frame } = PICTURE_SHAPE;
+      const cardCamera = coveredCamera(saved.viewport, frame.height);
       const northing = (latitude: number) => 0.5 - Math.asinh(Math.tan(latitude * Math.PI / 180)) / (2 * Math.PI);
       const world = 512 * 2 ** cardCamera.zoom;
-      const pointFraction = { x: (lng - cardCamera.lng) / 360 * world / 990 + .5, y: (northing(lat) - northing(cardCamera.lat)) * world / 424 + .5 };
+      const pointFraction = { x: (lng - cardCamera.lng) / 360 * world / frame.width + .5, y: (northing(lat) - northing(cardCamera.lat)) * world / frame.height + .5 };
       const expectedGround = { light: [240, 230, 200], dark: [26, 42, 58] };
       for (const theme of ["light", "dark"] as const) {
         const previous = (await waitForPicture(page.request, id)).pictureVersion;

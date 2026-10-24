@@ -1,9 +1,9 @@
 import { act, type Ref } from "react";
-import { coveredWidth, PICTURE_SHAPES, SHAPE_SWITCH, type PictureShape } from "@/lib/pictures/shapes";
+import { coveredWidth } from "@/lib/pictures/shapes";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MapOverview } from "./api";
-import { HostEvent, installDomHost, type HostElement } from "./testing/dom-host";
+import { HostElement, HostEvent, installDomHost } from "./testing/dom-host";
 import { MapStrip } from "./MapStrip";
 
 /**
@@ -109,7 +109,10 @@ function measured(box: { width: number; height: number }) {
   vi.stubGlobal("ResizeObserver", class { constructor(private readonly react: () => void) {} observe() { observers.push(this.react); } disconnect() { observers.splice(observers.indexOf(this.react), 1); } });
   return { resize: async (next: { width: number; height: number }) => { Object.assign(size, next); await act(async () => { for (const react of [...observers]) react(); }); } };
 }
-const offered = (shape: PictureShape, theme = "light") => PICTURE_SHAPES[shape].widths.map((width) => `${address("server-3", theme)}&shape=${shape}&width=${width} ${width}w`).join(", ");
+// The kept widths, written out: the narrowest a phone's card needs up to
+// the master that covers the widest box at three density.
+const KEPT = [360, 720, 1080, 1440, 1980, 2904];
+const offered = (theme = "light") => KEPT.map((width) => `${address("server-3", theme)}&shape=card&width=${width} ${width}w`).join(", ");
 const image = () => container.querySelector("img")!;
 // The test host keeps an attribute's name as React wrote it; a browser lowercases it.
 const srcset = () => image().getAttribute("srcSet") ?? image().getAttribute("srcset");
@@ -118,17 +121,16 @@ describe("a measured strip", () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
   it.each([
-    ["a card-shaped box", { width: 300, height: 128 }, "card"],
-    ["a box just short of the switch", { width: 289, height: 100 }, "card"],
-    ["a box just past the switch", { width: 291, height: 100 }, "wide"],
-    ["a band", { width: 1100, height: 280 }, "wide"],
-  ] as const)("offers %s the kept sizes of its shape, with the width the picture covers there", async (_, box, shape) => {
+    ["a Maps card", { width: 346, height: 148 }],
+    ["Continue beside Start, at its narrowest", { width: 592, height: 300 }],
+    ["Continue beside Start, at its widest", { width: 912, height: 300 }],
+    ["a band", { width: 1100, height: 280 }],
+  ] as const)("offers %s the one shape's kept sizes, with the box's own width", async (_, box) => {
     measured(box);
     await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
-    expect(box.width / box.height > SHAPE_SWITCH).toBe(shape === "wide");
-    expect(srcset()).toBe(offered(shape));
-    // A box past the switch but narrower than the wide shape crops its sides: the picture covers more than the box.
-    expect(image().getAttribute("sizes")).toBe(`${Math.ceil(coveredWidth(shape, box))}px`);
+    expect(srcset()).toBe(offered());
+    // None of these is narrower than the picture's proportion, so the picture covers exactly the box's width.
+    expect(image().getAttribute("sizes")).toBe(`${box.width}px`);
     expect(image().getAttribute("src")).toBe(address("server-3"));
   });
 
@@ -136,29 +138,31 @@ describe("a measured strip", () => {
     const box = { width: 200, height: 150 };
     measured(box);
     await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
-    const covered = Math.ceil(coveredWidth("card", box));
+    const covered = Math.ceil(coveredWidth(box));
+    expect(covered).toBe(Math.ceil((150 * 968) / 494));
     expect(covered).toBeGreaterThan(box.width);
     expect(image().getAttribute("sizes")).toBe(`${covered}px`);
   });
 
-  it("measures again on a resize, changing shape across the switch, and follows the theme", async () => {
+  it("measures again on a resize and follows the theme", async () => {
     const strip = measured({ width: 300, height: 128 });
     await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
+    expect(image().getAttribute("sizes")).toBe("300px");
     await strip.resize({ width: 900, height: 200 });
-    expect(srcset()).toBe(offered("wide"));
+    expect(srcset()).toBe(offered());
     expect(image().getAttribute("sizes")).toBe("900px");
     look.theme = "dark";
     await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
-    expect(srcset()).toBe(offered("wide", "dark"));
+    expect(srcset()).toBe(offered("dark"));
   });
 
-  it("asks for the card's default picture where the box has no size yet, and the sizes once it has", async () => {
+  it("asks for the default picture where the box has no size yet, and the sizes once it has", async () => {
     const strip = measured({ width: 0, height: 0 });
     await draw({ pictureState: "current", pictureVersion: "server-3", hasThumbnail: true });
     expect(srcset()).toBeNull();
     expect(image().getAttribute("src")).toBe(address("server-3"));
     await strip.resize({ width: 300, height: 128 });
-    expect(srcset()).toBe(offered("card"));
+    expect(srcset()).toBe(offered());
   });
 
   it("leaves the placeholder when a size fails to load, and asks again for a new version", async () => {
@@ -168,5 +172,70 @@ describe("a measured strip", () => {
     expect(container.querySelector("img")).toBeNull();
     await draw({ pictureState: "current", pictureVersion: "server-4", hasThumbnail: true });
     expect(srcset()).toContain("v=server-4");
+  });
+});
+
+/**
+ * The strip's fade stands over the placeholder and leaves a map's picture
+ * once the browser has drawn it: the image is marked on its load, a new
+ * address waits for its own, and a picture that fails leaves the
+ * placeholder under the fade.
+ */
+describe("the fade over a map's picture", () => {
+  const drawn = () => image().hasAttribute("data-loaded");
+  const load = async () => { await act(async () => { image().dispatchEvent(new HostEvent("load")); }); };
+  const current = (version: string) => ({ pictureState: "current", pictureVersion: version, hasThumbnail: true }) as const;
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it("stands while the picture is on its way, through later listings, and leaves once it is drawn", async () => {
+    measured({ width: 346, height: 148 });
+    await draw(current("server-3"));
+    expect(drawn()).toBe(false);
+    await draw({ ...current("server-3"), updatedAt: "2026-10-02T15:00:00Z" });
+    expect(drawn()).toBe(false);
+    await load();
+    expect(drawn()).toBe(true);
+    // A resize offers the same sizes: the drawn picture stays drawn.
+    await draw({ ...current("server-3"), updatedAt: "2026-10-02T16:00:00Z" });
+    expect(drawn()).toBe(true);
+  });
+
+  it("comes back for a new version and for the other theme until that picture is drawn", async () => {
+    await draw(current("server-3"));
+    await load();
+    await draw(current("server-4"));
+    expect(requested()).toEqual([address("server-4")]);
+    expect(drawn()).toBe(false);
+    await load();
+    expect(drawn()).toBe(true);
+    look.theme = "dark";
+    await draw(current("server-4"));
+    expect(requested()).toEqual([address("server-4", "dark")]);
+    expect(drawn()).toBe(false);
+    await load();
+    expect(drawn()).toBe(true);
+  });
+
+  it("stays over the placeholder when the picture fails to load, drawn or not before", async () => {
+    await draw(current("server-3"));
+    await act(async () => { image().dispatchEvent(new HostEvent("error")); });
+    expect(container.querySelector("img")).toBeNull();
+    expect(placeholders()).toHaveLength(1);
+    await draw(current("server-4"));
+    await load();
+    await draw(current("server-5"));
+    await act(async () => { image().dispatchEvent(new HostEvent("error")); });
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("leaves at once over a picture the browser already holds whole", async () => {
+    const whole = { complete: { configurable: true, get(this: HostElement) { return this.tagName === "IMG"; } }, naturalWidth: { configurable: true, get(this: HostElement) { return this.tagName === "IMG" ? 692 : 0; } } };
+    Object.defineProperties(HostElement.prototype, whole);
+    try {
+      await draw(current("server-3"));
+      expect(drawn()).toBe(true);
+    } finally {
+      for (const name of Object.keys(whole)) delete (HostElement.prototype as unknown as Record<string, unknown>)[name];
+    }
   });
 });

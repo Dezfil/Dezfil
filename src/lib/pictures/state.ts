@@ -1,5 +1,6 @@
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
+import { isTemplateDocumentId } from "@/lib/templates/ids";
 import { onCurrentFormula, requestDrawing, type DrawingFreshness } from "./digest";
 export type PictureStatus = "current" | "waiting" | "failed" | "unsupported" | "unavailable";
 export type PictureProducer = "server" | "inherited" | "old";
@@ -64,11 +65,40 @@ export function requestRemake(mapId: string, now: number, db: Database = metadat
     state = 'waiting', attempt_count = 0, requested_at = ?, next_attempt_at = ? WHERE map_id = ? AND state = 'current'`).run(now, now, mapId);
   return getPictureState(mapId, db);
 }
-const writable = { state: "state", publishedGeneration: "published_generation", publishedDigest: "published_digest", producer: "producer", attemptCount: "attempt_count", nextAttemptAt: "next_attempt_at" } as const;
+const writable = { state: "state", publishedGeneration: "published_generation", publishedDigest: "published_digest", producer: "producer", attemptCount: "attempt_count", nextAttemptAt: "next_attempt_at", retired: "retired" } as const;
+type Settled = Pick<PictureState, Exclude<keyof typeof writable, "retired">> & { retired: boolean };
 /** Compare-and-set never resurrects deleted work or settles a newer request. */
-export function settlePicture(mapId: string, generation: number, fields: Partial<Pick<PictureState, keyof typeof writable>>, db: Database = metadataDb()): boolean {
-  const entries = Object.entries(fields) as [keyof typeof writable, string | number | null][];
+export function settlePicture(mapId: string, generation: number, fields: Partial<Settled>, db: Database = metadataDb()): boolean {
+  const entries = Object.entries(fields) as [keyof typeof writable, string | number | boolean | null][];
   if (!entries.length) return false;
   return db.prepare(`UPDATE map_pictures SET ${entries.map(([key]) => `${writable[key]} = ?`).join(", ")} WHERE map_id = ? AND requested_generation = ?`)
-    .run(...entries.map(([, value]) => value), mapId, generation).changes === 1;
+    .run(...entries.map(([, value]) => (typeof value === "boolean" ? Number(value) : value)), mapId, generation).changes === 1;
+}
+
+/** The re-makes a retirement waits for: the third failure retires. */
+export const RETIREMENT_FAILURES = 3;
+
+/**
+ * Retires the map's published picture, when its request at this
+ * generation is still the one that failed and has failed for the third
+ * time: a failure reported late, after a newer request, retires nothing.
+ * The caller has judged the picture one framed at the map's saved view.
+ */
+export function retirePicture(mapId: string, generation: number, db: Database = metadataDb()): boolean {
+  return db.prepare("UPDATE map_pictures SET retired = 1 WHERE map_id = ? AND requested_generation = ? AND state = 'failed' AND attempt_count >= ?")
+    .run(mapId, generation, RETIREMENT_FAILURES).changes === 1;
+}
+
+/** Of these maps, those whose published picture is retired. A template's
+ * own map has no picture row and is never asked of the store. */
+export function retiredPictures(mapIds: readonly string[], db: Database = metadataDb()): Set<string> {
+  const stored = mapIds.filter((id) => !isTemplateDocumentId(id));
+  const found = new Set<string>();
+  // Bounded batches keep the statement under SQLite's parameter limit.
+  for (let i = 0; i < stored.length; i += 500) {
+    const batch = stored.slice(i, i + 500);
+    const rows = db.prepare(`SELECT map_id AS id FROM map_pictures WHERE retired = 1 AND map_id IN (${batch.map(() => "?").join(", ")})`).all(...batch) as { id: string }[];
+    for (const row of rows) found.add(row.id);
+  }
+  return found;
 }

@@ -160,7 +160,7 @@ describe.skipIf(!base)("server picture road", () => {
       bytes[theme] = Buffer.from(await (await api.request("GET", `/api/maps/${map.id}/thumbnail?theme=${theme}&v=${ready.pictureVersion}`)).arrayBuffer());
       for (const mark of PICTURE_MARKS) {
         const measured = colourCentre(bytes[theme], mark.colour), expected = pictureMarkPosition(mark);
-        expect([measured.width, measured.height]).toEqual([692, 296]);
+        expect([measured.width, measured.height]).toEqual([692, 353]);
         expect(Math.abs(measured.x - expected.x)).toBeLessThan(2);
         expect(Math.abs(measured.y - expected.y)).toBeLessThan(2);
       }

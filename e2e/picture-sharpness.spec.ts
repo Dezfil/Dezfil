@@ -7,21 +7,22 @@ import { closeAll, createMapWithLayer, createProject, invitePerson, PASSWORD, ru
 import { pictureBasemap } from "../test-support/picture-basemap";
 import { pointStyle } from "../test-support/picture-pixels";
 import { edgeRise, luminance } from "../test-support/edge-rise";
-import { coveredWidth, PICTURE_SHAPES, shapeForBox, type PictureShape } from "../src/lib/pictures/shapes";
+import { coveredWidth, KEPT_SHAPE, PICTURE_SHAPE } from "../src/lib/pictures/shapes";
 
 /**
  * Every card host shows a map picture as sharply as the screen allows, on
  * a production build: at one, two and three screen pixels per point, at
- * window widths on both sides of every layout and shape switch (found by
+ * window widths on both sides of every layout switch (found by
  * sweeping each page's widths and watching its hosts' boxes), and after a
  * resize and a browser zoom. For each picture of the fixture map on screen:
- * the shape suits its box; the image offers a size at least as large as
- * the screen area the picture covers and, at a whole density, the browser
- * took one, read from the file's own pixels; a straight edge of the
+ * it asks for the one kept shape; the image offers a size at least as
+ * large as the screen area the picture covers and, at a whole density,
+ * the browser took one, read from the file's own pixels, never capped at
+ * the widest size kept, so a smaller master fails rather than passes; a straight edge of the
  * fixture rises from 10 to 90 percent within two screen pixels. A 692 pixel
  * picture enlarged and served in its place fails that bound wherever it
  * would cover at least twice its width. Where Home's Continue card is at
- * least as wide as the card's proportion, the fixture's outermost marks
+ * least as wide as the picture's proportion, the fixture's outermost marks
  * are wholly inside it. The fade and the labels a host draws over the
  * picture are hidden while measuring: they are the host's, not the
  * picture's.
@@ -168,24 +169,22 @@ async function boxes(page: Page, index: number) {
 async function judge(page: Page, picture: Seen, where: string) {
   const dpr = await page.evaluate(() => devicePixelRatio);
   const { box, visible } = await boxes(page, picture.index);
-  const shape: PictureShape = shapeForBox(box);
   const label = `${where}, ${picture.host} ${Math.round(box.width)}×${Math.round(box.height)} at ${dpr}`;
   const chosen = new URL(picture.currentSrc);
-  expect(chosen.searchParams.get("shape"), `${label}: the shape for its box`).toBe(shape);
-  const covers = coveredWidth(shape, box) * dpr;
+  expect(chosen.searchParams.get("shape"), `${label}: the kept shape`).toBe(KEPT_SHAPE);
+  const covers = coveredWidth(box) * dpr;
   const offered = (picture.srcset ?? "").split(",").map(item => Number(item.trim().split(" ")[1]?.replace("w", "")));
-  const widest = PICTURE_SHAPES[shape].widths.at(-1)!;
-  expect(Math.max(...offered), `${label}: a size offered for ${Math.ceil(covers)} screen pixels`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers)));
+  expect(Math.max(...offered), `${label}: a size offered for ${Math.ceil(covers)} screen pixels`).toBeGreaterThanOrEqual(Math.floor(covers));
   const taken = await fileWidth(page, picture.currentSrc);
-  if (Number.isInteger(dpr)) expect(taken, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.min(widest, Math.floor(covers) - 1));
+  if (Number.isInteger(dpr)) expect(taken, `${label}: the file taken`).toBeGreaterThanOrEqual(Math.floor(covers) - 1);
   const shot = await pixels(await page.screenshot({ clip: visible }));
   // The clip is rounded to whole pixels, so the capture may differ by up
   // to one point; a capture read at another density differs by far more.
   expect(Math.abs(shot.width - visible.width * dpr), `${label}: the capture holds the picture at its screen pixels`).toBeLessThanOrEqual(dpr + 1);
   const rise = eastEdgeRise(shot);
   if (rise !== null) expect(rise, `${label}: the edge's rise in screen pixels`).toBeLessThanOrEqual(2);
-  if (picture.host === "continue" && visible.width / visible.height >= PICTURE_SHAPES.card.frame.width / PICTURE_SHAPES.card.frame.height) {
-    const radius = (10 * coveredWidth(shape, box) / PICTURE_SHAPES[shape].frame.width) * dpr;
+  if (picture.host === "continue" && visible.width / visible.height >= PICTURE_SHAPE.frame.width / PICTURE_SHAPE.frame.height) {
+    const radius = (10 * coveredWidth(box) / PICTURE_SHAPE.frame.width) * dpr;
     for (const colour of [ORANGE, MUSTARD]) {
       const mark = colourBox(shot, colour);
       const seenAs = `seen ${shot.width}×${shot.height} of box ${JSON.stringify(box)} visible ${JSON.stringify(visible)}, mark ${JSON.stringify(mark)}`;
@@ -198,7 +197,7 @@ async function judge(page: Page, picture: Seen, where: string) {
 
 async function hideHostChrome(page: Page) { await page.addStyleTag({ content: HIDE_HOST_CHROME }); }
 
-/** The widths on both sides of each place a host's box jumps or its shape changes. */
+/** The widths on both sides of each place a host's box jumps. */
 async function switchesOf(page: Page, open: (page: Page) => Promise<void>): Promise<number[]> {
   await page.setViewportSize({ width: 360, height: 900 });
   await open(page);
@@ -211,7 +210,7 @@ async function switchesOf(page: Page, open: (page: Page) => Promise<void>): Prom
     if (last && boxes.length === last.boxes.length) {
       const jumped = boxes.some((box, i) => {
         const before = last!.boxes[i];
-        return Math.abs(box.width - before.width) > 0.15 * before.width || Math.abs(box.height - before.height) > 0.15 * before.height || shapeForBox(box) !== shapeForBox(before);
+        return Math.abs(box.width - before.width) > 0.15 * before.width || Math.abs(box.height - before.height) > 0.15 * before.height;
       });
       if (jumped) found.push(last.width + 2, width - 2);
     } else if (last) found.push(last.width + 2, width - 2);
@@ -280,7 +279,7 @@ test("a 692 pixel picture enlarged in place fails the sharpness bound where it c
       await hideHostChrome(page);
       for (const picture of await seen(page)) {
         const { box, visible } = await boxes(page, picture.index);
-        const covers = coveredWidth(shapeForBox(box), box) * dpr;
+        const covers = coveredWidth(box) * dpr;
         if (covers < 2 * 692) continue;
         const rise = eastEdgeRise(await pixels(await page.screenshot({ clip: visible })));
         expect(rise, `${name} ${picture.host} at ${dpr}: the enlarged picture's edge`).not.toBeNull();

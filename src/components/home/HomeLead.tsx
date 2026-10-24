@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { TemplateCard } from "@/lib/templates/card";
 import { IconTemplate, MapPlaceholder } from "../gallery-icons";
 import gallery from "../gallery.module.css";
+import { PictureImage } from "../PictureImage";
 import { MapCard, WorkflowCard } from "../projects/ItemCards";
 import type { LastRun } from "../projects/run-history";
 import {
@@ -31,8 +32,9 @@ import styles from "./Home.module.css";
  * a lead chosen early. With neither lead, nothing.
  */
 
-/** The lead's picture height, the Showroom reference's. */
-const LEAD_PICTURE = 226;
+/** The lead's picture height: the same for every lead, so Home's top
+ * row has one geometry whatever leads. */
+export const LEAD_PICTURE = 300;
 
 export function LeadPlace({
   lead,
@@ -148,7 +150,7 @@ function TemplateLead({
           if (e.key === "Enter") onOpen();
         }}
       >
-        <div className={gallery.strip} style={{ height: LEAD_PICTURE }}>
+        <div className={gallery.strip} style={{ height: LEAD_PICTURE }} data-strip>
           {card.steps ? (
             <WorkflowThumb steps={graphSteps(card.steps)} groupOf={groupOf} />
           ) : (
@@ -210,9 +212,7 @@ function LeadPicture({ card, theme }: { card: TemplateCard; theme: Theme }) {
     <>
       <MapPlaceholder />
       {card.picture === "kept" && failed !== src && (
-        // Same-origin PNG; next/image would only add an optimizer hop.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" onError={() => setFailed(src)} />
+        <PictureImage address={src} src={src} onFailed={() => setFailed(src)} />
       )}
     </>
   );

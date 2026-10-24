@@ -141,6 +141,14 @@ describe("the per-request bound", () => {
   it("stays positive for a budget too small to divide", () => {
     expect(renderRequestBoundMs(1)).toBe(1);
   });
+
+  it("is the export road's bound under the export rule, whatever the call's budget", () => {
+    // A map picture runs inside the check's budget but waits on a slow
+    // tile as long as an export would.
+    expect(renderRequestBoundMs(limits.assistantLookTimeoutMs, "export")).toBe(limits.exportRequestTimeoutMs);
+    expect(renderRequestBoundMs(1, "export")).toBe(limits.exportRequestTimeoutMs);
+    expect(renderRequestBoundMs(limits.assistantLookTimeoutMs, "budget")).toBe(10_000);
+  });
 });
 
 describe("the abandonment decision", () => {

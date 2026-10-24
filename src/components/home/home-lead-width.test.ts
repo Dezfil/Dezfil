@@ -10,8 +10,10 @@ import { readFileSync } from "node:fs";
  * narrow for both. Wherever those two steps fall, the words never stand
  * in a column narrower than a Templates card's own words: a title of the
  * catalogue's length wraps at most once there, never to a third line
- * beside the actions. Only that floor is a product fact here; every
- * other number is read from the stylesheets.
+ * beside the actions. Then Home's top row itself: Start's column and the
+ * lead's at the Home widths the layout names. Only that floor and those
+ * widths are product facts here; every other number is read from the
+ * stylesheets.
  */
 
 const HOME = readFileSync("src/components/home/Home.module.css", "utf8");
@@ -26,11 +28,13 @@ function num(source: string, pattern: RegExp, what: string): number {
   return Number(m![1]);
 }
 
-/** The block of each at-rule `@media (max-width: Npx)` or
- * `@container <name> (max-width: Npx)`, with its braces matched. */
-function steps(source: string): { kind: "window" | string; max: number; body: string }[] {
-  const found: { kind: string; max: number; body: string }[] = [];
-  const head = /@(media|container)\s*([a-z-]*)\s*\(max-width:\s*(\d+)px\)\s*\{/g;
+/** The block of each at-rule `@media (max-width: Npx)`,
+ * `@container <name> (max-width: Npx)` or `@container <name> (width <
+ * Npx)`, with its braces matched; `max` is the widest width it holds at,
+ * `below` whether it holds only below that width. */
+function steps(source: string): { kind: "window" | string; max: number; below: boolean; body: string }[] {
+  const found: { kind: string; max: number; below: boolean; body: string }[] = [];
+  const head = /@(media|container)\s*([a-z-]*)\s*\((?:max-width:\s*(\d+)px|width\s*<\s*(\d+)px)\)\s*\{/g;
   for (let m = head.exec(source); m; m = head.exec(source)) {
     let depth = 1;
     let i = head.lastIndex;
@@ -38,7 +42,7 @@ function steps(source: string): { kind: "window" | string; max: number; body: st
       if (source[i] === "{") depth += 1;
       else if (source[i] === "}") depth -= 1;
     }
-    found.push({ kind: m[1] === "media" ? "window" : m[2], max: Number(m[3]), body: source.slice(head.lastIndex, i - 1) });
+    found.push({ kind: m[1] === "media" ? "window" : m[2], max: Number(m[3] ?? m[4]), below: m[4] !== undefined, body: source.slice(head.lastIndex, i - 1) });
   }
   return found;
 }
@@ -72,9 +76,12 @@ const track = num(GALLERY, /\.grid\s*{[^}]*repeat\(auto-fill,\s*(\d+)px\)/, "the
 const cardSide = num(GALLERY, /\.cardBody\s*{[^}]*padding:\s*\d+px (\d+)px/, "a card body's side padding");
 const FLOOR = track - 2 * edge - 2 * cardSide;
 
-// Home: Start's column and the gap beside the lead, the lead's words'
-// padding and the room they leave for the actions.
-const startColumn = num(HOME, /\.leadRow\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) (\d+)px/, "Start's column");
+// Home: the lead's least width, Start's column at its least and its
+// most, the gap between them, the lead's words' padding and the room
+// they leave for the actions.
+const columns = HOME.match(/\.leadRow\s*{[^}]*grid-template-columns:\s*minmax\((\d+)px, 1fr\) minmax\((\d+)px, (\d+)px\)/);
+expect(columns, "the lead row's columns not found where this check expects them").not.toBeNull();
+const [leadLeast, startLeast, startMost] = columns!.slice(1).map(Number);
 const rowGap = num(HOME, /\.leadRow\s*{[^}]*gap:\s*(\d+)px/, "the lead row's gap");
 const bodyLeft = num(HOME, /\.leadBody\s*{[^}]*padding:\s*\d+px (\d+)px/, "the lead's words' left padding");
 const actionsRoom = num(HOME, /\.leadBody\s*{[^}]*padding-right:\s*(\d+)px/, "the room left for the actions");
@@ -83,13 +90,26 @@ const startUnder = stepFor(/\.leadRow\s*,|\.leadRow\s*{/, /grid-template-columns
 const actionsUnder = stepFor(/\.leadActs\s*{/, /position:\s*static/, "the step where the actions go under the words");
 const narrowRight = num(actionsUnder.body, /\.leadBody\s*{[^}]*padding-right:\s*(\d+)px/, "the words' right padding with the actions under them");
 
+/** Whether a step holds at a width. */
+const holdsAt = (step: { max: number; below: boolean }, width: number) => (step.below ? width < step.max : width <= step.max);
+
+/** Home's top row at Home's own width, as grid sizing lays out the two
+ * columns: Start grows first, from its least to its most, and the lead
+ * takes the rest, never under its own least. */
+function rowAt(home: number) {
+  if (holdsAt(startUnder, home)) return { under: true, lead: home, start: home };
+  const start = Math.min(startMost, Math.max(startLeast, home - rowGap - leadLeast));
+  return { under: false, lead: home - rowGap - start, start };
+}
+
 /** The words' column at a window width, the side menu adding `shift`. */
 function wordsAt(window: number, shift: number) {
   const home = Math.min(mainCap, window - scrollbar - mainLeft - shift - mainRight);
-  const holds = (step: { kind: string; max: number }, card: number) =>
-    step.kind === "window" ? window <= step.max : (step.kind === "home" ? home : card) <= step.max;
-  const under = holds(startUnder, home);
-  const card = under ? home : home - startColumn - rowGap;
+  const holds = (step: { kind: string; max: number; below: boolean }, card: number) =>
+    step.kind === "window" ? holdsAt(step, window) : holdsAt(step, step.kind === "home" ? home : card);
+  const row = rowAt(home);
+  const under = row.under;
+  const card = row.lead;
   const below = holds(actionsUnder, card);
   return { home, card, under, below, words: card - 2 * edge - bodyLeft - (below ? narrowRight : actionsRoom) };
 }
@@ -116,5 +136,23 @@ describe("the template lead's words", () => {
         expect([window, shift, wordsAt(window, shift).under, wordsAt(window, shift).below]).toEqual([window, shift, false, false]);
       }
     }
+  });
+});
+
+describe("Home's top row", () => {
+  it("gives Start 552 from a 1,160 px Home up, the lead 592 as Start gives way to 360 at 968, and stacks below 968", () => {
+    const at = (home: number) => { const row = rowAt(home); return row.under ? "under" : [row.lead, row.start]; };
+    expect(at(1480)).toEqual([912, 552]);
+    expect(at(1300)).toEqual([732, 552]);
+    expect(at(1160)).toEqual([592, 552]);
+    expect(at(1159)).toEqual([592, 551]);
+    expect(at(1000)).toEqual([592, 392]);
+    expect(at(968)).toEqual([592, 360]);
+    expect(at(967.5)).toBe("under");
+    expect(at(967)).toBe("under");
+  });
+
+  it("stands both columns side by side at the windows the page is drawn for, the side menu open or not", () => {
+    for (const shift of [0, railOpen]) for (const window of [1280, 1440, 1920]) expect(wordsAt(window, shift).under, `${window}${shift ? " (menu open)" : ""}`).toBe(false);
   });
 });

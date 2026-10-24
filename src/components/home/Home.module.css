@@ -96,19 +96,17 @@
 
 /* ---- the lead and Start ---- */
 
-/* The lead beside Start, Start as tall as the lead; below the width at
-   which both cannot stand, Start moves under the lead. Home's own width
-   decides, so a side menu standing open moves it as a narrower window
-   does. */
+/* The lead beside Start, Start as tall as the lead, whatever leads.
+   Start's column is 552px wide and the lead takes the rest; on a
+   narrower Home the lead keeps 592px and Start gives way, down to 360px;
+   below the width at which both cannot stand, Start moves under the
+   lead. Home's own width decides, so a side menu standing open moves it
+   as a narrower window does. */
 .leadRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(592px, 1fr) minmax(360px, 552px);
   gap: 16px;
   align-items: stretch;
-}
-
-.leadRow[data-beside="continue"] {
-  grid-template-columns: minmax(0, 1fr) 360px;
 }
 
 /* Nothing leads: Start alone, in one row under the welcome. */
@@ -116,9 +114,8 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-@container home (max-width: 780px) {
-  .leadRow,
-  .leadRow[data-beside="continue"] {
+@container home (width < 968px) {
+  .leadRow {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -129,13 +126,13 @@
 }
 
 /* While the lead is read, or its read failed, the place keeps the height
-   of the card that most days arrives there: Continue's, its 226px
+   of the card that most days arrives there: Continue's, its 300px
    picture over the card's body. Start beside it and everything below
    stay put when the card lands; the pending line or the failure note
    sits at its top. */
 .leadHold {
   flex: 1;
-  min-height: 307px;
+  min-height: 381px;
 }
 
 /* The first template, drawn wide. Its own width decides where its
