@@ -19,13 +19,12 @@
 .person { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .identity { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
 .person b { font-size: var(--text-heading); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sqlName { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .person small { font-size: var(--text-meta); font-weight: 400; color: var(--fg-muted); }
 .avatar { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: var(--radius-pill); background: var(--accent-dim); color: var(--accent); font-size: 11px; }
 .email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px; font-size: var(--text-body); color: var(--fg-muted); }
 .role, .seen { font-size: var(--text-label); color: var(--fg-muted); }
 .seen { font-variant-numeric: tabular-nums; }
-.row[data-off] .person b, .row[data-off] .sqlName, .row[data-off] .email { color: var(--fg-faint); }
+.row[data-off] .person b, .row[data-off] .email { color: var(--fg-faint); }
 .row[data-off] .avatar { opacity: 0.5; }
 .chevron { display: grid; place-items: center; justify-self: end; width: 30px; height: 30px; color: var(--fg-muted); }
 .chevron svg { width: 14px; height: 14px; transform: rotate(-90deg); transition: transform var(--dur-micro) ease; }
@@ -35,6 +34,14 @@
 .actions .note { max-width: 56ch; }
 .grow { flex: 1; }
 .note { font-size: var(--text-label); color: var(--fg-muted); line-height: 1.5; }
+/* The opened row's facts come first, the actions under them; the two that
+   end or remove an account stand apart on the right in the danger look. */
+.facts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--text-label); color: var(--fg-muted); line-height: 1.5; }
+.facts b { font-weight: 500; color: var(--fg); font-variant-numeric: tabular-nums; }
+.facts .sql { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--fg); }
+.facts .sep { color: var(--fg-faint); }
+.row[data-off] .facts b, .row[data-off] .facts .sql { color: var(--fg-muted); }
+.dangerZone { display: flex; align-items: center; gap: 8px; margin-left: 24px; }
 .handOver { display: flex; flex-direction: column; gap: 10px; max-width: 560px; width: 100%; }
 .field { display: flex; flex-direction: column; gap: 5px; font-size: var(--text-label); color: var(--fg-muted); }
 .field input { font-family: var(--font-mono); }

@@ -22,7 +22,7 @@ test("Users requires separate deactivation, exact email and a fresh private-coun
     await page.getByRole("button", { name: "Deactivate", exact: true }).click();
     const opener = page.getByRole("button", { name: "Delete account", exact: true });
     await expect(page.getByRole("button", { name: "Reactivate", exact: true })).toBeVisible();
-    await expect(opener).toHaveAttribute("data-variant", "quiet");
+    await expect(opener).toHaveAttribute("data-variant", "danger");
     await opener.focus(); await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "Delete account", exact: true });
     const input = dialog.getByRole("textbox", { name: "The account's email", exact: true });

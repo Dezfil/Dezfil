@@ -8,7 +8,7 @@ import { installDomHost } from "../testing/dom-host";
 import { UsersScreen } from "./UsersScreen";
 import { UserRow } from "./UserRow";
 const account: Account = { id: "target", name: "Cy Marsh", email: "cy@example.test", sqlName: "cy_marsh", isAdmin: true, status: "deactivated", isOriginal: false, createdAt: "2026-01-01", updatedAt: "2026-01-01", lastSignInAt: "2026-01-01" };
-it.each(["active", "invited", "deactivated"] as const)("offers quiet Delete only on eligible other %s rows, including deactivated admins", status => {
+it.each(["active", "invited", "deactivated"] as const)("offers Delete only on eligible other %s rows, including deactivated admins", status => {
   for (const own of [false, true]) {
     const html = renderToStaticMarkup(<UserRow account={{ ...account, status }} own={own} open busy={false} handOver={null}
       onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onDone={() => {}} onDelete={() => {}} />);

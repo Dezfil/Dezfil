@@ -9,14 +9,15 @@ const account: Account = {
   status: "active", isOriginal: false, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
   lastSignInAt: null,
 };
-const row = (value: Account, own = false) => renderToStaticMarkup(<UserRow account={value} own={own} open={false} busy={false}
+const row = (value: Account, own = false, open = false) => renderToStaticMarkup(<UserRow account={value} own={own} open={open} busy={false}
   handOver={null} onToggle={() => {}} onAccess={async () => true} onReset={async () => true} onDone={() => {}} onDelete={() => {}} />);
 
 describe("the SQL name on the account surfaces", () => {
-  it("draws a quiet line under the person's name on a Users row, deactivated rows included", () => {
-    expect(row(account)).toMatch(/<b>Ada Lovelace<\/b><span[^>]*>ada_lovelace<\/span>/);
-    expect(row(account, true)).toMatch(/<b>Ada Lovelace<small> · you<\/small><\/b><span[^>]*>ada_lovelace<\/span>/);
-    expect(row({ ...account, status: "deactivated" })).toContain(">ada_lovelace<");
+  it("names it, labeled, in an opened Users row and never under the person's name, deactivated rows included", () => {
+    for (const [value, own] of [[account, false], [account, true], [{ ...account, status: "deactivated" as const }, false]] as const) {
+      expect(row(value, own)).not.toContain("ada_lovelace");
+      expect(row(value, own, true)).toMatch(/SQL name <span[^>]*>ada_lovelace<\/span>/);
+    }
   });
 
   it("names it on the Account card beside the display name, outside the editable fields", () => {
