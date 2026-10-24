@@ -29,8 +29,9 @@ const PICTURE_SHAPE_PARAM = {
   required: false,
   schema: { type: "string", enum: ["card", "wide"] },
   description:
-    'The proportion the picture is framed for: "card", the maps cards\' ' +
-    'own, or "wide", a band such as Home\'s Continue card. Any other ' +
+    'The shape to answer. The server keeps every picture in one shape, ' +
+    'which "card" and "wide" both name; a picture kept earlier in two ' +
+    'shapes answers the one named until it is made again. Any other ' +
     "value is refused.",
 };
 const PICTURE_WIDTH_PARAM = {
@@ -180,9 +181,11 @@ export const MAP_RESOURCE_PATHS = {
         "the same 404 as for a map with no image at all. The maps " +
         "listing's `hasThumbnail` says beforehand whether there is one. " +
         "Naming a shape or a width answers one of the sizes the server " +
-        "keeps of that picture, as WebP, framed for that shape: the " +
-        "narrowest at least that wide, else the widest; a shape alone " +
-        "answers its widest, a width alone the card shape's. A picture " +
+        "keeps of that picture, as WebP: the narrowest at least that " +
+        "wide, else the widest; a shape alone answers the widest. The " +
+        "sizes share one proportion, 968 by 494, which a card's box " +
+        "crops to its own; a picture kept earlier in two shapes answers " +
+        "the one named, and a width alone its card shape. A picture " +
         "made before sizes were kept answers its PNG whatever is named. " +
         "Every answer carries an entity tag of its bytes and " +
         "`Cache-Control: private, no-cache`, so a client may keep it but " +

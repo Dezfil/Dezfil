@@ -10,6 +10,17 @@ import { limits } from "@/lib/limits";
 export const STALL_GRACE_MS = 2_000;
 
 /**
+ * Which rule bounds a stalled request: a third of the call's own budget
+ * ("budget", the assistant's check, which must still answer inside it),
+ * or the export road's documented bound ("export"). Background map
+ * pictures take the export's: an abandoned request fails a picture
+ * outright, so the time a third of the budget leaves for settling buys
+ * nothing, while a slow tile host given the export's time often answers.
+ * The call's budget still decides the render as a whole.
+ */
+export type RequestRule = "budget" | "export";
+
+/**
  * The bound on any one request the render page makes, for this call.
  *
  * The export road's documented bound is built for the export's own 90 s
@@ -22,9 +33,9 @@ export const STALL_GRACE_MS = 2_000;
  * settle and the screenshot. With no per-call budget the export road's
  * own bound stands, unchanged.
  */
-export function renderRequestBoundMs(budgetMs?: number): number {
+export function renderRequestBoundMs(budgetMs?: number, rule: RequestRule = "budget"): number {
   const documented = limits.exportRequestTimeoutMs;
-  if (budgetMs === undefined) return documented;
+  if (budgetMs === undefined || rule === "export") return documented;
   return Math.max(1, Math.min(documented, Math.floor(budgetMs / 3)));
 }
 

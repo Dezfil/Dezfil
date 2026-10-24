@@ -7,7 +7,7 @@ import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { imageryHostOf, imageryHostRefused } from "@/lib/basemap-satellite-tiles";
 import { limits } from "@/lib/limits";
 import { onCommittedSettings } from "@/lib/settings/state";
-import { renderRequestBoundMs } from "./render-stall";
+import { renderRequestBoundMs, type RequestRule } from "./render-stall";
 import { driveLaunches, driveRender, renderTimeout, type RenderBudget, type RenderImageResult } from "./render-drive";
 import { RENDER_CHECK_DEFINITION, RENDER_CHECK_PATH } from "./render-check";
 import { EGRESS_REFUSAL, type RenderDriver } from "./render-driver";
@@ -120,6 +120,9 @@ export interface RenderImageInput {
   /** A per-call budget in milliseconds: the assistant's
    * check bounds its own wait; absent, the export's documented budget. */
   budgetMs?: number;
+  /** How a stalled outside request is bounded under that budget; absent,
+   * a third of it (render-stall.ts). */
+  requestRule?: RequestRule;
   /** What must still hold at every phase besides the account's activity:
    * the product's callers pass the map's reach (render-standing.ts). */
   standing?: () => void;
@@ -146,7 +149,7 @@ async function performRenderMapImage(
   const stand = () => { requireAccountScope(scope); input.standing?.(); };
   stand();
   const budget: RenderBudget = { timeoutMs: input.budgetMs ?? limits.exportRenderTimeoutMs, check: input.budgetMs !== undefined };
-  const requestBoundMs = renderRequestBoundMs(input.budgetMs);
+  const requestBoundMs = renderRequestBoundMs(input.budgetMs, input.requestRule);
   let deadline = Date.now() + budget.timeoutMs;
   const background = input.background ?? false;
   const interruption = new AbortController();

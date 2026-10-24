@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import sharp from "sharp";
 import { decodePng, type DecodedImage } from "../src/lib/export/png-codec";
-import { PICTURE_SHAPES, type PictureShape } from "../src/lib/pictures/shapes";
+import { DEFAULT_WIDTH, PICTURE_SHAPE, pictureHeight } from "../src/lib/pictures/shapes";
+
+/** The default PNG's pixels: what a read naming no size answers. */
+const DEFAULT_SIZE = [DEFAULT_WIDTH, pictureHeight(DEFAULT_WIDTH)];
 
 /** A picture's pixels, whether the server answered its PNG or a kept size. */
 export async function decodePicture(bytes: Uint8Array): Promise<DecodedImage> {
@@ -63,13 +66,13 @@ export const mercator = (lng: number, lat: number) => [
 ] as const;
 
 /**
- * Where a flat, north-up picture of a shape draws a point, in the pixels of
- * an image of that shape `imageWidth` wide, by Fit's rule worked out here
- * from the shape's frame and margin: the box of `framed` scaled to the
- * frame inside the margin, no closer than Fit's closest zoom, centred.
+ * Where a flat, north-up picture draws a point, in the pixels of an image
+ * of it `imageWidth` wide, by Fit's rule worked out here from the frame and
+ * margin: the box of `framed` scaled to the frame inside the margin, no
+ * closer than Fit's closest zoom, centred.
  */
-export function framedPosition(shape: PictureShape, framed: readonly (readonly [number, number])[], imageWidth: number) {
-  const { frame, padding } = PICTURE_SHAPES[shape];
+export function framedPosition(framed: readonly (readonly [number, number])[], imageWidth: number) {
+  const { frame, padding } = PICTURE_SHAPE;
   const points = framed.map(([lng, lat]) => mercator(lng, lat));
   const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
   const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
@@ -86,21 +89,21 @@ export function framedPosition(shape: PictureShape, framed: readonly (readonly [
   };
 }
 
-const anchorFrame = (imageWidth: number) => framedPosition("card", PICTURE_ANCHORS.map(a => [lngOf(a.dx), latOf(a.dy)] as const), imageWidth);
-/** Where the card's default PNG draws a mark. */
+const anchorFrame = (imageWidth: number) => framedPosition(PICTURE_ANCHORS.map(a => [lngOf(a.dx), latOf(a.dy)] as const), imageWidth);
+/** Where the default PNG draws a mark. */
 export function pictureMarkPosition(mark: { dx: number; dy: number }) {
-  return anchorFrame(692).at(lngOf(mark.dx), latOf(mark.dy));
+  return anchorFrame(DEFAULT_WIDTH).at(lngOf(mark.dx), latOf(mark.dy));
 }
-/** The card's default PNG pixels per pixel of the saved zoom. */
+/** The default PNG's pixels per pixel of the saved zoom. */
 export function pictureMarkScale() {
-  return anchorFrame(692).scale / WORLD;
+  return anchorFrame(DEFAULT_WIDTH).scale / WORLD;
 }
 
 /** Geometry, not image inequality: a missing or displaced mark must fail. */
 export function assertPictureMarks(bytes: Uint8Array) {
   for (const mark of PICTURE_MARKS) {
     const measured = colourCentre(bytes, mark.colour), expected = pictureMarkPosition(mark);
-    assert.deepEqual([measured.width, measured.height], [692, 296]);
+    assert.deepEqual([measured.width, measured.height], DEFAULT_SIZE);
     assert.ok(Math.abs(measured.x - expected.x) < 2, "Mark longitude differs from the framed data");
     assert.ok(Math.abs(measured.y - expected.y) < 2, "Mark latitude differs from the framed data");
   }
@@ -110,7 +113,7 @@ export function assertPictureMarks(bytes: Uint8Array) {
  * unrelated pixels elsewhere in the picture. */
 export function assertPicturePatch(bytes: Uint8Array, x: number, y: number, colour: readonly number[]) {
   const image = decodePng(bytes);
-  assert.deepEqual([image.width, image.height], [692, 296]);
+  assert.deepEqual([image.width, image.height], DEFAULT_SIZE);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     const offset = (Math.floor(y) + dy) * image.width * 4 + (Math.floor(x) + dx) * 4;
     assert.ok(matches(image, offset, colour), "Expected colour missing at the computed patch");

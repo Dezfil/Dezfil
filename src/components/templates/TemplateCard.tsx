@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { TemplateCard as Card } from "@/lib/templates/card";
 import { IconDownload, IconDuplicate, MapPlaceholder } from "../gallery-icons";
 import gallery from "../gallery.module.css";
+import { PictureImage } from "../PictureImage";
 import type { Theme } from "../theme";
 import { WorkflowThumb } from "../WorkflowThumb";
 import styles from "./Templates.module.css";
@@ -68,13 +69,22 @@ export function TemplateCard({
       >
         <div className={gallery.strip} style={{ height: 148 }}>
           {card.steps ? (
-            <WorkflowThumb steps={graphSteps(card.steps)} groupOf={groupOf} />
+            <>
+              <WorkflowThumb steps={graphSteps(card.steps)} groupOf={groupOf} />
+              <span className={gallery.overlay}>
+                <b data-field="place">{card.place}</b>
+              </span>
+            </>
           ) : (
-            <TemplatePicture card={card} theme={theme} />
+            <>
+              <TemplatePicture card={card} theme={theme} />
+              {/* Over a picture with no fade the place stands on glass,
+                  legible over light and dark pictures alike. */}
+              <span className={gallery.placeLabel} data-field="place">
+                {card.place}
+              </span>
+            </>
           )}
-          <span className={gallery.overlay}>
-            <b data-field="place">{card.place}</b>
-          </span>
         </div>
         <div className={gallery.cardBody}>
           <div className={gallery.cardTop}>
@@ -142,9 +152,7 @@ function TemplatePicture({ card, theme }: { card: Card; theme: Theme }) {
     <>
       <MapPlaceholder />
       {card.picture === "kept" && failed !== src && (
-        // Same-origin PNG; next/image would only add an optimizer hop.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" onError={() => setFailed(src)} />
+        <PictureImage address={src} src={src} onFailed={() => setFailed(src)} />
       )}
     </>
   );

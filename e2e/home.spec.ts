@@ -263,6 +263,102 @@ async function heldAndArrived(page: Page, lead: "template" | "continue"): Promis
 }
 
 // ---------------------------------------------------------------------------
+// Home's top row: the lead's picture, Start's column giving way, Start under
+// the lead on a narrow Home, and the place held while the lead is read.
+
+/** Home's own width, which places the lead and Start. */
+const homeWidth = (page: Page) => page.locator("[data-home]").evaluate((el) => el.getBoundingClientRect().width);
+
+/** The Home widths the row is checked at: both sides of the width from
+ * which Start keeps 552 px and of the width below which it stands under
+ * the lead, then the widest the workspace lays out. */
+const ROW_WIDTHS = [1160, 1159, 968, 967, "widest"] as const;
+/** A window past every width at which Home still grows. */
+const WIDEST_WINDOW = 2400;
+
+/** The window width at which Home is `home` px wide, the side menu as it
+ * stands: below its cap Home follows the window one for one. */
+async function windowFor(page: Page, home: number): Promise<number> {
+  let window = home + 160;
+  for (let i = 0; i < 4; i += 1) {
+    await page.setViewportSize({ width: window, height: 900 });
+    const measured = await homeWidth(page);
+    if (Math.abs(measured - home) < 0.01) return window;
+    window += Math.round(home - measured);
+  }
+  throw new Error(`no window lays Home out ${home} px wide`);
+}
+
+/** The four start tiles together, from the first one's top to the last
+ * one's foot. */
+async function tilesBox(page: Page): Promise<{ top: number; bottom: number }> {
+  return start(page).locator("[data-start-action]").evaluateAll((tiles) => {
+    const boxes = tiles.map((tile) => tile.getBoundingClientRect());
+    return { top: Math.min(...boxes.map((b) => b.top)), bottom: Math.max(...boxes.map((b) => b.bottom)) };
+  });
+}
+
+/** Home's top row with the side menu at rest and again open, at each of
+ * the row's widths, the lead read afresh at each: the lead's picture 300
+ * px tall; Start 552 px wide from a 1,160 px Home up, between 360 and 552
+ * with the card at 592 below that, and under the card below 968; beside
+ * the card, Start's four tiles together as tall as the card; the place
+ * held while the lead is read as tall as the card that arrives, where
+ * `held` asks it (a template lead stands taller by its words, and its
+ * place is measured for the record). */
+async function expectTopRow(person: Person, page: Page, lead: "template" | "continue", what: string, held: "kept" | "recorded"): Promise<void> {
+  for (const rail of ["hover", "open"] as const) {
+    await setLook(person.api, { rail });
+    await page.setViewportSize(WINDOWS[0]);
+    await openHome(page, lead);
+    const heights: string[] = [];
+    for (const width of ROW_WIDTHS) {
+      const window = width === "widest" ? WIDEST_WINDOW : await windowFor(page, width);
+      await page.setViewportSize({ width: window, height: 900 });
+      const { pending, arrived } = await heldAndArrived(page, lead);
+      const home = await homeWidth(page);
+      const at = `${what}, Home ${home} px at a ${window} px window, rail ${rail}`;
+      if (width === "widest") {
+        await page.setViewportSize({ width: WIDEST_WINDOW + 400, height: 900 });
+        expect(await homeWidth(page), `${at}: the widest Home`).toBe(home);
+        await page.setViewportSize({ width: window, height: 900 });
+        await atRest(page);
+      } else {
+        expect(home, at).toBe(width);
+      }
+      const picture = await box(leadPlace(page).locator("[data-strip]"));
+      expect(picture.height, `${at}: the lead's picture`).toBeCloseTo(300, 1);
+      const card = await box(leadPlace(page));
+      const beside = await box(start(page));
+      if (home < 968) {
+        await expectUnder(page, at);
+      } else {
+        await expectBeside(page, at);
+        if (home >= 1160) {
+          expect(beside.width, `${at}: Start's column`).toBeCloseTo(552, 1);
+        } else {
+          expect(card.width, `${at}: the card's column`).toBeCloseTo(592, 1);
+          expect(beside.width, `${at}: Start's column`).toBeGreaterThanOrEqual(360 - 0.01);
+          expect(beside.width, `${at}: Start's column`).toBeLessThanOrEqual(552 + 0.01);
+        }
+        const article = await box(leadPlace(page).locator("article"));
+        const tiles = await tilesBox(page);
+        expect(Math.abs(tiles.top - article.y), `${at}: the tiles' top is the card's`).toBeLessThanOrEqual(1);
+        expect(Math.abs(tiles.bottom - (article.y + article.height)), `${at}: the tiles' foot is the card's`).toBeLessThanOrEqual(1);
+      }
+      heights.push(`${width}: ${Math.round(pending[0].height)} px held, ${Math.round(arrived[0].height)} px drawn`);
+      if (held === "kept") {
+        expect(Math.abs(arrived[0].height - pending[0].height), `${at}: the held place keeps the card's height`).toBeLessThanOrEqual(2);
+        expect(Math.abs(arrived[1].height - pending[1].height), `${at}: Start keeps its height`).toBeLessThanOrEqual(2);
+      }
+      await expectNothingSideways(page, at);
+    }
+    test.info().annotations.push({ type: "the lead's place", description: `${what}, rail ${rail}: ${heights.join("; ")}` });
+  }
+  await setLook(person.api, { rail: "hover" });
+}
+
+// ---------------------------------------------------------------------------
 
 test.describe("Home", () => {
   test.skip(!NAMES_FOLDER, "needs DEZFIL_TEMPLATES_CATALOGUE naming a local catalogue folder, in the server's environment and this process's");
@@ -432,6 +528,15 @@ test.describe("Home", () => {
     expectQuiet(errors);
   });
 
+  test("Home's top row with the template lead: its picture 300 px tall, Start 552 px giving way to 360 px, under the card below a 968 px Home, the side menu at rest and open", async () => {
+    test.setTimeout(240_000);
+    const page = await fresh!.context.newPage();
+    const errors = trackConsole(page);
+    await expectTopRow(fresh!, page, "template", "the template lead", "recorded");
+    await page.close();
+    expectQuiet(errors);
+  });
+
   test("a copy made from the templates below lands, then leads Home with its workflow and datasets in Recent; four templates in one row at both windows (three to a row with the side menu open at 1280)", async () => {
     const page = await fresh!.context.newPage();
     const errors = trackConsole(page);
@@ -494,6 +599,26 @@ test.describe("Home", () => {
       }
     }
     await setLook(fresh!.api, { rail: "hover" });
+    await page.close();
+    expectQuiet(errors);
+  });
+
+  test("Home's top row with Continue, a map's and a workflow's: its picture 300 px tall, Start 552 px giving way to 360 px, under the card below a 968 px Home, the place held at the card's height, the side menu at rest and open", async () => {
+    test.setTimeout(480_000);
+    const page = await fresh!.context.newPage();
+    const errors = trackConsole(page);
+    await page.setViewportSize(WINDOWS[0]);
+    await openHome(page, "continue");
+    await expect(leadPlace(page).locator('[data-sec-card="map"]')).toBeVisible();
+    await expectTopRow(fresh!, page, "continue", "a map's Continue", "kept");
+
+    // A workflow made last leads instead.
+    const created = await browserApi(page, "POST", "/api/recipes", { name: `Home row ${TAG}`, origin: "workflow" });
+    expect(created.status).toBe(201);
+    made[0].recipes.push((created.json.recipe as { id: string }).id);
+    await openHome(page, "continue");
+    await expect(leadPlace(page).locator('[data-sec-card="workflow"]')).toBeVisible();
+    await expectTopRow(fresh!, page, "continue", "a workflow's Continue", "kept");
     await page.close();
     expectQuiet(errors);
   });

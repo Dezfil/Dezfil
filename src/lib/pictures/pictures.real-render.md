@@ -31,7 +31,7 @@ fnm exec --using=24 npm test -- src/lib/pictures/pictures.real-render.test.ts --
 
 Remove that test process's scratch directory after the run. The instance has
 its own independent scratch directory. The test checks all three mark
-positions at 692 by 296, computed from the coordinates by Fit's rule inside
+positions at 692 by 353, computed from the coordinates by Fit's rule inside
 the card's margin, in both appearances on each creation road,
 then drawing changes, unsupported tiled live filters, a layer that fails
 after save admission, an unreachable basemap and an abandoned outside request.
@@ -54,18 +54,40 @@ This control observes missing pictures for three quiet periods without calling
 the picture refresh API. Remove its test scratch directory after the run.
 
 The framing proof runs on the same instance and token. It frames fixture
-maps in both shapes and works out each mark's place from its coordinates and
+maps in the one kept shape and works out each mark's place from its coordinates and
 the shape's frame and margin, never from the renderer's camera: flat data
 against the margin on the side that limits it, the saved tilt and rotation
 (each re-rendered flat and north up as its control), a single point at Fit's
 closest zoom read from a land box of known size, a filter and a timeline
 window framing only what they leave, an empty map showing the world, and
-every kept size decoded at its own pixel size. The arithmetic itself is held
-against deck.gl's fit in `src/lib/pictures/real-proof-controls.test.ts`.
+every kept size decoded at its own pixel size. Data wider than one world
+(points on every continent, along the equator, arcs around the globe, and a
+filter that brings such a map under one world and back) is decoded where the
+world once across the picture puts it, against Fit's narrower world and the
+saved view as controls, while Berlin and Svalbard with northern Greenland
+keep Fit. The arithmetic itself is held against deck.gl's fit in
+`src/lib/pictures/real-proof-controls.test.ts`.
 
 ```sh
 fnm exec --using=24 npm test -- src/lib/pictures/framing.real-render.test.ts --maxWorkers=1
 ```
+
+The request-rule proof runs on the same instance and reads its stderr log.
+It holds one loopback tile while every other request of the render has
+settled: held 15 seconds, the render completes with that tile in the
+picture; held for good, the request is cut at the export's 20 second request
+time, logged as abandoned, and the attempt fails before its budget could run
+out, keeping the previous picture.
+
+```sh
+fnm exec --using=24 npm test -- src/lib/pictures/request-rule.real-render.test.ts --maxWorkers=1
+```
+
+Its control is a separate build whose picture renders bound a request by a
+third of their budget, as before, with nothing else changed. Provision it
+like the main instance on its own port and data directory, then run the
+same file with `DEZFIL_PICTURE_REQUEST_RULE_CONTROL=1`: the 15 second case
+is then cut at 10 seconds and fails inside the same budget.
 
 The encoding proof needs no instance, only the headless shell. It makes every
 kept size in the renderer's own browser, decodes each at its size and format,

@@ -552,4 +552,8 @@ export const MIGRATIONS: string[] = [
   // The generation a re-make of an earlier picture was asked at, which the
   // queue orders after all other work.
   `ALTER TABLE map_pictures ADD COLUMN remake_generation INTEGER;`,
+  // A published picture framed at the map's saved view whose re-make
+  // failed for the third time: kept on disk, served to no one, until a
+  // new picture lands.
+  `ALTER TABLE map_pictures ADD COLUMN retired INTEGER NOT NULL DEFAULT 0;`,
 ];

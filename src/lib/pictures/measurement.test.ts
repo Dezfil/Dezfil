@@ -142,7 +142,7 @@ it("whole-attempt timing includes the second appearance and publication, and ref
   // A shape left unrendered is a missing render, not a faster attempt.
   const oneShape = events.filter((event, i) => !(event.mapId === "0" && event.kind !== "published" && i >= 2 && i < 4));
   expect(() => firstMeasurement(maps, oneShape, 2)).toThrow("missing or repeated");
-  expect(() => firstMeasurement(maps, events)).toThrow("kept shapes");
+  expect(() => firstMeasurement(maps, events)).toThrow("shapes rendered");
 });
 
 it("rejects the seeded defect of older missing pictures publishing ahead of newer ones", () => {

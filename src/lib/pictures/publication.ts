@@ -49,7 +49,7 @@ export async function publishPicture(scope: AccountScope, target: PictureTarget,
   check();
   await savePictureSet(scope, target.map.id, images, inputs, target.basemaps, generation, check, () => {
     check();
-    if (!settlePicture(target.map.id, generation, { state: "current", producer: "server", publishedGeneration: generation, publishedDigest: target.digest, attemptCount: 0 })) throw new Error("The picture request changed.");
+    if (!settlePicture(target.map.id, generation, { state: "current", producer: "server", publishedGeneration: generation, publishedDigest: target.digest, attemptCount: 0, retired: false })) throw new Error("The picture request changed.");
   });
   pictureMeasure({ kind: "published", mapId: target.map.id, generation });
 }

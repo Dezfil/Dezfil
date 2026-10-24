@@ -69,14 +69,14 @@ it("serves owner, Editor and Viewer by consumed-input reach, rechecks after byte
     setProjectPerson(dataOwner, "data-project", "viewer", "viewer");
     // Reach lost while a kept size is read: neither the size nor the PNG in its place is served.
     const wide = { shape: "wide" as const, width: 2000 };
-    expect((await readPicture(viewer, map.id, "light", wide))?.bytes.toString()).toBe("light:wide-2208");
+    expect((await readPicture(viewer, map.id, "light", wide))?.bytes.toString()).toBe("light:card-2904");
     race.suffix = ".webp";
     race.afterBytes = () => { removeProjectPerson(dataOwner, "data-project", "viewer"); };
     expect(await readPicture(viewer, map.id, "light", wide)).toBeNull();
-    expect((await readPicture(editor, map.id, "light", wide))?.bytes.toString()).toBe("light:wide-2208");
+    expect((await readPicture(editor, map.id, "light", wide))?.bytes.toString()).toBe("light:card-2904");
     setProjectPerson(dataOwner, "data-project", "viewer", "viewer");
     const thumbnails = path.join(dataDir(), "thumbnails");
-    for (const name of readdirSync(thumbnails).filter(name => name.startsWith(map.id) && name.endsWith(".wide-2208.webp"))) rmSync(path.join(thumbnails, name));
+    for (const name of readdirSync(thumbnails).filter(name => name.startsWith(map.id) && name.endsWith(".card-2904.webp"))) rmSync(path.join(thumbnails, name));
     race.afterBytes = () => { removeProjectPerson(dataOwner, "data-project", "viewer"); };
     expect(await readPicture(viewer, map.id, "light", wide)).toBeNull();
     expect((await readPicture(editor, map.id, "light", wide))?.bytes.toString()).toBe("light");

@@ -109,6 +109,7 @@ function cardOf(name: string): { face: HostElement; footer: HostElement } {
 const screens = [
   {
     page: "Maps",
+    counted: true,
     filed: "Station catchments",
     loose: "Berth occupancy",
     gone: "Quay survey",
@@ -122,6 +123,7 @@ const screens = [
   },
   {
     page: "Workflows",
+    counted: false,
     filed: "Vessel density",
     loose: "Port calls",
     gone: "Ferry routes",
@@ -135,12 +137,52 @@ const screens = [
   },
 ];
 
-describe.each(screens.map((s) => [s.page, s] as const))("the %s page's card footer", (_page, { filed, loose, gone, render }) => {
-  it("follows the status pill with the folder glyph and the project's name, read as one phrase", async () => {
+describe("the Maps page's layer count", () => {
+  it("stands in the card's body after the status pill, with the layers' colour dots, and nothing over the picture says it; the owner's pill and the quick actions stay on the card", async () => {
+    lists.world = {
+      projects, all: [],
+      scoped: [
+        { ...map("m1", "Station catchments", "berlin"), layerCount: 2, layerColors: ["rgb(1, 2, 3)", "rgb(4, 5, 6)"], owner: { name: "Ada Okafor", sqlName: "ada" } },
+        { ...map("m2", "Berth occupancy", null), layerCount: 1, layerColors: ["rgb(7, 8, 9)"] },
+        { ...map("m3", "Quay survey", null), layerCount: 0, layerColors: [] },
+      ],
+    };
+    await open(<MapsScreen />);
+    for (const [name, words, dots] of [
+      ["Station catchments", "2 layers", ["rgb(1, 2, 3)", "rgb(4, 5, 6)"]],
+      ["Berth occupancy", "1 layer", ["rgb(7, 8, 9)"]],
+      ["Quay survey", "0 layers", []],
+    ] as const) {
+      const { face, footer } = cardOf(name);
+      const count = footer.children[1];
+      expect(count.hasAttribute("data-layer-count"), `${name}: the count follows the pill`).toBe(true);
+      expect(count.textContent).toBe(words);
+      expect(count.querySelectorAll("i").map((dot) => dot.style.getPropertyValue("background"))).toEqual(dots);
+      expect(face.querySelectorAll("[data-layer-count]"), `${name}: one count, in the body`).toHaveLength(1);
+      const strip = face.children[0];
+      expect(strip.textContent, `${name}: nothing over the picture`).toBe("");
+    }
+    const card = cardOf("Station catchments").face.parentElement!;
+    expect(card.children.some((child) => child.hasAttribute("data-owner-pill")), "the owner's pill on the card").toBe(true);
+    const duplicate = card.querySelector('[aria-label="Duplicate Station catchments"]');
+    expect(duplicate?.parentElement?.parentElement, "the quick actions on the card, off its link").toBe(card);
+  });
+});
+
+describe.each(screens.map((s) => [s.page, s] as const))("the %s page's card footer", (_page, { counted, filed, loose, gone, render }) => {
+  /** The footer's parts: the status pill, a map's layer count, then the project. */
+  const parts = (footer: HostElement) => {
+    const [pill, ...rest] = footer.children;
+    const count = counted ? rest.shift() : undefined;
+    if (counted) expect(count?.hasAttribute("data-layer-count"), "a map's layer count follows the pill").toBe(true);
+    return { pill, count, rest };
+  };
+
+  it("follows the status pill (and a map's layer count) with the folder glyph and the project's name, read as one phrase", async () => {
     await open(render());
     const { footer } = cardOf(filed);
-    expect(footer.children, "the pill, then the project").toHaveLength(2);
-    const [pill, tag] = footer.children;
+    expect(footer.children, "the pill, a map's count, then the project").toHaveLength(counted ? 3 : 2);
+    const { pill, rest: [tag] } = parts(footer);
     expect(pill.querySelector("i"), "the status pill leads").toBeTruthy();
     expect(tag.getAttribute("role")).toBe("img");
     expect(tag.getAttribute("aria-label")).toBe("Project: Berlin housing study");
@@ -151,22 +193,23 @@ describe.each(screens.map((s) => [s.page, s] as const))("the %s page's card foot
   it("says nothing for work in no project", async () => {
     await open(render());
     const { face, footer } = cardOf(loose);
-    expect(footer.children, "the status pill alone").toHaveLength(1);
+    expect(footer.children, "the status pill alone, with a map's count").toHaveLength(counted ? 2 : 1);
+    parts(footer);
     expect(face.textContent).not.toContain("not in a project");
     expect(face.querySelectorAll("path").some((p) => p.getAttribute("d") === FOLDER)).toBe(false);
   });
 
   it("keeps the glyph for a project the reader no longer reaches, said without its name", async () => {
     await open(render());
-    const [, tag] = cardOf(gone).footer.children;
+    const { rest: [tag] } = parts(cardOf(gone).footer);
     expect(tag.getAttribute("aria-label")).toBe("Project: a project you no longer reach");
     expect(tag.textContent).toBe("a project you no longer reach");
     expect(tag.querySelector("path")?.getAttribute("d")).toBe(FOLDER);
   });
 
-  it("sets the name on the pill's text line, one line only, the glyph 8px after the pill and the name 5px after it", async () => {
+  it("sets the name on the pill's text line, one line only, the glyph 8px after the pill (or a map's count) and the name 5px after it", async () => {
     await open(render());
-    const [pill, tag] = cardOf(filed).footer.children;
+    const { pill, count, rest: [tag] } = parts(cardOf(filed).footer);
     const name = tag.querySelector("span")!;
     const line = declared(tag.parentElement!);
     // Centred, the pill's label and the name share a line, both the meta size.
@@ -184,5 +227,11 @@ describe.each(screens.map((s) => [s.page, s] as const))("the %s page's card foot
     // 8px from the pill to the glyph, 5px from the glyph to the name.
     expect(parseFloat(line.get("gap")!) + parseFloat(declared(tag).get("margin-left")!)).toBe(8);
     expect(declared(tag).get("gap")).toBe("5px");
+    if (count) {
+      // A map's count stands as the project does: 8px after the pill, on its line, the meta size.
+      expect(parseFloat(line.get("gap")!) + parseFloat(declared(count).get("margin-left")!)).toBe(8);
+      expect(declared(count).get("font-size")).toBe(declared(pill).get("font-size"));
+      expect(declared(count).get("white-space")).toBe("nowrap");
+    }
   });
 });

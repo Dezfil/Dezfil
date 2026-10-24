@@ -13,7 +13,7 @@ it.each(["cards", "list"] as const)("places known, own and unknown changers in t
     { id: "known", lastChangedBy: { name: "Ada Okafor", sqlName: "ada" } },
     { id: "own", lastChangedBy: { name: "Bo Lindqvist", sqlName: "bo" } },
     { id: "unknown", lastChangedBy: null },
-  ].map(item => ({ ...item, name: item.id, layerCount: 0, layers: [], lastChangedAt: "2026-10-02T14:00:00Z", updatedAt: "2026-10-02T14:03:00Z", owner: { name: "Owner", sqlName: "owner" } })) as unknown as MapOverview[];
+  ].map(item => ({ ...item, name: item.id, layerCount: 0, layerColors: [], layers: [], lastChangedAt: "2026-10-02T14:00:00Z", updatedAt: "2026-10-02T14:03:00Z", owner: { name: "Owner", sqlName: "owner" } })) as unknown as MapOverview[];
   const workflows = maps.map(m => ({ ...m, origin: "workflow", summary: { nodes: 0, sources: 0, liveOutputs: 0, status: "empty", count: 0 }, steps: [] })) as unknown as WorkflowListing[];
   const html = renderToStaticMarkup(<SignedIn account={{ name: "Bo", sqlName: "bo" }}><HomeSections projectId="p" maps={maps} workflows={workflows} tables={[]} names={new Map()} lastRuns={new Map([["known", "2026-10-02T13:03:00Z"]])} view={view} groupOf={() => null} /></SignedIn>);
   expect(html).toContain("Ada · 3 min ago");
