@@ -3,7 +3,7 @@ import { coveredWidth } from "@/lib/pictures/shapes";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MapOverview } from "./api";
-import { HostEvent, installDomHost, type HostElement } from "./testing/dom-host";
+import { HostElement, HostEvent, installDomHost } from "./testing/dom-host";
 import { MapStrip } from "./MapStrip";
 
 /**
@@ -172,5 +172,70 @@ describe("a measured strip", () => {
     expect(container.querySelector("img")).toBeNull();
     await draw({ pictureState: "current", pictureVersion: "server-4", hasThumbnail: true });
     expect(srcset()).toContain("v=server-4");
+  });
+});
+
+/**
+ * The strip's fade stands over the placeholder and leaves a map's picture
+ * once the browser has drawn it: the image is marked on its load, a new
+ * address waits for its own, and a picture that fails leaves the
+ * placeholder under the fade.
+ */
+describe("the fade over a map's picture", () => {
+  const drawn = () => image().hasAttribute("data-loaded");
+  const load = async () => { await act(async () => { image().dispatchEvent(new HostEvent("load")); }); };
+  const current = (version: string) => ({ pictureState: "current", pictureVersion: version, hasThumbnail: true }) as const;
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it("stands while the picture is on its way, through later listings, and leaves once it is drawn", async () => {
+    measured({ width: 346, height: 148 });
+    await draw(current("server-3"));
+    expect(drawn()).toBe(false);
+    await draw({ ...current("server-3"), updatedAt: "2026-10-02T15:00:00Z" });
+    expect(drawn()).toBe(false);
+    await load();
+    expect(drawn()).toBe(true);
+    // A resize offers the same sizes: the drawn picture stays drawn.
+    await draw({ ...current("server-3"), updatedAt: "2026-10-02T16:00:00Z" });
+    expect(drawn()).toBe(true);
+  });
+
+  it("comes back for a new version and for the other theme until that picture is drawn", async () => {
+    await draw(current("server-3"));
+    await load();
+    await draw(current("server-4"));
+    expect(requested()).toEqual([address("server-4")]);
+    expect(drawn()).toBe(false);
+    await load();
+    expect(drawn()).toBe(true);
+    look.theme = "dark";
+    await draw(current("server-4"));
+    expect(requested()).toEqual([address("server-4", "dark")]);
+    expect(drawn()).toBe(false);
+    await load();
+    expect(drawn()).toBe(true);
+  });
+
+  it("stays over the placeholder when the picture fails to load, drawn or not before", async () => {
+    await draw(current("server-3"));
+    await act(async () => { image().dispatchEvent(new HostEvent("error")); });
+    expect(container.querySelector("img")).toBeNull();
+    expect(placeholders()).toHaveLength(1);
+    await draw(current("server-4"));
+    await load();
+    await draw(current("server-5"));
+    await act(async () => { image().dispatchEvent(new HostEvent("error")); });
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("leaves at once over a picture the browser already holds whole", async () => {
+    const whole = { complete: { configurable: true, get(this: HostElement) { return this.tagName === "IMG"; } }, naturalWidth: { configurable: true, get(this: HostElement) { return this.tagName === "IMG" ? 692 : 0; } } };
+    Object.defineProperties(HostElement.prototype, whole);
+    try {
+      await draw(current("server-3"));
+      expect(drawn()).toBe(true);
+    } finally {
+      for (const name of Object.keys(whole)) delete (HostElement.prototype as unknown as Record<string, unknown>)[name];
+    }
   });
 });

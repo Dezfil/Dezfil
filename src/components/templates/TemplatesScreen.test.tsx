@@ -171,6 +171,22 @@ describe("the Templates page's cards", () => {
     expect(field(c, "credit")?.textContent).toBe("Zensus 2022");
   });
 
+  it("stands a map template's place on a glass label over its picture, drops the fade once the picture is drawn, and keeps a workflow example's place as today", async () => {
+    await open();
+    const map = card("harbour-depths");
+    const place = field(map, "place")!;
+    const img = map.querySelector("img")!;
+    expect(place.tagName).toBe("SPAN");
+    expect(place.className).toMatch(/placeLabel/);
+    expect(place.parentElement).toBe(img.parentElement);
+    expect(img.hasAttribute("data-loaded")).toBe(false);
+    await act(async () => { img.dispatchEvent(new HostEvent("load")); });
+    expect(img.hasAttribute("data-loaded")).toBe(true);
+    const workflow = field(card("market-reach"), "place")!;
+    expect(workflow.tagName).toBe("B");
+    expect(workflow.parentElement!.className).toMatch(/overlay/);
+  });
+
   it("draws a map whose picture the server does not hold on the placeholder, asking for no picture", async () => {
     listed = list([{ ...harbour, picture: "not_kept" }], catalogue("listed"));
     await open();

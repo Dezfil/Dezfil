@@ -352,6 +352,37 @@
   );
 }
 
+/* A map's picture, once drawn, stands without the fade; the placeholder,
+   a workflow's graph and a dataset's motif keep it. */
+.strip:has(> img[data-loaded])::after {
+  content: none;
+}
+
+/* A map template's place over its picture: a small glass label on the
+   workspace's overlay surface. */
+.placeLabel {
+  position: absolute;
+  left: 9px;
+  bottom: 9px;
+  z-index: 2;
+  display: block;
+  max-width: calc(100% - 18px);
+  height: 24px;
+  padding: 0 9px;
+  line-height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-overlay-control-fill);
+  backdrop-filter: var(--surface-overlay-control-blur);
+  box-shadow: var(--surface-overlay-control-shadow);
+  color: var(--fg);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
 .overlay {
   position: absolute;
   left: 16px;

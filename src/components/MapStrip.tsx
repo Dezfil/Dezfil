@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { coveredWidth, KEPT_SHAPE, PICTURE_SHAPE } from "@/lib/pictures/shapes";
 import { MapPlaceholder } from "./gallery-icons";
+import { PictureImage } from "./PictureImage";
 import { mapCardImageAddress } from "./map-card-image";
 import type { PictureCard } from "./picture-poll";
 import { useFreshPicture } from "./PicturePoll";
@@ -47,7 +48,8 @@ function useStripBox(inside: RefObject<Element | null>): Box | null | undefined 
  * without a reload. The address carries the viewer's theme, so every host
  * follows a toggle with no reload; a failure is remembered per address, so
  * one theme's absent image cannot strand the placeholder in the other,
- * and a new version asks again.
+ * and a new version asks again. The strip's fade stands over the
+ * placeholder and leaves once the picture is drawn.
  *
  * The strip measures its box before the image is first drawn and offers
  * the picture's kept sizes with the width the picture covers there, so the
@@ -70,10 +72,8 @@ export function MapStrip({ map: listed }: { map: PictureCard }) {
   return (
     <>
       <MapPlaceholder ref={placeholder} />
-      {src && failed !== address && (
-        // Same-origin dynamic picture — next/image would only add an optimizer hop.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} {...(sized ?? {})} alt="" onError={() => setFailed(address)} />
+      {src && address && failed !== address && (
+        <PictureImage address={address} src={src} {...(sized ?? {})} onFailed={() => setFailed(address)} />
       )}
     </>
   );
