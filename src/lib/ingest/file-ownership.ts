@@ -8,7 +8,7 @@ interface OwnedFile { accountId: string; file: string; directory: boolean }
 const folder = () => path.join(dataDir(), "file-owners");
 function relative(file: string): string {
   const rel = path.relative(dataDir(), path.resolve(dataDir(), file));
-  if (!/^(tables|tmp|exports|tiles\/scratch)\/.+/.test(rel) || rel.split(path.sep).includes("..")) throw new Error("Invalid owned file location.");
+  if (!/^(tables|tmp|exports|tiles\/scratch|profile-pictures)\/.+/.test(rel) || rel.split(path.sep).includes("..")) throw new Error("Invalid owned file location.");
   return rel;
 }
 const digest = (file: string) => createHash("sha256").update(file).digest("hex");

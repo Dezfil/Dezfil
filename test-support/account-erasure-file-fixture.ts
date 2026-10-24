@@ -20,6 +20,7 @@ export function populateErasureFiles(directory: string) {
     "file-owners/target.json", "file-owners/control.json",
     "secret.key", "assistant-models.json", "engine-spill/control.tmp",
     "templates/control-template/1/template.json", "templates/control-template/1/record.json",
+    "profile-pictures/target.current.webp", "profile-pictures/target.stopped.webp.part", "profile-pictures/control.current.webp",
   ];
   for (const file of paths) {
     mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
