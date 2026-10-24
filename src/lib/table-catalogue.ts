@@ -6,6 +6,7 @@ import { dataDir } from "@/lib/config";
 import { withConnection } from "@/lib/duckdb";
 import { catalogueRecords, type CatalogueQuery } from "@/lib/metadata/table-catalogue";
 import { reachedTableProjectIds } from "@/lib/metadata/owned-tables";
+import { personLabel, type PersonLabel } from "@/lib/metadata/accounts";
 import { trackInflight } from "@/lib/query/inflight";
 
 export const CATALOGUE_MAX_BYTES = 96 * 1024;
@@ -13,7 +14,7 @@ export interface CatalogueTable {
   id: string; name: string;
   /** The name the caller would type: plain for their own, `<sql name>.<name>` for someone else's. */
   qualifiedName: string;
-  owner: { name: string; sqlName: string };
+  owner: PersonLabel;
   /** The projects through which the caller reaches the dataset: those it is
    * filed in that the caller owns or belongs to. Identities only. */
   projectIds: string[];
@@ -65,7 +66,7 @@ export async function readTableCatalogue(scope: AccountScope, query: CatalogueQu
         const columns = described.getRowObjects() as unknown as { name: string; type: string }[];
         tables.push({
           id: record.id, name: record.name, qualifiedName: record.qualified,
-          owner: { name: record.owner_name, sqlName: record.owner_sql_name },
+          owner: personLabel(record.owner_name, record.owner_sql_name, record.owner_picture_version),
           projectIds: [...(memberships.get(record.id) ?? [])].sort(), rowCount: record.row_count,
           geometryColumn: record.geometry_column, geometryType: record.geometry_type, crsAssumed: Boolean(record.crs_assumed),
           columns, columnCount, nextColumnOffset: query.columnOffset + columns.length < columnCount ? query.columnOffset + columns.length : null,

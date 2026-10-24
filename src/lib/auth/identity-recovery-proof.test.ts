@@ -5,7 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { MIGRATIONS, open } from "@/lib/metadata/db";
-import { insertAccount, markOriginalAccount } from "@/lib/metadata/accounts";
+import { markOriginalAccount } from "@/lib/metadata/accounts";
 import { allocateSqlNames, type SqlNameIdentity } from "@/lib/metadata/sql-names";
 import { redeemSignInLink } from "./links";
 
@@ -19,8 +19,11 @@ beforeEach(() => {
   db.function("allocate_sql_names", (input: unknown) => JSON.stringify(allocateSqlNames(JSON.parse(String(input)) as SqlNameIdentity[])));
   for (const sql of MIGRATIONS.slice(0, 46)) db.exec(sql);
   db.pragma("user_version = 46");
-  insertAccount({ id: "remaining", name: "Remaining admin", email, passwordHash: "old hash",
-    isAdmin: true, status: "active", now: new Date().toISOString() }, db);
+  // Written as that version's store held it: today's account reads name
+  // columns a store this old does not have yet.
+  const now = new Date().toISOString();
+  db.prepare(`INSERT INTO accounts (id, name, email, password_hash, is_admin, status, created_at, updated_at, sql_name)
+    VALUES ('remaining', 'Remaining admin', ?, 'old hash', 1, 'active', ?, ?, 'remaining_admin')`).run(email, now, now);
   markOriginalAccount("remaining", db);
   db.close(); db = open(file);
 });

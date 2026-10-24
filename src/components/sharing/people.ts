@@ -6,10 +6,12 @@
  * wording elsewhere.
  */
 
-/** A person as the reads name them: display name and SQL name, never more. */
+/** A person as the reads name them: display name, SQL name and, while
+ * they have a picture, its version for their face; never more. */
 export interface PersonLabel {
   name: string;
   sqlName: string;
+  pictureVersion?: string;
 }
 
 export type ProjectRole = "owner" | "editor" | "viewer";

@@ -32,6 +32,7 @@ export const STORAGE_ROWS: Readonly<Record<StorageKind, StorageRowFacts>> = {
   tile_archives: { id: "sys-tiles", label: "Tile archives", keys: `${DISK} tiles pmtiles archives` },
   service_caches: { id: "sys-caches", label: "Service caches", keys: `${DISK} cache caches geocode overpass isochrone clear` },
   thumbnails: { id: "sys-thumbnails", label: "Thumbnails", keys: `${DISK} thumbnails images cards` },
+  profile_pictures: { id: "sys-pictures", label: "Profile pictures", keys: `${DISK} profile pictures people faces photos avatars` },
   templates: { id: "sys-templates", label: "Templates", keys: `${DISK} templates downloaded downloads examples`, meta: TEMPLATES_NOTE },
   metadata_database: { id: "sys-metadata-size", label: "Metadata database", keys: `${DISK} sqlite metadata` },
   leftover_files: { id: "sys-leftovers", label: "Leftover files", keys: `${DISK} leftover stray orphan scratch temporary sweep restart`, meta: LEFTOVER_NOTE },

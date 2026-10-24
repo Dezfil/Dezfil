@@ -1,6 +1,7 @@
 "use client";
 
 import { PeopleIcon } from "../ui/icons";
+import { Face } from "../people/Face";
 import { initials, ownedByOther, roleWord, type PeopleMark, type PersonLabel, type ProjectRole } from "./people";
 import { useSignedInSqlName } from "./signed-in";
 import gallery from "../gallery.module.css";
@@ -42,7 +43,7 @@ export function PeopleChip({ mark }: { mark: PeopleMark }) {
 }
 
 /** The corner pill on someone else's map, workflow or dataset: the people
- * glyph and the owner's initials, the owner's name on hover. In a list row
+ * glyph and the owner's face, the owner's name on hover. In a list row
  * it stands in the name cell instead of over the picture, and on an opened
  * item beside its name in the header path. */
 export function OwnerPill({
@@ -62,15 +63,13 @@ export function OwnerPill({
       aria-label={`Shared by ${owner.name}`}
     >
       <PeopleIcon />
-      <span className={styles.initials} data-hint-ignore-text aria-hidden>
-        {initials(owner.name)}
-      </span>
+      <Face person={owner} letters={initials(owner.name)} className={styles.initials} data-hint-ignore-text />
     </span>
   );
 }
 
 /** The one quiet line under a shared project's name on its home: the
- * owner's initials, one's role, whose project it is. */
+ * owner's face, one's role, whose project it is. */
 export function RoleLine({
   owner,
   role,
@@ -80,9 +79,7 @@ export function RoleLine({
 }) {
   return (
     <div className={styles.roleLine} data-role-line={role}>
-      <span className={styles.initials} aria-hidden>
-        {initials(owner.name)}
-      </span>
+      <Face person={owner} letters={initials(owner.name)} className={styles.initials} />
       <span>
         <b>{roleWord(role)}</b> · {owner.name}’s project
       </span>

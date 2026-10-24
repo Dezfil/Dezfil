@@ -38,7 +38,7 @@ Dezfil is one Node.js server in one container. It keeps everything it stores in 
 +-----|-------------|-----------------------------|-------------+
       v             v                             v
  metadata.sqlite  tables/ (GeoParquet)          tiles/ (PMTiles)
-                                                thumbnails/
+ profile-pictures/ (WebP)                       thumbnails/
  (all in the data folder)
 ```
 
@@ -56,6 +56,7 @@ The data folder is `DEZFIL_DATA_DIR`, with its default in [Storage and programs]
 | Service modules | `src/lib/` | The work behind the routes: imports, layers, tiles, operations, publishing, sharing |
 | API description | `src/lib/api/openapi.ts` and the `openapi-*.ts` files beside it | The OpenAPI description, served at `GET /api/openapi.json` and written to `docs/api/openapi.json` |
 | Metadata store | `src/lib/metadata/` | Accounts, maps, layers, projects, workflows and settings in `metadata.sqlite`, with the migrations that build it |
+| Profile pictures | `src/lib/profile-pictures/` | Turns a person's upload into the server's own WebP in `profile-pictures/`, one per account, and serves it |
 | Trusted DuckDB | `src/lib/duckdb.ts`, `src/lib/trusted-*.ts`, `src/lib/ingest/` | Reads imported files and writes each dataset as one GeoParquet file in `tables/` |
 | Hardened DuckDB | `src/lib/duckdb.ts`, `src/lib/query/` | Runs user SQL and every layer's query, fenced to `tables/` and the tile scratch folder |
 | Tile builder | `src/lib/tiles/` | Builds a PMTiles archive with tippecanoe for a large point layer, and serves its tiles from the archive |
@@ -75,6 +76,7 @@ The [Dockerfile](../../Dockerfile) builds the image in stages on `node:24-slim`.
 | Chromium, a certificate bundle and the Liberation fonts | `/usr/bin/chromium`, named by `DEZFIL_CHROMIUM_PATH` | Image exports, the pictures on map cards and the look at a map the assistant or an agent asks for, drawn with software GL |
 | The engine's extensions: spatial, h3, httpfs, json, postgres, azure and aws | `/app/duckdb-extensions`, named by `DUCKDB_EXTENSION_DIR` | Installed at build time by `scripts/install-duckdb-extensions.mjs` from the one list in `scripts/duckdb-extensions.mjs`, which the offline check reads too |
 | The native packages the standalone build leaves out: `@duckdb`, `better-sqlite3`, `bindings` and `file-uri-to-path` | `/app/node_modules/` | The engine's and the metadata store's native code, copied whole |
+| The picture library `sharp`, the binary and libvips of the image's own architecture under `@img`, and `detect-libc` and `semver`, which it requires | `/app/node_modules/` | Profile pictures: read, cropped and written as WebP. It loads on first use, so without it only pictures are refused |
 | `public/`, the model catalogue and the shipped templates | At their paths in the source | Read at run time where the source keeps them |
 | `LICENSE` and `NOTICE` | `/app` | The licences of the code and the components the image carries |
 | The ingress preload and the account recovery script, with the modules they import | `/app/scripts/`, `/app/src/lib/auth/` | The preload starts before the server; an operator runs the recovery script |

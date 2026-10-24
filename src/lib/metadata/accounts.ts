@@ -33,17 +33,19 @@ export interface Account {
   createdAt: string;
   updatedAt: string;
   lastSignInAt: string | null;
+  /** The version of the account's picture, present while it has one. */
+  pictureVersion?: string;
 }
 
 const projection = `SELECT a.id, a.name, a.email, a.sql_name, a.is_admin, a.status,
-  a.created_at, a.updated_at, a.last_sign_in_at,
+  a.created_at, a.updated_at, a.last_sign_in_at, a.picture_version,
   EXISTS (SELECT 1 FROM original_account o WHERE o.account_id = a.id) AS is_original
   FROM accounts a`;
 
 interface Row {
   id: string; name: string; email: string; sql_name: string; is_admin: number;
   status: AccountStatus; is_original: number; created_at: string;
-  updated_at: string; last_sign_in_at: string | null;
+  updated_at: string; last_sign_in_at: string | null; picture_version: string | null;
 }
 
 function fromRow(row: Row): Account {
@@ -52,7 +54,13 @@ function fromRow(row: Row): Account {
     status: row.status, isOriginal: row.is_original === 1,
     createdAt: row.created_at, updatedAt: row.updated_at,
     lastSignInAt: row.last_sign_in_at,
+    ...pictureOf(row.picture_version),
   };
+}
+
+/** The picture reference a person carries: present only while they have one. */
+function pictureOf(version: string | null): { pictureVersion?: string } {
+  return version ? { pictureVersion: version } : {};
 }
 
 /** How a resource names the person who owns it, or whose SQL home it is:
@@ -60,6 +68,27 @@ function fromRow(row: Row): Account {
 export interface AccountLabel {
   name: string;
   sqlName: string;
+}
+
+/** How a read that draws a person's face names them: their label and, while
+ * they have a picture, its version, which changes whenever it is replaced.
+ * Runners, change authors and deleted actors keep the plain label. */
+export interface PersonLabel extends AccountLabel {
+  pictureVersion?: string;
+}
+
+export function personLabel(name: string, sqlName: string, pictureVersion: string | null): PersonLabel {
+  return { name, sqlName, ...pictureOf(pictureVersion) };
+}
+
+/** The face-bearing labels of a set of accounts, by identity; unknown
+ * identities are left out. */
+export function accountPeople(ids: Iterable<string | null>, db: Database = metadataDb()): Map<string, PersonLabel> {
+  const wanted = [...new Set([...ids].filter((id): id is string => id !== null))];
+  if (wanted.length === 0) return new Map();
+  const rows = db.prepare("SELECT id, name, sql_name, picture_version FROM accounts WHERE status NOT IN ('deleting', 'deleted') AND id IN (SELECT value FROM json_each(?))")
+    .all(JSON.stringify(wanted)) as { id: string; name: string; sql_name: string; picture_version: string | null }[];
+  return new Map(rows.map(row => [row.id, personLabel(row.name, row.sql_name, row.picture_version)]));
 }
 
 /** The labels of a set of accounts, by identity; unknown identities are

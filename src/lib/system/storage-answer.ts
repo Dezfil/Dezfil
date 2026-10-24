@@ -9,7 +9,7 @@
  */
 
 /** The kinds, in the order Storage lists them. */
-export const STORAGE_KINDS = ["tables", "tile_archives", "service_caches", "thumbnails", "templates", "metadata_database", "leftover_files", "other"] as const;
+export const STORAGE_KINDS = ["tables", "tile_archives", "service_caches", "thumbnails", "profile_pictures", "templates", "metadata_database", "leftover_files", "other"] as const;
 export type StorageKind = typeof STORAGE_KINDS[number];
 
 export interface StorageUse {

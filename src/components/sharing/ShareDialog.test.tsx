@@ -1,6 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cssRules } from "../testing/css-rules";
 import { installDomHost, type HostElement } from "../testing/dom-host";
 import { SignedIn } from "./signed-in";
 import { PEOPLE_CHANGED_EVENT } from "./use-project-people";
@@ -38,7 +39,7 @@ const person = (sqlName: string, name: string, role: ProjectPersonWire["role"], 
 type Call = { url: string; method: string; body: unknown };
 let calls: Call[];
 let people: ProjectPersonWire[];
-let directory: { name: string; sqlName: string }[];
+let directory: { name: string; sqlName: string; pictureVersion?: string }[];
 let refuse: string | null;
 const answer = (status: number, body: unknown) => ({ ok: status < 400, status, json: async () => body });
 
@@ -122,6 +123,37 @@ async function key(name: string) {
   const input = q('input[aria-label="Add people by name or email"]')!;
   await act(async () => handler(input, "onKeyDown")({ key: name, preventDefault() {}, stopPropagation() {} }));
 }
+
+describe("the share dialog's faces", () => {
+  const picture = (el: HostElement | null) => el?.querySelector("[data-face]")?.querySelector("img")?.getAttribute("src") ?? null;
+
+  it("draws each person's picture where their initials stand: the members, the results and the person picked", async () => {
+    people = [{ ...person("ada", "Ada Okafor", "owner"), pictureVersion: "a1" }, person("bo", "Bo Lindqvist", "editor"),
+      { ...person("cy", "Cy Marsh", "viewer", true), pictureVersion: "c1" }];
+    directory = [{ name: "Eli Brandt", sqlName: "eli", pictureVersion: "e1" }, { name: "Bo Lindqvist", sqlName: "bo" }];
+    await open();
+    expect(picture(q('[data-member="ada"]'))).toBe("/api/accounts/ada/picture?v=a1");
+    expect(picture(q('[data-member="cy"]'))).toBe("/api/accounts/cy/picture?v=c1");
+    expect(picture(q('[data-member="bo"]'))).toBeNull();
+    expect(q('[data-member="bo"]')!.querySelector("[data-face]")?.textContent).toBe("BL");
+    await type("b");
+    expect(picture(q('[data-result="eli"]'))).toBe("/api/accounts/eli/picture?v=e1");
+    expect(q('[data-result="eli"]')!.querySelector("[data-face]")?.textContent).toBe("EB");
+    expect(picture(q('[data-result="bo"]'))).toBeNull();
+    await click(q('[data-result="eli"]'));
+    expect(picture(q('[data-picked="eli"]'))).toBe("/api/accounts/eli/picture?v=e1");
+  });
+
+  it("dims a deactivated member's picture with their row, as their initials are", async () => {
+    people = [person("ada", "Ada Okafor", "owner"), { ...person("cy", "Cy Marsh", "viewer", true), pictureVersion: "c1" }];
+    await open();
+    const face = q('[data-member="cy"]')!.querySelector("[data-face]")!;
+    expect(q('[data-member="cy"]')!.hasAttribute("data-off")).toBe(true);
+    expect(face.className).toMatch(/avatar/);
+    const dim = cssRules("src/components/sharing/ShareDialog.module.css").filter((rule) => rule.selector === ".row[data-off] .avatar");
+    expect(dim.map((rule) => /opacity:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["0.5"]);
+  });
+});
 
 describe("the share dialog", () => {
   it("heads the sheet with the project and what people get", async () => {

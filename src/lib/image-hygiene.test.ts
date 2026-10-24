@@ -15,8 +15,10 @@ import dockerIgnore from "@balena/dockerignore";
 import {
   judge,
   cataloguePresence,
+  imageArchitecture,
   ingressPresence,
   INGRESS_REPO_PATHS,
+  picturePresence,
   MODEL_CATALOGUE_REPO_PATH,
   MODEL_CATALOGUE_IMAGE_PATH,
   MVT_WORKER_IMAGE_PATH,
@@ -33,6 +35,39 @@ it("requires every ingress preload file in the shipped image", () => {
   for (const missing of complete) {
     expect(ingressPresence(complete.filter(line => line !== missing))).toEqual([`MISSING: ${missing.slice(2)}`]);
   }
+});
+
+describe("the picture library in the shipped image", () => {
+  const listing = (arch: string) => [
+    "f /app/node_modules/sharp/package.json",
+    "f /app/node_modules/sharp/dist/index.cjs",
+    "f /app/node_modules/detect-libc/package.json",
+    "f /app/node_modules/semver/package.json",
+    "f /app/node_modules/@img/colour/package.json",
+    `f /app/node_modules/@img/sharp-linux-${arch}/lib/sharp-linux-${arch}-0.35.5.node`,
+    `f /app/node_modules/@img/sharp-libvips-linux-${arch}/lib/libvips-cpp.so.8.18.7`,
+  ];
+  it.each(["x64", "arm64"])("passes a complete %s listing", (arch) => {
+    expect(picturePresence(listing(arch), arch)).toEqual([]);
+  });
+  it("names each missing package, one at a time", () => {
+    const complete = listing("x64");
+    for (const line of complete.filter((entry) => !entry.includes("/dist/"))) {
+      const problems = picturePresence(complete.filter((entry) => entry !== line), "x64");
+      expect(problems, line).toHaveLength(1);
+      expect(problems[0]).toMatch(/^MISSING: /);
+    }
+  });
+  it("judges the image's own architecture: an arm64 build's packages are missing from an x64 image", () => {
+    expect(picturePresence(listing("arm64"), "x64")).toEqual([
+      "MISSING: /app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-<version>.node — the picture library's x64 binary",
+      "MISSING: /app/node_modules/@img/sharp-libvips-linux-x64/lib/libvips-cpp.so.<version> — libvips for x64",
+    ]);
+  });
+  it("reads the architecture Docker reports, and refuses one it does not ship", () => {
+    expect([imageArchitecture("amd64"), imageArchitecture("arm64")]).toEqual(["x64", "arm64"]);
+    expect(() => imageArchitecture("s390x")).toThrow("Unsupported image architecture: s390x");
+  });
 });
 
 function unexpectedContextEntries(trackedFiles: string[], ignoreFile: string) {

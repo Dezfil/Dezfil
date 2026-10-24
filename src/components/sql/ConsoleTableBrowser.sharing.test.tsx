@@ -65,8 +65,8 @@ async function render(node: React.ReactNode) {
   await settle();
   await settle();
 }
-const browser = () => (
-  <ConsoleTableBrowser tables={TABLES} columnsOf={() => null} progress={{ ready: 0, failed: 0, total: 0 }}
+const browser = (tables: TableListing[] = TABLES) => (
+  <ConsoleTableBrowser tables={tables} columnsOf={() => null} progress={{ ready: 0, failed: 0, total: 0 }}
     selected="ada.roads" onActivate={() => {}} onOpenAsSql={() => {}} onInsertTable={() => {}} />
 );
 const groups = () => all("[data-table-group]").map((g) => ({
@@ -98,6 +98,18 @@ describe("the console's source list", () => {
       { head: "Not in a project", rows: ["roads"] },
     ]);
     expect(q('[data-row-owner="ada"]')?.textContent).toBe("AO");
+  });
+
+  it("draws the owner's picture in a row by project by its version, and one's own initials where one has none", async () => {
+    stored = "project";
+    await render(browser([table("roads", bo), table("roads", { ...ada, pictureVersion: "a1" } as typeof ada, ["berlin"])]));
+    const adas = q('[data-row-owner="ada"]')!.querySelector("[data-face]")!;
+    expect(adas.querySelector("img")?.getAttribute("src")).toBe("/api/accounts/ada/picture?v=a1");
+    expect(adas.textContent).toBe("AO");
+    const own = q('[data-row-owner="bo"]')!.querySelector("[data-face]")!;
+    expect(own.hasAttribute("data-me")).toBe(true);
+    expect(own.textContent).toBe("BL");
+    expect(own.querySelector("img")).toBeNull();
   });
 
   it("opens grouped by project when the account chose so", async () => {

@@ -1,4 +1,5 @@
 import { ERROR_RESPONSE, jsonOk, op } from "./openapi-helpers";
+import { PICTURE_VERSION_PROPERTY } from "./openapi-picture-version";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
 
 export const AUTH_SECURITY = [{ CookieSession: [] }, { BearerToken: [] }];
@@ -42,6 +43,7 @@ export const AUTH_SCHEMAS = {
     properties: { id: { type: "string" }, name: { type: "string" }, email: { type: "string" },
       sqlName: { type: "string", pattern: "^[a-z][a-z0-9_]{2,31}$", description: "The account's SQL name, unique on the instance. Derived from the display name (else the email's local part, else the word user, with a number added on a collision or a name the query engine reserves) when the account is created or upgraded, and fixed thereafter: changing the name or email never changes it." },
       isAdmin: { type: "boolean" },
+      pictureVersion: PICTURE_VERSION_PROPERTY,
       status: { type: "string", enum: ["invited", "active", "deactivated"] }, isOriginal: { type: "boolean" },
       createdAt: { type: "string" }, updatedAt: { type: "string" }, lastSignInAt: { type: ["string", "null"] } },
     required: ["id", "name", "email", "sqlName", "isAdmin", "status", "isOriginal", "createdAt", "updatedAt", "lastSignInAt"] },

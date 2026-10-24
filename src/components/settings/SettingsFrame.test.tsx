@@ -306,8 +306,8 @@ describe("the Settings frame", () => {
     await settle();
     nav.pathname = "/settings/tokens"; await follow();
     nav.pathname = "/settings/account"; await follow();
-    // The account card's first field is the display name.
-    expect(tabContent().querySelectorAll("input")[0]?.value).toBe("Ada Lovelace");
+    // The account card's display name, the first field it saves.
+    expect(tabContent().querySelector('input[data-unit-key="name"]')?.value).toBe("Ada Lovelace");
     nav.pathname = "/settings/general"; await follow();
     expect(tabContent().querySelector("input")?.value).toBe("Atlas");
     // General reads the instance afresh each time it opens.

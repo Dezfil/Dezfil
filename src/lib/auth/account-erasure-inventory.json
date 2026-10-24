@@ -7,7 +7,7 @@
     },
     "table:accounts": {
       "action": "erase",
-      "rule": "Erase every profile field and all account dates. Ever-active identities retain only id, deleted status and the fixed SQL name. Never-used invitations leave no row.",
+      "rule": "Erase every profile field, the picture's version included, and all account dates. Ever-active identities retain only id, deleted status and the fixed SQL name. Never-used invitations leave no row.",
       "fixture": "table:accounts"
     },
     "table:auth_links": {
@@ -843,6 +843,11 @@
       "rule": "After native work drains, close the shared trusted instance and remove all its transient spill. Remove abandoned spill at engine startup. Durable artifacts and unrelated temporary work remain.",
       "fixture": "file:trusted-spill"
     },
+    "file:profile-pictures": {
+      "action": "erase",
+      "rule": "Remove the target account's current, replaced and partial picture files through their ownership records, after its picture writes drain. Other accounts' pictures stay.",
+      "fixture": "file:profile-pictures"
+    },
     "memory:native-reception-context": {
       "action": "retain",
       "rule": "Keep the async context carrier shared by ingress and bundled request handlers. Each reception owner holds only request-local clocks, readers and refusal delivery until its work settles; no account-indexed cache or retained result is held."
@@ -865,6 +870,15 @@
       "action": "purge",
       "rule": "Drain in-progress picture dependency resolution, then clear every coalesced dataset identity before account erasure completes. Future looks derive any remaining work from live maps.",
       "fixture": "memory:picture-data"
+    },
+    "memory:picture-processing": {
+      "action": "retain",
+      "rule": "Keep the instance's one profile picture slot, its waiting room and its counts. The room holds only the turn each waiting picture is woken by; the picture's file and bytes stay with its request's work, which deletion drains. They hold no account identity or content."
+    },
+    "memory:src/lib/profile-pictures/store.ts#pictureWrites": {
+      "action": "erase",
+      "rule": "Keep an account's order of picture writes only while one of them is admitted under its work lease. Deletion drains the account's writes, which removes its entry; other accounts' entries stay.",
+      "fixture": "memory:src/lib/profile-pictures/store.ts#pictureWrites"
     }
   },
   "tables": {
@@ -2663,6 +2677,11 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-auth.ts#AUTH_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-auth.ts#AUTH_SECURITY": {
       "stores": [
         "memory:immutable-configuration"
@@ -2939,6 +2958,21 @@
       ]
     },
     "memory:src/lib/api/openapi-projects.ts#PROJECT_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-profile-pictures.ts#PROFILE_PICTURE_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-profile-pictures.ts#PROFILE_PICTURE_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-profile-pictures.ts#writeErrors": {
       "stores": [
         "memory:immutable-configuration"
       ]
@@ -7091,6 +7125,181 @@
         "thumbnails/*"
       ]
     },
+    "memory:src/lib/profile-pictures/normalize.ts#processing": {
+      "stores": [
+        "memory:picture-processing"
+      ]
+    },
+    "memory:src/lib/profile-pictures/store.ts#pictureWrites": {
+      "stores": [
+        "memory:src/lib/profile-pictures/store.ts#pictureWrites"
+      ]
+    },
+    "memory:src/lib/profile-pictures/store.ts#admitPictureWrite.lease": {
+      "stores": [
+        "memory:account-deletion-work"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#discardCandidate:partialPath": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#discardCandidate:picturePath": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#folder:dataDir": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#folder:path.join": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#partialPath:folder": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#partialPath:path.join": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#picturePath:folder": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#picturePath:path.join": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#placeCandidate:folder": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#placeCandidate:partialPath": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#placeCandidate:picturePath": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#retire:picturePath": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#sweepProfilePictures:folder": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#sweepProfilePictures:path.join": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/store.ts#sweepProfilePictures.names:folder": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures"
+      ]
+    },
+    "writer:src/lib/profile-pictures/store.ts#placeCandidate:mkdir": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures"
+      ]
+    },
+    "writer:src/lib/profile-pictures/store.ts#placeCandidate:rename": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "writer:src/lib/profile-pictures/store.ts#placeCandidate:writeFile": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "writer:src/lib/profile-pictures/store.ts#placeCandidate:registerAccountFile": {
+      "stores": [
+        "file:account-files"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
+    "location:src/lib/profile-pictures/read.ts#readProfilePicture.bytes:picturePath": {
+      "stores": [
+        "file:profile-pictures"
+      ],
+      "roots": [
+        "profile-pictures/*"
+      ]
+    },
     "memory:src/lib/pictures/card.ts#CARD_STORED_SIZE": {
       "stores": [
         "memory:immutable-configuration"
@@ -7196,6 +7405,10 @@
     ],
     "file:trusted-spill": [
       "engine-spill/**"
+    ],
+    "file:profile-pictures": [
+      "profile-pictures/*.webp",
+      "profile-pictures/*.webp.part"
     ]
   },
   "accountReferences": {
@@ -7230,6 +7443,7 @@
     "last_sign_in_at": "erase",
     "name": "erase",
     "password_hash": "erase",
+    "picture_version": "erase",
     "sql_name": "retain",
     "status": "retain",
     "updated_at": "erase"

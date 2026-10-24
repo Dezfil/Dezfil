@@ -738,15 +738,15 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-10-24",
       "width": 1704,
-      "height": 1108,
-      "bytes": 30056,
+      "height": 1324,
+      "bytes": 35576,
       "crop": {
         "x": 332,
         "y": 123,
         "width": 852,
-        "height": 554
+        "height": 662
       }
     },
     {
@@ -755,15 +755,15 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-10-24",
       "width": 1704,
-      "height": 1108,
-      "bytes": 33226,
+      "height": 1324,
+      "bytes": 38534,
       "crop": {
         "x": 332,
         "y": 123,
         "width": 852,
-        "height": 554
+        "height": 662
       }
     },
     {

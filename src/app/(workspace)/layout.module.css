@@ -309,7 +309,8 @@
   font-weight: 550;
 }
 
-/* The avatar: initials until real accounts bring images. */
+/* The avatar: the circle of the person's face, their initials while they
+   have no picture. */
 .avatar {
   width: 26px;
   height: 26px;

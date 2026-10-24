@@ -9,6 +9,9 @@ const STAMPED = Symbol("socket-provenance");
 const RECEPTION = Symbol("native-reception");
 const HEADER = "x-dezfil-ingress";
 const FORWARDING = ["forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-port", HEADER];
+/** The streaming uploads, by method and path: their bodies take the upload
+ * clock their route admits instead of the ordinary request deadline. */
+const NATIVE_UPLOADS = [["POST", /^\/api\/tables\/?$/], ["PUT", /^\/api\/account\/picture\/?$/]];
 
 export function normalizeAddress(value) {
   let address = String(value ?? "").trim();
@@ -154,7 +157,7 @@ export function installIngress() {
           for (const name of FORWARDING) request.rawHeaders.push(name, headers[name]);
           const pathname = new URL(request.url ?? "/", view.origin).pathname;
           if (event !== "upgrade") {
-            const upload = request.method === "POST" && /^\/api\/tables\/?$/.test(pathname);
+            const upload = NATIVE_UPLOADS.some(([method, shape]) => request.method === method && shape.test(pathname));
             request[RECEPTION] = installReception(this, request, args[1], upload);
           }
           request[STAMPED] = true;

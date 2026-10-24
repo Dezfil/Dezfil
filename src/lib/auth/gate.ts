@@ -10,12 +10,14 @@ import { requireAdmin } from "./admin";
 import { metadataDb } from "@/lib/metadata/db";
 import { assertRequestOrigin, authFailure, privateResponse, requestAuth, requestIngress, requireRequestAuth, sessionCookie, sessionSecret } from "./http";
 
-/** The one signed-in answer the browser may keep: a map picture, kept under
- * its entity tag and asked for again on every use, so the serving check
- * decides each time. The route sets its own caching; its refusals stay
- * unkept. Every other signed-in answer is never kept. */
+/** The signed-in answers the browser may keep: a map picture and a
+ * person's picture, each kept under its entity tag and asked for again on
+ * every use, so the serving check decides each time. The route sets its own
+ * caching; its refusals stay unkept. Every other signed-in answer is never
+ * kept. */
 function revalidatedRead(pathname: string, method: string): boolean {
-  return (method === "GET" || method === "HEAD") && /^\/api\/maps\/[^/]+\/thumbnail$/.test(pathname);
+  return (method === "GET" || method === "HEAD") &&
+    (/^\/api\/maps\/[^/]+\/thumbnail$/.test(pathname) || /^\/api\/accounts\/[^/]+\/picture$/.test(pathname));
 }
 
 /** Early refusal only. Handlers needing identity reauthenticate the credential. */

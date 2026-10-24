@@ -12,10 +12,11 @@ import { presencesOf } from "@/lib/reach-presence";
 
 const ENTRY = 46, now = "2026-01-02T03:04:05.000Z";
 let directory: string, file: string, db: Database.Database;
-/** Later migrations add the token expiry column and the basemap library's
- * table; these checks compare the store as the identity migration left it,
- * every other byte included. */
+/** Later migrations add the token expiry column, the picture's version and
+ * the basemap library's table; these checks compare the store as the
+ * identity migration left it, every other byte included. */
 const LATER_TOKEN_COLUMN = ", expires_at INTEGER)";
+const LATER_COLUMNS: Record<string, string> = { auth_tokens: "expires_at", accounts: "picture_version" };
 const LATER_TABLES = new Set(["basemap_styles", "map_pictures"]);
 function schema() {
   return (db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE NOT (type = 'table' AND name = 'accounts') ORDER BY type, name").all() as
@@ -28,7 +29,7 @@ function rows() {
   return Object.fromEntries((db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
     .filter(({ name }) => !LATER_TABLES.has(name))
     .map(({ name }) => [name, (db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all() as Record<string, unknown>[])
-      .map(row => name === "auth_tokens" ? Object.fromEntries(Object.entries(row).filter(([column]) => column !== "expires_at")) : row)]));
+      .map(row => name in LATER_COLUMNS ? Object.fromEntries(Object.entries(row).filter(([column]) => column !== LATER_COLUMNS[name])) : row)]));
 }
 function reopen() { db.close(); db = open(file); }
 function eraseProfile() {
@@ -41,8 +42,11 @@ beforeEach(() => {
   db.function("allocate_sql_names", (input: unknown) => JSON.stringify(allocateSqlNames(JSON.parse(String(input)) as SqlNameIdentity[])));
   for (const sql of MIGRATIONS.slice(0, ENTRY)) db.exec(sql);
   db.pragma(`user_version = ${ENTRY}`);
+  // Written as that version's store held them: today's account reads name
+  // columns a store this old does not have yet.
   for (const [id, status] of [["ada", "active"], ["bea", "active"], ["off", "deactivated"], ["invite", "invited"]] as const) {
-    insertAccount({ id, name: id, email: `${id}@example.test`, passwordHash: `${id}-hash`, isAdmin: true, status, now }, db);
+    db.prepare(`INSERT INTO accounts (id, name, email, password_hash, is_admin, status, created_at, updated_at, sql_name)
+      VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)`).run(id, id, `${id}@example.test`, `${id}-hash`, status, now, now, id);
   }
   db.exec(`INSERT INTO original_account VALUES (1, 'ada');
     INSERT INTO account_preferences VALUES ('ada', '{"maps":{"sort":"name"}}', '${now}');
@@ -110,7 +114,7 @@ it.each(["copy", "integrity", "trigger"])("rolls back a %s failure and restores 
 it("keeps only the retained identity, hides profiles, reserves SQL names and preserves other people's homes", async () => {
   reopen(); const before = rows(); eraseProfile();
   expect(db.prepare("SELECT * FROM accounts WHERE id = 'ada'").get()).toEqual({ id: "ada", status: "deleted", sql_name: "ada",
-    name: null, email: null, password_hash: null, is_admin: null, created_at: null, updated_at: null, last_sign_in_at: null });
+    name: null, email: null, password_hash: null, is_admin: null, created_at: null, updated_at: null, last_sign_in_at: null, picture_version: null });
   for (const column of ["name", "email", "password_hash", "is_admin", "created_at", "updated_at", "last_sign_in_at"]) {
     expect(() => db.prepare(`UPDATE accounts SET ${column} = ? WHERE id = 'ada'`).run(column === "is_admin" ? 0 : "personal")).toThrow(/CHECK/);
   }

@@ -371,7 +371,7 @@ export const PROJECT_DEPENDENCY_SCHEMAS = {
           "The name the caller would type: the plain name for the " +
           "caller's own dataset, <sql name>.<name> for another owner's.",
       },
-      owner: { $ref: "#/components/schemas/ResourceOwner" },
+      owner: { $ref: "#/components/schemas/Person" },
       owned: {
         type: "boolean",
         description:
@@ -473,7 +473,7 @@ export const PROJECT_SCHEMAS = {
           "is partial and says so.",
       },
       owner: {
-        $ref: "#/components/schemas/ResourceOwner",
+        $ref: "#/components/schemas/Person",
         description: "The project's owner.",
       },
       role: {

@@ -1015,7 +1015,7 @@
     },
     {
       "name": "read_storage",
-      "description": "Read how the data folder is used. Requires a current admin through cookie or bearer authentication, rechecked on every call. A cookie request must show it comes from this instance's own page, by an Origin that is this instance's, Sec-Fetch-Site same-origin or the X-Dezfil-Account header its pages send; one with none of them, or with another origin's Origin or a cross-site or same-site Sec-Fetch-Site, is refused. An admin bearer token calls directly. Responses, including refusals, are private, no-store. Walks the data folder and answers, for each kind of file, the bytes its files take and how many there are: tables (dataset files the metadata registers), tile_archives (archives with a tile record and what they were built from), service_caches (the three caches' answers), thumbnails (map card images), templates (downloaded templates, and the copies of an installed template's data the query engine reads), metadata_database (the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives no layer uses, unfinished thumbnail writes; it includes work in progress) and other (the rest, such as the key file and the server's records); with every kind together and the free and total space on the folder's volume. Each file counts once, however many names it has. It takes names and sizes, which files the metadata references and which the installed templates' records name, opening no other file and following no link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a Clear ends a walk under way at once, the reads already joined to it getting what it had counted, and a read after the Clear never gets a walk begun before it but joins one fresh walk. Every read's deadline is 10 seconds from its asking: the walk that answers it cuts every filesystem call and the disk's statistics by then and stops the reference read at the first of its slices of 200 rows to end past it. A walk stopped by its deadline or ended by a Clear gives each kind it had not finished as at least what it counted, finished false, and the disk as null when its statistics had not come. It changes nothing and sends nothing outside this server. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+      "description": "Read how the data folder is used. Requires a current admin through cookie or bearer authentication, rechecked on every call. A cookie request must show it comes from this instance's own page, by an Origin that is this instance's, Sec-Fetch-Site same-origin or the X-Dezfil-Account header its pages send; one with none of them, or with another origin's Origin or a cross-site or same-site Sec-Fetch-Site, is refused. An admin bearer token calls directly. Responses, including refusals, are private, no-store. Walks the data folder and answers, for each kind of file, the bytes its files take and how many there are: tables (dataset files the metadata registers), tile_archives (archives with a tile record and what they were built from), service_caches (the three caches' answers), thumbnails (map card images), profile_pictures (each person's current picture), templates (downloaded templates, and the copies of an installed template's data the query engine reads), metadata_database (the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives no layer uses, unfinished thumbnail writes, pictures that are no one's current picture; it includes work in progress) and other (the rest, such as the key file and the server's records); with every kind together and the free and total space on the folder's volume. Each file counts once, however many names it has. It takes names and sizes, which files the metadata references and which the installed templates' records name, opening no other file and following no link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a Clear ends a walk under way at once, the reads already joined to it getting what it had counted, and a read after the Clear never gets a walk begun before it but joins one fresh walk. Every read's deadline is 10 seconds from its asking: the walk that answers it cuts every filesystem call and the disk's statistics by then and stops the reference read at the first of its slices of 200 rows to end past it. A walk stopped by its deadline or ended by a Clear gives each kind it had not finished as at least what it counted, finished false, and the disk as null when its statistics had not come. It changes nothing and sends nothing outside this server. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
       "input_schema": {
         "type": "object",
         "properties": {},
@@ -3920,7 +3920,7 @@
     },
     {
       "name": "find_accounts",
-      "description": "Find people to share with. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The directory of active people, for sharing a project: any signed-in account can find other active accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to account reads being admin-only, and it is minimal: each result carries the person's display name and SQL name and nothing else, never an email, an admin flag or an account identity. Deactivated accounts and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers twice. An empty query answers nobody; at most 20 people answer, an exact email match first, then by display name. The SQL name is how the sharing operations name the person. Managing accounts stays admin-only.",
+      "description": "Find people to share with. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The directory of active people, for sharing a project: any signed-in account can find other active accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to account reads being admin-only, and it is minimal: each result carries the person's display name, SQL name and, while they have a picture, its pictureVersion, and nothing else, never an email, an admin flag or an account identity. Deactivated accounts and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers twice. An empty query answers nobody; at most 20 people answer, an exact email match first, then by display name. The SQL name is how the sharing operations name the person. Managing accounts stays admin-only.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -3932,6 +3932,71 @@
         },
         "required": [
           "q"
+        ]
+      }
+    },
+    {
+      "name": "set_account_picture",
+      "description": "Set your picture. Requires a current cookie session or bearer token; a cookie-signed request needs the instance's Origin. Responses, including refusals, are private, no-store. It acts on the signed-in account's own picture, never another's, and an account whose deletion has been accepted is refused before anything is read. multipart/form-data with exactly one file part named `file`: a still JPEG, PNG or WebP image, recognised by its content whatever its name or declared type. The file is at most 10,485,760 bytes (10 MB, a fixed limit) and the whole body at most 65,536 bytes more, counted as they arrive whatever length is declared: one byte over answers 413 upload_too_large. An SVG, a GIF, an animated image, or one that is damaged or incomplete, answers 415 unsupported_image; more than 64 million pixels, read from the header before any pixel is decoded, 413 image_too_large. The body has 120 seconds to arrive: one still arriving then answers 408 data_processing_timeout, and one that sends no body byte for 60 seconds answers 408 upload_stalled. The first refusal is delivered without waiting for the rest of the body, and the refused connection closes within five seconds. A caller who leaves before the body is received changes nothing. Processing takes at most 20 seconds, waiting included, and runs one picture at a time on the instance with eight more waiting; past that, 503 operation_queue_full. The server keeps its own copy: turned the way its orientation says, the largest centred square scaled to 320 pixels, a WebP with transparency kept and every embedded record dropped. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. A refusal or failure leaves the current picture. Answers the account, its new pictureVersion included. Through MCP the file travels as base64 in content_base64; a file of the full 10,485,760 bytes fits the 16,777,216-byte envelope.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "The uploaded file name, including its extension."
+          },
+          "content_base64": {
+            "type": "string",
+            "description": "The file bytes, encoded as base64. A still JPEG, PNG or WebP image of at most 10,485,760 bytes. Through MCP the file travels as base64 in content_base64; a file of the full 10,485,760 bytes fits the 16,777,216-byte envelope."
+          }
+        },
+        "required": [
+          "filename",
+          "content_base64"
+        ]
+      }
+    },
+    {
+      "name": "remove_account_picture",
+      "description": "Remove your picture. Requires a current cookie session or bearer token; a cookie-signed request needs the instance's Origin. Responses, including refusals, are private, no-store. It acts on the signed-in account's own picture, never another's, and an account whose deletion has been accepted is refused before anything is read. Your initials stand in again; removing when there is no picture changes nothing. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. Answers the account, without a pictureVersion.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "remove_user_picture",
+      "description": "Remove a person's picture. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Removes the account's picture, a deactivated account's included; its initials stand in again, and removing when there is none changes nothing. An admin removes a picture and never sets one: no operation sets another account's picture. An account whose deletion has been accepted, or an unknown one, answers 404 not_found, and a caller who is not an admin, or no longer one when the change commits, 403 forbidden; either way the picture stays. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. Answers the account.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The account's id."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "read_account_picture",
+      "description": "Read a person's picture. Requires a current cookie session or bearer token. Any active account reads any person's current picture, with or without a shared project: the people the account, Users, directory, project people and owner reads name, a deactivated person included. The picture is a WebP, 320 pixels square, the server's own copy with no embedded records. `v` names the version a read gave: the current version is served, an earlier one answers 404, and without `v` the current picture is served. A person with no picture, under deletion or unknown answers the same 404. Every answer carries an entity tag of its bytes and `Cache-Control: private, no-cache`, so a client may keep it but asks again before each use; a request whose `If-None-Match` names the current tag is answered 304 without the bytes, after the same checks as a full read. Refusals are private, no-store. Agents receive the image as an attachment.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "sqlName": {
+            "type": "string",
+            "description": "The person's SQL name."
+          },
+          "v": {
+            "type": "string",
+            "description": "The picture version a read gave (pictureVersion); absent reads the current picture."
+          }
+        },
+        "required": [
+          "sqlName"
         ]
       }
     },

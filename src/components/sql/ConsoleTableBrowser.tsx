@@ -9,6 +9,7 @@ import { PlayIcon } from "../ui/icons";
 import { useRecipes } from "../builder/drawer/use-recipes";
 import { readProjectsDirectory } from "../scope/use-scope-world";
 import { initials } from "../sharing/people";
+import { Face } from "../people/Face";
 import { useSignedInSqlName } from "../sharing/signed-in";
 import { sourceGroups, type SourceGrouping } from "./source-groups";
 import { matchTables } from "./table-search";
@@ -178,9 +179,8 @@ export function ConsoleTableBrowser({
                   <span className={styles.rowEnd}>
                     {grouping === "project" && owner ? (
                       <span className={styles.rowWho} data-hint={owner.name} data-row-owner={owner.sqlName}>
-                        <span className={styles.rowIni} data-me={owner.sqlName === me || undefined} aria-hidden>
-                          {initials(owner.name)}
-                        </span>
+                        <Face person={owner} letters={initials(owner.name)} className={styles.rowIni}
+                          data-me={owner.sqlName === me || undefined} />
                       </span>
                     ) : (
                       <span className={styles.rowMeta}>{formatCount(t.rowCount)}</span>

@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   // The container omits test fixtures; npm run typecheck checks the full tree.
   typescript: { tsconfigPath: "tsconfig.build.json" },
   // Native modules must stay external to the server bundle.
-  serverExternalPackages: ["better-sqlite3", "@duckdb/node-api"],
+  serverExternalPackages: ["better-sqlite3", "@duckdb/node-api", "sharp"],
   // next dev would otherwise write its own block into AGENTS.md whenever it
   // detects a coding agent; the brief in that file is maintained by hand.
   agentRules: false,

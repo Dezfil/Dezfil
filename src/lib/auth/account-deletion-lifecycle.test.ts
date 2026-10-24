@@ -27,7 +27,7 @@ beforeEach(() => {
   actor = authenticateSession(issueSession(getAccount("admin")!, db, Date.now()).secret);
   createMap(testAccountScope(undefined, "target"), "Same");
   createMap(testAccountScope(undefined, "control"), "Same");
-  db.exec("INSERT INTO projects(id,name,owner_id,created_at,updated_at) VALUES('target-project','Same','target','time','time'); UPDATE maps SET project_id='target-project' WHERE owner_id='control'; UPDATE accounts SET status='deactivated',last_sign_in_at='time' WHERE id='target'");
+  db.exec("INSERT INTO projects(id,name,owner_id,created_at,updated_at) VALUES('target-project','Same','target','time','time'); UPDATE maps SET project_id='target-project' WHERE owner_id='control'; UPDATE accounts SET status='deactivated',last_sign_in_at='time' WHERE id='target'; UPDATE accounts SET picture_version=id||'-picture' WHERE id IN ('target','control')");
   mkdirSync(path.join(directory, "tables"));
   for (const id of ["target", "control"]) { registerAccountFile(id, `tables/${id}.parquet`); writeFileSync(path.join(directory, `tables/${id}.parquet`), `${id}-file`); }
 });
@@ -67,7 +67,8 @@ it.each(["credentials", "rows", "projects", "files", "derivatives", "memory", "p
   expect(readFileSync(path.join(directory, "tables/control.parquet"), "utf8")).toBe("control-file");
   expect(readdirSync(path.join(directory, "tables"))).toEqual(["control.parquet"]);
   expect(() => journals.readDeletionJournal(accepted.id)).toThrow();
-  expect(metadataDb().prepare("SELECT * FROM accounts WHERE id='target'").get()).toEqual({ id: "target", sql_name: "target", status: "deleted", name: null, email: null, password_hash: null, is_admin: null, created_at: null, updated_at: null, last_sign_in_at: null });
+  expect(metadataDb().prepare("SELECT * FROM accounts WHERE id='target'").get()).toEqual({ id: "target", sql_name: "target", status: "deleted", name: null, email: null, password_hash: null, is_admin: null, created_at: null, updated_at: null, last_sign_in_at: null, picture_version: null });
+  expect(getAccount("control")?.pictureVersion).toBe("control-picture");
 });
 it("recovers acceptance and removes readable unaccepted records and partial writes", async () => {
   const accepted = acceptAccountDeletion(actor!, "target", () => {});

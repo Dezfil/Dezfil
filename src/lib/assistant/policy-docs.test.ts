@@ -26,8 +26,10 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * three: add, offer or hide, remove. Templates add list, read one,
  * refresh, fetch, copy and the removal of the downloads.
  * Server map pictures add one refresh operation; the retired upload stays excluded.
- * Renderer availability and refresh's waiting-only response update output captures without changing the count. */
-const GENERATED_TOOLS = 157;
+ * Renderer availability and refresh's waiting-only response update output captures without changing the count.
+ * Profile pictures add the read of a person's picture, setting and removing
+ * one's own, and an admin's removal of another's. */
+const GENERATED_TOOLS = 161;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

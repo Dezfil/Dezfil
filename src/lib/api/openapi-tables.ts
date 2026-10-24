@@ -281,7 +281,7 @@ export const TABLE_SCHEMAS = {
           "apart. Present on every listing and read.",
       },
       owner: {
-        $ref: "#/components/schemas/ResourceOwner",
+        $ref: "#/components/schemas/Person",
         description: "The dataset's owner. Present on every listing and read.",
       },
       sourceFilename: {

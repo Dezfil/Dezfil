@@ -33,7 +33,9 @@ beforeEach(async () => {
   vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit = {}) => url === "/api/config"
     ? Promise.resolve(Response.json(config.body, { status: config.status }))
     : new Promise<Response>(resolve => {
-      calls.push({ url, method: init.method ?? "GET", body: init.body ? JSON.parse(String(init.body)) : {},
+      const sent = init.body instanceof FormData ? init.body.get("file") : null;
+      calls.push({ url, method: init.method ?? "GET",
+        body: sent instanceof File ? { file: sent.name } : init.body ? JSON.parse(String(init.body)) : {},
         answer: async (status, body) => { await act(async () => { resolve(Response.json(body, { status })); await new Promise(r => setTimeout(r, 0)); }); } });
     })));
   host = installDomHost();
@@ -69,6 +71,51 @@ async function save() {
   const form = container.querySelector("form")!;
   await act(async () => { form.dispatchEvent(new HostEvent("submit", { bubbles: true, cancelable: true })); });
 }
+
+/** A picture chosen in the card's hidden chooser, through its React handler. */
+async function choosePicture(name: string) {
+  const input = container.querySelector("input[data-picture-file]")!;
+  const key = Object.keys(input).find(k => k.startsWith("__reactProps$"))!;
+  const target = { files: [new File([new Uint8Array([1])], name, { type: "image/png" })], value: name };
+  await act(async () => (input as unknown as Record<string, { onChange: (e: unknown) => void }>)[key].onChange({ target }));
+}
+const picture = () => container.querySelector("[data-face]")?.querySelector("img")?.getAttribute("src") ?? null;
+
+describe("the Account card's picture", () => {
+  it("is kept apart from the typed fields: a change or a removal neither saves nor discards them, and Cancel leaves the picture", async () => {
+    await type("Display name", "Ada Lovelace");
+    await type("Email", "ada@lovelace.test");
+    await type("Current password to change email", "old secret");
+    await type("Current password", "typed current");
+    await type("New password", "typed new password");
+    const typed = () => [field("Display name")!.value, field("Email")!.value, field("Current password to change email")!.value,
+      field("Current password")!.value, field("New password")!.value];
+    const pending = ["Ada Lovelace", "ada@lovelace.test", "old secret", "typed current", "typed new password"];
+    await choosePicture("ada.png");
+    await calls[0].answer(200, { account: { ...ADA, pictureVersion: "p1" } });
+    expect(picture()).toBe("/api/accounts/ada_okafor/picture?v=p1");
+    expect(typed()).toEqual(pending);
+    expect(buttons()).toEqual(expect.arrayContaining(["Save", "Cancel"]));
+    await act(async () => { button("Remove").click(); });
+    await calls[1].answer(200, { account: ADA });
+    expect(picture()).toBeNull();
+    expect(typed()).toEqual(pending);
+    await choosePicture("ada.webp");
+    await calls[2].answer(200, { account: { ...ADA, pictureVersion: "p2" } });
+    await act(async () => { button("Cancel").click(); });
+    expect(field("Display name")!.value).toBe("Ada Okafor");
+    expect(field("Email")!.value).toBe("ada@example.test");
+    expect(picture()).toBe("/api/accounts/ada_okafor/picture?v=p2");
+    expect(calls.map(call => [call.method, call.url])).toEqual([["PUT", "/api/account/picture"], ["DELETE", "/api/account/picture"], ["PUT", "/api/account/picture"]]);
+  });
+
+  it("stands above the fields, the initials the side menu draws in it", async () => {
+    const order = container.querySelectorAll("[id]").map(element => element.getAttribute("id"));
+    expect(order.indexOf("set-picture")).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf("set-picture")).toBeLessThan(order.indexOf("set-sql-name"));
+    expect(container.querySelector("[data-face]")?.textContent).toBe("AO");
+  });
+});
 
 describe("the Account card", () => {
   it("shows Save and Cancel only while a field differs from what was saved, and Cancel puts it back", async () => {

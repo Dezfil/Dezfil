@@ -8,7 +8,7 @@ interface OwnedFile { accountId: string; file: string; directory: boolean }
 const folder = () => path.join(dataDir(), "file-owners");
 function relative(file: string): string {
   const rel = path.relative(dataDir(), path.resolve(dataDir(), file));
-  if (!/^(tables|tmp|exports|tiles\/scratch)\/.+/.test(rel) || rel.split(path.sep).includes("..")) throw new Error("Invalid owned file location.");
+  if (!/^(tables|tmp|exports|tiles\/scratch|profile-pictures)\/.+/.test(rel) || rel.split(path.sep).includes("..")) throw new Error("Invalid owned file location.");
   return rel;
 }
 const digest = (file: string) => createHash("sha256").update(file).digest("hex");
@@ -18,7 +18,14 @@ const staged = (file: string) => file.startsWith(`exports${path.sep}`);
  * restart's recovery removes it with the export, whether or not the
  * export's bytes were ever written. */
 export const STAGED_EXPORT_RECORD = "export-";
-const recordName = (file: string) => (staged(file) ? STAGED_EXPORT_RECORD : "") + digest(file);
+/** The name a profile picture's record starts with, so a reader of names
+ * alone tells a picture's record from the rest, and with the current
+ * pictures' names, a replaced or unfinished picture's from a current one's. */
+export const PICTURE_RECORD = "picture-";
+const picture = (file: string) => file.startsWith(`profile-pictures${path.sep}`);
+const recordName = (file: string) => (staged(file) ? STAGED_EXPORT_RECORD : picture(file) ? PICTURE_RECORD : "") + digest(file);
+/** The name of the record kept for the file at `rel` under the data folder. */
+export const ownershipRecordName = (rel: string) => `${recordName(rel)}.json`;
 const recordPath = (file: string) => path.join(folder(), `${recordName(file)}.json`);
 /** Where a staged export's record was written before its name carried its
  * place: still read and removed, so a record left by an earlier run goes. */

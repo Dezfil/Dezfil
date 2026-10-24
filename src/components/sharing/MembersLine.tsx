@@ -1,6 +1,7 @@
 "use client";
 
 import { PeopleIcon } from "../ui/icons";
+import { Face } from "../people/Face";
 import { initials } from "./people";
 import { membersLine, orderedPeople } from "./share-model";
 import { useProjectPeople } from "./use-project-people";
@@ -32,9 +33,7 @@ export function MembersLine({ projectId, onOpen }: { projectId: string; onOpen: 
     <button type="button" className={styles.members} data-members-line="shared" onClick={onOpen}>
       <span className={styles.faces} aria-hidden>
         {others.slice(0, 3).map((p) => (
-          <span key={p.sqlName} className={styles.face} data-off={p.deactivated || undefined}>
-            {initials(p.name)}
-          </span>
+          <Face key={p.sqlName} person={p} letters={initials(p.name)} className={styles.face} data-off={p.deactivated || undefined} />
         ))}
       </span>
       <span>{line}</span>

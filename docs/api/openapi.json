@@ -12164,7 +12164,7 @@
     "/api/instance/storage": {
       "get": {
         "summary": "Read how the data folder is used",
-        "description": "Requires a current admin through cookie or bearer authentication, rechecked on every call. A cookie request must show it comes from this instance's own page, by an Origin that is this instance's, Sec-Fetch-Site same-origin or the X-Dezfil-Account header its pages send; one with none of them, or with another origin's Origin or a cross-site or same-site Sec-Fetch-Site, is refused. An admin bearer token calls directly. Responses, including refusals, are private, no-store. Walks the data folder and answers, for each kind of file, the bytes its files take and how many there are: tables (dataset files the metadata registers), tile_archives (archives with a tile record and what they were built from), service_caches (the three caches' answers), thumbnails (map card images), templates (downloaded templates, and the copies of an installed template's data the query engine reads), metadata_database (the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives no layer uses, unfinished thumbnail writes; it includes work in progress) and other (the rest, such as the key file and the server's records); with every kind together and the free and total space on the folder's volume. Each file counts once, however many names it has. It takes names and sizes, which files the metadata references and which the installed templates' records name, opening no other file and following no link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a Clear ends a walk under way at once, the reads already joined to it getting what it had counted, and a read after the Clear never gets a walk begun before it but joins one fresh walk. Every read's deadline is 10 seconds from its asking: the walk that answers it cuts every filesystem call and the disk's statistics by then and stops the reference read at the first of its slices of 200 rows to end past it. A walk stopped by its deadline or ended by a Clear gives each kind it had not finished as at least what it counted, finished false, and the disk as null when its statistics had not come. It changes nothing and sends nothing outside this server. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
+        "description": "Requires a current admin through cookie or bearer authentication, rechecked on every call. A cookie request must show it comes from this instance's own page, by an Origin that is this instance's, Sec-Fetch-Site same-origin or the X-Dezfil-Account header its pages send; one with none of them, or with another origin's Origin or a cross-site or same-site Sec-Fetch-Site, is refused. An admin bearer token calls directly. Responses, including refusals, are private, no-store. Walks the data folder and answers, for each kind of file, the bytes its files take and how many there are: tables (dataset files the metadata registers), tile_archives (archives with a tile record and what they were built from), service_caches (the three caches' answers), thumbnails (map card images), profile_pictures (each person's current picture), templates (downloaded templates, and the copies of an installed template's data the query engine reads), metadata_database (the database and its journal files), leftover_files (what the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives no layer uses, unfinished thumbnail writes, pictures that are no one's current picture; it includes work in progress) and other (the rest, such as the key file and the server's records); with every kind together and the free and total space on the folder's volume. Each file counts once, however many names it has. It takes names and sizes, which files the metadata references and which the installed templates' records name, opening no other file and following no link, and answers no name, owner, account, map, dataset, path or file name. One walk runs at a time: a read during a walk gets that walk's answer, and a read within 30 seconds of it gets the same answer, unless a service cache was cleared since the walk began: a Clear ends a walk under way at once, the reads already joined to it getting what it had counted, and a read after the Clear never gets a walk begun before it but joins one fresh walk. Every read's deadline is 10 seconds from its asking: the walk that answers it cuts every filesystem call and the disk's statistics by then and stops the reference read at the first of its slices of 200 rows to end past it. A walk stopped by its deadline or ended by a Clear gives each kind it had not finished as at least what it counted, finished false, and the disk as null when its statistics had not come. It changes nothing and sends nothing outside this server. The embedded assistant asks for confirmation before calling; SQL and workflow assistants refuse this operation. MCP advertises that policy and adds no confirmation step.",
         "tags": [
           "System"
         ],
@@ -40627,7 +40627,7 @@
     "/api/accounts/search": {
       "get": {
         "summary": "Find people to share with",
-        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The directory of active people, for sharing a project: any signed-in account can find other active accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to account reads being admin-only, and it is minimal: each result carries the person's display name and SQL name and nothing else, never an email, an admin flag or an account identity. Deactivated accounts and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers twice. An empty query answers nobody; at most 20 people answer, an exact email match first, then by display name. The SQL name is how the sharing operations name the person. Managing accounts stays admin-only.",
+        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. The directory of active people, for sharing a project: any signed-in account can find other active accounts by any part of their display name (case-insensitive, the query trimmed) or by their exact email (trimmed, case-insensitive), never by part of one. This is the one deliberate exception to account reads being admin-only, and it is minimal: each result carries the person's display name, SQL name and, while they have a picture, its pictureVersion, and nothing else, never an email, an admin flag or an account identity. Deactivated accounts and invitations not yet redeemed are never offered, nor the caller's own account, and nobody answers twice. An empty query answers nobody; at most 20 people answer, an exact email match first, then by display name. The SQL name is how the sharing operations name the person. Managing accounts stays admin-only.",
         "tags": [
           "Accounts"
         ],
@@ -40853,6 +40853,1044 @@
           "writes": []
         },
         "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
+    "/api/account/picture": {
+      "put": {
+        "summary": "Set your picture",
+        "description": "Requires a current cookie session or bearer token; a cookie-signed request needs the instance's Origin. Responses, including refusals, are private, no-store. It acts on the signed-in account's own picture, never another's, and an account whose deletion has been accepted is refused before anything is read. multipart/form-data with exactly one file part named `file`: a still JPEG, PNG or WebP image, recognised by its content whatever its name or declared type. The file is at most 10,485,760 bytes (10 MB, a fixed limit) and the whole body at most 65,536 bytes more, counted as they arrive whatever length is declared: one byte over answers 413 upload_too_large. An SVG, a GIF, an animated image, or one that is damaged or incomplete, answers 415 unsupported_image; more than 64 million pixels, read from the header before any pixel is decoded, 413 image_too_large. The body has 120 seconds to arrive: one still arriving then answers 408 data_processing_timeout, and one that sends no body byte for 60 seconds answers 408 upload_stalled. The first refusal is delivered without waiting for the rest of the body, and the refused connection closes within five seconds. A caller who leaves before the body is received changes nothing. Processing takes at most 20 seconds, waiting included, and runs one picture at a time on the instance with eight more waiting; past that, 503 operation_queue_full. The server keeps its own copy: turned the way its orientation says, the largest centred square scaled to 320 pixels, a WebP with transparency kept and every embedded record dropped. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. A refusal or failure leaves the current picture. Answers the account, its new pictureVersion included. Through MCP the file travels as base64 in content_base64; a file of the full 10,485,760 bytes fits the 16,777,216-byte envelope.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "set_account_picture",
+        "x-tool-input": {
+          "multipart": {
+            "field": "file",
+            "filename": "filename",
+            "content": "content_base64"
+          }
+        },
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            }
+          ]
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "repeatability": "Identical calls may update retained working state."
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Set your picture"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "A still JPEG, PNG or WebP image of at most 10,485,760 bytes. Through MCP the file travels as base64 in content_base64; a file of the full 10,485,760 bytes fits the 16,777,216-byte envelope."
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Remove your picture",
+        "description": "Requires a current cookie session or bearer token; a cookie-signed request needs the instance's Origin. Responses, including refusals, are private, no-store. It acts on the signed-in account's own picture, never another's, and an account whose deletion has been accepted is refused before anything is read. Your initials stand in again; removing when there is no picture changes nothing. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. Answers the account, without a pictureVersion.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "remove_account_picture",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            }
+          ]
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Removed your picture"
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
+    "/api/users/{id}/picture": {
+      "delete": {
+        "summary": "Remove a person's picture",
+        "description": "Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Removes the account's picture, a deactivated account's included; its initials stand in again, and removing when there is none changes nothing. An admin removes a picture and never sets one: no operation sets another account's picture. An account whose deletion has been accepted, or an unknown one, answers 404 not_found, and a caller who is not an admin, or no longer one when the change commits, 403 forbidden; either way the picture stays. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. Answers the account.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "remove_user_picture",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true,
+              "argument": "id"
+            }
+          ]
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-confirmation": {
+          "target": "Remove the picture of {target}?",
+          "consequence": "Their initials show in its place. They can set a new picture themselves.",
+          "subject": {
+            "path": "/api/users",
+            "argument": "id",
+            "name": "name",
+            "collection": "users",
+            "identity": "id"
+          }
+        },
+        "x-display": {
+          "verb": "Removed the picture of {subject}",
+          "subject": {
+            "resource": "accounts",
+            "argument": "id"
+          }
+        },
+        "x-confirm": true,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The account's id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The account's id."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
+    "/api/accounts/{sqlName}/picture": {
+      "get": {
+        "summary": "Read a person's picture",
+        "description": "Requires a current cookie session or bearer token. Any active account reads any person's current picture, with or without a shared project: the people the account, Users, directory, project people and owner reads name, a deactivated person included. The picture is a WebP, 320 pixels square, the server's own copy with no embedded records. `v` names the version a read gave: the current version is served, an earlier one answers 404, and without `v` the current picture is served. A person with no picture, under deletion or unknown answers the same 404. Every answer carries an entity tag of its bytes and `Cache-Control: private, no-cache`, so a client may keep it but asks again before each use; a request whose `If-None-Match` names the current tag is answered 304 without the bytes, after the same checks as a full read. Refusals are private, no-store. Agents receive the image as an attachment.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "read_account_picture",
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "x-mcp": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history",
+          "binary": {
+            "representation": "attachment",
+            "nativeImage": true
+          }
+        },
+        "x-display": {
+          "verb": "Read the picture of {arg.sqlName}"
+        },
+        "parameters": [
+          {
+            "name": "sqlName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The person's SQL name."
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The picture version a read gave (pictureVersion); absent reads the current picture."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The picture, as an attachment.",
+            "headers": {
+              "ETag": {
+                "description": "The entity tag of these bytes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "private, no-cache",
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              },
+              "Content-Disposition": {
+                "description": "attachment, named <sqlName>.webp",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The picture is unchanged: its entity tag matches If-None-Match."
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No picture at this address: none, an earlier version, a person under deletion or nobody by that SQL name (not_found).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "head": {
+        "summary": "Read response headers",
+        "description": "Automatic HEAD uses GET with no response body.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [
+          {
+            "name": "sqlName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The person's SQL name."
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The picture version a read gave (pictureVersion); absent reads the current picture."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The picture, as an attachment.",
+            "headers": {
+              "ETag": {
+                "description": "The entity tag of these bytes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "private, no-cache",
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              },
+              "Content-Disposition": {
+                "description": "attachment, named <sqlName>.webp",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The picture is unchanged: its entity tag matches If-None-Match."
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No picture at this address: none, an earlier version, a person under deletion or nobody by that SQL name (not_found)."
+          },
+          "405": {
+            "description": "Unsupported method. HEAD has no response body.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [
+          {
+            "name": "sqlName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The person's SQL name."
+          }
+        ],
         "responses": {
           "204": {
             "description": "Allowed methods.",
@@ -59028,6 +60066,10 @@
           "isAdmin": {
             "type": "boolean"
           },
+          "pictureVersion": {
+            "type": "string",
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in. GET /api/accounts/{sqlName}/picture?v=<version> reads it."
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -59143,6 +60185,27 @@
           "signedOut"
         ],
         "additionalProperties": false
+      },
+      "Person": {
+        "type": "object",
+        "description": "A person a resource names where the app draws their face, such as its owner. The display name, the SQL name and the picture's version, never an email.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sqlName": {
+            "type": "string",
+            "description": "The person's SQL name, the qualifier other people's SQL uses for their datasets."
+          },
+          "pictureVersion": {
+            "type": "string",
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in. GET /api/accounts/{sqlName}/picture?v=<version> reads it."
+          }
+        },
+        "required": [
+          "name",
+          "sqlName"
+        ]
       },
       "WrittenIn": {
         "type": "object",
@@ -75302,6 +76365,32 @@
                 "additionalProperties": false,
                 "description": "Map card images and their evidence."
               },
+              "profile_pictures": {
+                "type": "object",
+                "properties": {
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The bytes the files take."
+                  },
+                  "files": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "How many files."
+                  },
+                  "finished": {
+                    "type": "boolean",
+                    "description": "False when the walk stopped at its limit before it had seen every such file: the bytes and files are then at least these."
+                  }
+                },
+                "required": [
+                  "bytes",
+                  "files",
+                  "finished"
+                ],
+                "additionalProperties": false,
+                "description": "Each person's current picture."
+              },
               "templates": {
                 "type": "object",
                 "properties": {
@@ -75378,7 +76467,7 @@
                   "finished"
                 ],
                 "additionalProperties": false,
-                "description": "What the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives no layer uses and their evidence, unfinished thumbnail writes. It includes work in progress."
+                "description": "What the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives no layer uses and their evidence, unfinished thumbnail writes, pictures that are no one's current picture with their ownership records. It includes work in progress."
               },
               "other": {
                 "type": "object",
@@ -75412,6 +76501,7 @@
               "tile_archives",
               "service_caches",
               "thumbnails",
+              "profile_pictures",
               "templates",
               "metadata_database",
               "leftover_files",
@@ -75478,7 +76568,7 @@
           "disk"
         ],
         "additionalProperties": false,
-        "description": "What the data folder holds, by kind (tables, tile_archives, service_caches, thumbnails, templates, metadata_database, leftover_files, other). Never a name, an owner, an account, a map, a dataset, a path or a file name."
+        "description": "What the data folder holds, by kind (tables, tile_archives, service_caches, thumbnails, profile_pictures, templates, metadata_database, leftover_files, other). Never a name, an owner, an account, a map, a dataset, a path or a file name."
       },
       "PartTestAnswer": {
         "description": "A part's Test: passed, with the milliseconds the check took, or failed with one reason: not_found (a program, or the spatial extension, is not where its setting points), busy (the part is busy with other work), timed_out (no answer within the Test's own limit) or failed. Never a path, a program's output or an error's words.",
@@ -77207,6 +78297,8 @@
                   "geometry_choice_invalid",
                   "geometry_in_flight",
                   "unsupported_format",
+                  "unsupported_image",
+                  "image_too_large",
                   "upload_too_large",
                   "archive_too_large",
                   "remote_fetch_failed",
@@ -77440,7 +78532,7 @@
             "description": "The name the caller would type: the plain name for the caller's own dataset, <sql name>.<name> for another owner's."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner"
+            "$ref": "#/components/schemas/Person"
           },
           "owned": {
             "type": "boolean",
@@ -79392,7 +80484,7 @@
             "description": "The project this workflow is in: on the caller's own workflow always, a project they no longer reach included (they withdraw it with PATCH /api/projects/{id}/members), and on anyone else's the project through which the caller reaches it; null = in no project."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The workflow's owner."
           },
           "home": {
@@ -80885,7 +81977,7 @@
             "description": "The name the caller would type for this dataset: its plain name when it is the caller's own, <sql name>.<name> when it is another owner's, which tells two same-named datasets apart. Present on every listing and read."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The dataset's owner. Present on every listing and read."
           },
           "sourceFilename": {
@@ -81740,7 +82832,7 @@
             "description": "The project this map is in: on the caller's own map always, a project they no longer reach included (they withdraw it with PATCH /api/projects/{id}/members), and on anyone else's the project through which the caller reaches it; null = in no project."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The map's owner."
           },
           "home": {
@@ -82083,7 +83175,7 @@
             "description": "False when a member dataset's size is unknown — the sum is partial and says so."
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The project's owner."
           },
           "role": {
@@ -82308,6 +83400,10 @@
             "type": "string",
             "description": "The person's SQL name, which names them on every sharing operation."
           },
+          "pictureVersion": {
+            "type": "string",
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in. GET /api/accounts/{sqlName}/picture?v=<version> reads it."
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -82331,7 +83427,7 @@
       "DirectoryPerson": {
         "type": "object",
         "additionalProperties": false,
-        "description": "A person the directory offers: their display name and SQL name, nothing else.",
+        "description": "A person the directory offers: their display name, their SQL name and their picture's version, nothing else.",
         "properties": {
           "name": {
             "type": "string",
@@ -82340,6 +83436,10 @@
           "sqlName": {
             "type": "string",
             "description": "The person's SQL name, which names them on every sharing operation."
+          },
+          "pictureVersion": {
+            "type": "string",
+            "description": "The version of the person's picture, present while they have one and new whenever it is replaced; absent while they have none, when their initials stand in. GET /api/accounts/{sqlName}/picture?v=<version> reads it."
           }
         },
         "required": [
@@ -82386,7 +83486,7 @@
             "type": "string"
           },
           "owner": {
-            "$ref": "#/components/schemas/ResourceOwner",
+            "$ref": "#/components/schemas/Person",
             "description": "The new owner."
           }
         },
@@ -84282,7 +85382,7 @@
                   "description": "The name the caller would type: the plain name for the caller's own dataset, <sql name>.<name> for another owner's."
                 },
                 "owner": {
-                  "$ref": "#/components/schemas/ResourceOwner"
+                  "$ref": "#/components/schemas/Person"
                 },
                 "projectIds": {
                   "type": "array",
@@ -85393,6 +86493,8 @@
               "geometry_choice_invalid",
               "geometry_in_flight",
               "unsupported_format",
+              "unsupported_image",
+              "image_too_large",
               "upload_too_large",
               "archive_too_large",
               "remote_fetch_failed",
@@ -85560,7 +86662,9 @@
     "geometry_choice_invalid": "The geometry choice cannot be applied. The message explains the projection, source or validator issue.",
     "geometry_in_flight": "A geometry edit or refresh is already running for this dataset or URL import group.",
     "unsupported_format": "The uploaded file type is not one of the supported formats.",
-    "upload_too_large": "The upload exceeds the configured size cap.",
+    "unsupported_image": "The picture is not a still JPEG, PNG or WebP image: another kind, an animated image, or one that is damaged or incomplete. Nothing changed.",
+    "image_too_large": "The picture has more pixels than the fixed limit of 64 million, read from its header before any pixel is decoded. Nothing changed.",
+    "upload_too_large": "The upload exceeds its size cap: the configured upload cap, or a picture's fixed 10 MB.",
     "archive_too_large": "The archive's unpacked content exceeds the configured upload size cap.",
     "remote_fetch_failed": "The remote file could not be fetched (unreachable, denied, or missing).",
     "remote_fetch_abandoned": "The outbound request was abandoned before it finished, because whoever asked for it stopped waiting.",
@@ -85588,7 +86692,7 @@
     "sql_error": "The SQL failed to parse or execute.",
     "query_timeout": "The query exceeded the configured timeout.",
     "engine_memory_exceeded": "Trusted data work exceeded its shared memory or scratch budget. Reduce the work, or raise DEZFIL_TRUSTED_MEMORY_MB and restart.",
-    "data_processing_timeout": "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work.",
+    "data_processing_timeout": "Data processing exceeded its admitted time limit. An admin can change Data processing time limit for new work; a picture's limits are fixed.",
     "request_timeout": "The request body was not received within 300 s.",
     "upload_stalled": "The upload sent no body bytes for 60 seconds. Retry the upload.",
     "render_bytes_exceeded": "The features to draw exceed the configured byte limit.",

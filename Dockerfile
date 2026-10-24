@@ -86,6 +86,13 @@ COPY --from=build --chown=node:node /app/node_modules/@duckdb ./node_modules/@du
 COPY --from=build --chown=node:node /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
 COPY --from=build --chown=node:node /app/node_modules/bindings ./node_modules/bindings
 COPY --from=build --chown=node:node /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
+# Profile pictures are decoded and re-encoded by sharp: its package, the
+# binary and libvips of the image's own architecture under @img, and the two
+# packages its JavaScript requires, whole.
+COPY --from=build --chown=node:node /app/node_modules/sharp ./node_modules/sharp
+COPY --from=build --chown=node:node /app/node_modules/@img ./node_modules/@img
+COPY --from=build --chown=node:node /app/node_modules/detect-libc ./node_modules/detect-libc
+COPY --from=build --chown=node:node /app/node_modules/semver ./node_modules/semver
 
 USER node
 EXPOSE 3000

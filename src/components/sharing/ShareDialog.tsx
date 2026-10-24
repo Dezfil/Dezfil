@@ -6,6 +6,7 @@ import { Dialog } from "../ui/Dialog";
 import { ErrorNote } from "../ui/ErrorNote";
 import { CheckIcon, ChevronIcon, PlugIcon, XIcon } from "../ui/icons";
 import { Menu, MenuItem } from "../ui/Menu";
+import { Face } from "../people/Face";
 import { initials, type PersonLabel, type ProjectPersonWire } from "./people";
 import { findPeople, readPeople, removePerson, setRole, transferProject } from "./share-client";
 import {
@@ -243,9 +244,7 @@ export function ShareDialog({
           <label className={styles.pick}>
             {picked.map((person) => (
               <span key={person.sqlName} className={styles.token} data-picked={person.sqlName}>
-                <span className={styles.avatar} aria-hidden>
-                  {initials(person.name)}
-                </span>
+                <Face person={person} letters={initials(person.name)} className={styles.avatar} />
                 {person.name}
                 <button
                   type="button"
@@ -423,7 +422,7 @@ export function ShareDialog({
   );
 }
 
-/** A person as the Users ledger draws one: initials, the name, the SQL
+/** A person as the Users ledger draws one: their face, the name, the SQL
  * name in mono beneath. */
 function Who({
   person,
@@ -438,9 +437,7 @@ function Who({
 }) {
   return (
     <span className={styles.who} data-small={small || undefined}>
-      <span className={styles.avatar} aria-hidden>
-        {initials(person.name)}
-      </span>
+      <Face person={person} letters={initials(person.name)} className={styles.avatar} />
       <span className={styles.identity}>
         <b>
           <span className={styles.name}>{person.name}</span>

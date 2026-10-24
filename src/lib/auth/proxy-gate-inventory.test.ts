@@ -21,6 +21,7 @@ const publicOperations = new Set([
   "GET /api/published/{token}/basemaps/satellite", "GET /api/published/{token}/basemaps/satellite/tiles/{z}/{x}/{y}",
 ]);
 const routes = implementedRoutes();
+const KEPT = ["/api/maps/{id}/thumbnail", "/api/accounts/{sqlName}/picture"];
 const protectedRoutes = routes.filter(route => !publicOperations.has(`${route.method.toUpperCase()} ${route.path}`));
 const input = (pathname: string, method = "GET", headers: Record<string, string> = {}) => new NextRequest(socketRequest(new Request(origin + pathname, { method, headers: { origin, ...headers } })));
 beforeEach(() => { db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); });
@@ -124,10 +125,11 @@ it.each(["cookie", "token"])("admits a current %s on every protected operation w
   for (const route of protectedRoutes) {
     const response = gateRequest(input(route.path.replaceAll(/\{[^}]+\}/g, "fixture"), route.method.toUpperCase(), headers));
     expect(response.headers.get("x-middleware-next"), route.path).toBe("1");
-    // A map's picture alone is left to its route, which lets the browser
-    // keep it and revalidate it; every other answer is never kept.
-    const revalidated = route.method === "get" && route.path === "/api/maps/{id}/thumbnail";
+    // A map's picture and a person's are left to their routes, which let
+    // the browser keep them and revalidate them; every other answer is
+    // never kept.
+    const revalidated = route.method === "get" && KEPT.includes(route.path);
     expect(response.headers.get("cache-control"), route.path).toBe(revalidated ? null : "private, no-store");
   }
-  expect(protectedRoutes.some(route => route.method === "get" && route.path === "/api/maps/{id}/thumbnail")).toBe(true);
+  for (const path of KEPT) expect(protectedRoutes.some(route => route.method === "get" && route.path === path), path).toBe(true);
 });

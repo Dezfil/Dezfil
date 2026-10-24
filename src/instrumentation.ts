@@ -38,6 +38,11 @@ export async function register() {
     // or an abandoned retirement — are permanent without this.
     const { sweepTableArtifacts } = await import("@/lib/ingest/sweep");
     await sweepTableArtifacts();
+    // A profile picture file is live only while its account's row names its
+    // version; a replaced one whose removal failed, a partial write and a
+    // file whose commit never happened go here.
+    const { sweepProfilePictures } = await import("@/lib/profile-pictures/store");
+    await sweepProfilePictures();
     // The run lane is in-process, so a stopped process leaves job rows still
     // claiming to be queued or running with nothing behind them. They are
     // settled here, before anything can read them; none is re-executed. A

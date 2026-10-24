@@ -1,6 +1,6 @@
 import type { AccountScope } from "@/lib/auth/scope";
 import { canReach, reachableDatasetIds } from "@/lib/auth/reach";
-import type { AccountLabel } from "@/lib/metadata/accounts";
+import type { PersonLabel } from "@/lib/metadata/accounts";
 import type { DataTable } from "@/lib/metadata/tables";
 import type { ReachedTable } from "@/lib/metadata/owned-tables";
 
@@ -13,7 +13,7 @@ import type { ReachedTable } from "@/lib/metadata/owned-tables";
  * special-cases them.
  */
 export interface DatasetPresence {
-  owner: AccountLabel;
+  owner: PersonLabel;
   qualifiedName: string;
 }
 

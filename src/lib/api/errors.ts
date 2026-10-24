@@ -12,6 +12,10 @@ export type ErrorCode =
   | "picture_upload_retired"
   | "project_owner_cannot_leave"
   | "unsupported_format"
+  /** A picture that is not a still JPEG, PNG or WebP image, or is damaged. */
+  | "unsupported_image"
+  /** A picture over its pixel bound, refused from its header. */
+  | "image_too_large"
   | "upload_too_large"
   | "archive_too_large"
   | "remote_fetch_failed"

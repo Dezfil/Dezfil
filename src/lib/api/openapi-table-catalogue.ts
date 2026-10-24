@@ -35,7 +35,7 @@ export const TABLE_CATALOGUE_SCHEMAS = {
           properties: {
             id: { type: "string" }, name: { type: "string" },
             qualifiedName: { type: "string", description: "The name the caller would type: the plain name for the caller's own dataset, <sql name>.<name> for another owner's." },
-            owner: { $ref: "#/components/schemas/ResourceOwner" },
+            owner: { $ref: "#/components/schemas/Person" },
             projectIds: { type: "array", items: { type: "string" }, description: "The projects this dataset is filed in that the caller owns or belongs to, and for the caller's own dataset every project it is filed in, one they no longer reach included (they withdraw it with PATCH /api/projects/{id}/members); never another person's membership in a project the caller does not reach. Identities only; the projects listing names those the caller reaches." },
             rowCount: { type: "integer" },
             geometryColumn: { type: ["string", "null"] }, geometryType: { type: ["string", "null"] }, crsAssumed: { type: "boolean" },

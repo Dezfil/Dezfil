@@ -112,7 +112,9 @@ Agents can read the same list from the [API description](openapi.json):
 | `run_in_flight` | 409 | The workflow is already running, and a workflow runs one run at a time. | Wait for the run to finish, or cancel it, then start again. |
 | `refresh_in_flight` | 409 | A refresh of this dataset is already running. | Retry when it finishes. |
 | `request_body_too_large` | 413 | The body is over the operation's byte limit. | Send a smaller body. The [operation reference](https://dezfil.io/docs/api/reference/) gives each operation's limit. |
-| `upload_too_large` | 413 | The file is over the instance's largest upload. | Send a smaller file, or ask an admin to raise the limit. See [Limits](limits.md). |
+| `upload_too_large` | 413 | The file is over the instance's largest upload, or a picture is over its fixed 10 MB. | Send a smaller file, or ask an admin to raise the limit. A picture's limit is fixed. See [Limits](limits.md). |
+| `unsupported_image` | 415 | The picture is not a still JPEG, PNG or WebP image: an SVG, a GIF, an animated image, or one damaged or incomplete. Nothing changed. | Choose a still JPEG, PNG or WebP image. |
+| `image_too_large` | 413 | The picture has more than 64 million pixels, a fixed limit. Nothing changed. | Choose a smaller image. |
 | `rate_limited` | 429 | Too many sign-in attempts or wrong current passwords, too many requests to a published map, or the OpenStreetMap service refused an import. | Wait, then retry. A sign-in or password refusal gives the wait in `retryAfter` and the `Retry-After` header. |
 
 ### SQL

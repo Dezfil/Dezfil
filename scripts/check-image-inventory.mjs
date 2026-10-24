@@ -10,8 +10,9 @@
 //
 // Usage:
 //   node scripts/check-image-inventory.mjs [image-tag]     # default dezfil:ci
-//   node scripts/check-image-inventory.mjs --listing FILE  # judge a saved listing
-//     (listing lines are "f /app/…" for files, "d /app/…" for directories)
+//   node scripts/check-image-inventory.mjs --listing FILE [--arch x64|arm64]
+//     # judge a saved listing (lines are "f /app/…" for files, "d /app/…"
+//     # for directories), for an image of that architecture (x64 by default)
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -48,6 +49,30 @@ export const RECOVERY_REPO_PATHS = [
 export function recoveryPresence(lines) {
   const present = new Set(lines.map(line => line.trim()));
   return RECOVERY_REPO_PATHS.filter(file => !present.has(`f /app/${file}`)).map(file => `MISSING: /app/${file}`);
+}
+/** The picture library ships for the image's own architecture: npm ci
+ * installs the build platform's binary and libvips, so an arm64 build
+ * carries arm64 packages and an x64 build x64 ones. The packages its
+ * JavaScript requires ship beside it. */
+export function imageArchitecture(dockerArchitecture) {
+  const arch = { amd64: "x64", arm64: "arm64" }[dockerArchitecture];
+  if (!arch) throw new Error(`Unsupported image architecture: ${dockerArchitecture}`);
+  return arch;
+}
+export function picturePresence(lines, arch) {
+  const files = lines.map(line => line.trim()).filter(line => line.startsWith("f ")).map(line => line.slice(2));
+  const required = [
+    { file: "/app/node_modules/sharp/package.json", what: "the picture library" },
+    { file: "/app/node_modules/detect-libc/package.json", what: "a package the picture library requires" },
+    { file: "/app/node_modules/semver/package.json", what: "a package the picture library requires" },
+    { file: "/app/node_modules/@img/colour/package.json", what: "a package the picture library requires" },
+    { pattern: new RegExp(`^/app/node_modules/@img/sharp-linux-${arch}/lib/sharp-linux-${arch}-[0-9.]+\\.node$`),
+      file: `/app/node_modules/@img/sharp-linux-${arch}/lib/sharp-linux-${arch}-<version>.node`, what: `the picture library's ${arch} binary` },
+    { pattern: new RegExp(`^/app/node_modules/@img/sharp-libvips-linux-${arch}/lib/libvips-cpp\\.so\\.[0-9.]+$`),
+      file: `/app/node_modules/@img/sharp-libvips-linux-${arch}/lib/libvips-cpp.so.<version>`, what: `libvips for ${arch}` },
+  ];
+  return required.filter(({ file, pattern }) => !files.some(present => pattern ? pattern.test(present) : present === file))
+    .map(({ file, what }) => `MISSING: ${file} — ${what}`);
 }
 export const MVT_WORKER_IMAGE_PATH = `/app/${MVT_WORKER_REPO_PATH}`;
 export const BROWSER_WORKER_REPO_PATHS = [
@@ -271,7 +296,11 @@ if (isMain) {
     args[0] === "--listing"
       ? readFileSync(args[1], "utf8").split("\n")
       : listingFromImage(args[0] ?? "dezfil:ci");
-  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing), ...templatesPresence(listing)];
+  // A saved listing names its architecture with --arch (x64 unless named).
+  const arch = args[0] === "--listing"
+    ? (args.includes("--arch") ? args[args.indexOf("--arch") + 1] : "x64")
+    : imageArchitecture(execFileSync("docker", ["image", "inspect", "--format", "{{.Architecture}}", args[0] ?? "dezfil:ci"], { encoding: "utf8" }).trim());
+  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing), ...templatesPresence(listing), ...picturePresence(listing, arch)];
   // Positive presence proofs: the browser and trust store required by image
   // export, plus the application-owned parser worker required by
   // every tiled map host. An allowlist only says a path MAY ship;

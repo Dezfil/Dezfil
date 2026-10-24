@@ -22,6 +22,7 @@ Admins manage every account on the **Users** page, in the side menu; members do 
 | Add a person | Click **Invite** |
 | Make someone an admin | Open their row and click **Make admin** |
 | Reset a forgotten password | Open their row and click **Reset password** |
+| Take away someone's picture | Open their row and click **Remove picture** |
 | Close an account and keep its work | Open their row and click **Deactivate** |
 | Delete an account and its work | Deactivate it, then click **Delete account** |
 | Get in when no admin can sign in | Run the [recovery script](#recover-the-admin-account) on the server |
@@ -72,6 +73,12 @@ The sign-in page tells people who forgot their password: **Forgot your password?
 
 To change your own password, see [Your settings](../use/settings.md#change-your-password).
 
+## Remove someone's picture
+
+1. Open the person's row and click **Remove picture**. You should see **Ana Diaz: picture removed**, and their initials.
+
+The button shows while the person has a picture, active or deactivated. Only they can set a new one, in [Your settings](../use/settings.md#set-your-picture).
+
 ## Deactivate or delete an account
 
 To close an account and keep its work:
@@ -79,7 +86,7 @@ To close an account and keep its work:
 1. Open the person's row and click **Deactivate**. You should see **Browser sessions will end and API tokens will lose access. Their work stays here.**
 2. Click **Deactivate** again. You should see **Ana Diaz: deactivated**, and the row under **Deactivated · 1**.
 
-The person cannot sign in. Their maps, workflows, datasets and projects stay where they are: people who reach them can open them and copy a map or workflow, but nobody can change them. Their published maps stay public.
+The person cannot sign in. Their picture stays, dimmed beside their name. Their maps, workflows, datasets and projects stay where they are: people who reach them can open them and copy a map or workflow, but nobody can change them. Their published maps stay public.
 
 To undo it, open the row and click **Reactivate**. Everything returns to the same person.
 

@@ -96,6 +96,28 @@ describe("the people marks", () => {
     expect(html).toContain("data-hint-ignore-text");
   });
 
+  it("draws the owner's picture in the pill by its version, over the first and last initials until it loads", () => {
+    const owner = { name: "Ada Byron Okafor", sqlName: "ada", pictureVersion: "p1" };
+    for (const placement of ["corner", "inline", "path"] as const) {
+      const html = renderToStaticMarkup(<OwnerPill owner={owner} placement={placement} />);
+      expect(html, placement).toContain('src="/api/accounts/ada/picture?v=p1"');
+      expect(html, placement).toContain(">AO<");
+      expect(html, placement).toContain('aria-label="Shared by Ada Byron Okafor"');
+    }
+  });
+
+  it("asks for no picture of an owner who has none", () => {
+    expect(renderToStaticMarkup(<OwnerPill owner={ada} placement="corner" />)).not.toContain("<img");
+    expect(renderToStaticMarkup(<RoleLine owner={ada} role="viewer" />)).not.toContain("<img");
+  });
+
+  it("draws the owner's picture on the role line by its version", () => {
+    const html = renderToStaticMarkup(<RoleLine owner={{ ...ada, pictureVersion: "p2" }} role="viewer" />);
+    expect(html).toContain('src="/api/accounts/ada/picture?v=p2"');
+    expect(html).toContain(">AO<");
+    expect(html).toContain("<b>Viewer</b> · Ada Okafor’s project");
+  });
+
   it("draws the shared project's role line with the owner's initials and whose project it is", () => {
     const html = renderToStaticMarkup(<RoleLine owner={ada} role="editor" />);
     expect(html).toContain('data-role-line="editor"');
