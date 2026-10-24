@@ -1,6 +1,6 @@
 {
-  "count": 160,
-  "overall": "19dd8308c27e5151f125c6715275a83c5c5995cf0544b484261b7544a1a1d2e9",
+  "count": 161,
+  "overall": "1ee59122beac77207204d8a073c7419f41afd5f55154917da9fc290ce00a7546",
   "tools": {
     "get_account": "f9449c42bd1f10ea7744e222cc62614d4a204d733c1126e6dcc7d958fb005cb1",
     "update_account": "9074c8b3e4d9dd0d5085ea1b419e99c713eb84f540cb0e0f6bf45ad5fde370de",
@@ -117,6 +117,7 @@
     "find_accounts": "252b49a9bec1c45012d2f508bf0a1d15e299d5077ec6af573818c490773fd815",
     "set_account_picture": "4216717fc100e5f78597c483d24225a4d554f67e4475255c3a03289020ac3f1a",
     "remove_account_picture": "aee00d6e70397b5c6aa67581680f696615a10e14d21e91936caae12299c12efe",
+    "remove_user_picture": "9f46b96b0275558a689408a00c6678c226b22a19e536b30097d79b98c87d5070",
     "read_account_picture": "3e637dad5f1618052682ce169e6133bb758eb2e2a4292281192eeedd0972b352",
     "sanitize_icon_svg": "0b3af14f4cc946727a128ffd8f3aa324c3e16cc7e377dcf854f30c77a3033f49",
     "inspect_basemap_style": "eea2e413e2f037981415ed02fe2558876c2803704ae31b8f2f9e2d4469ce1a15",

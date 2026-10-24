@@ -41322,6 +41322,267 @@
         ]
       }
     },
+    "/api/users/{id}/picture": {
+      "delete": {
+        "summary": "Remove a person's picture",
+        "description": "Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Removes the account's picture, a deactivated account's included; its initials stand in again, and removing when there is none changes nothing. An admin removes a picture and never sets one: no operation sets another account's picture. An account whose deletion has been accepted, or an unknown one, answers 404 not_found, and a caller who is not an admin, or no longer one when the change commits, 403 forbidden; either way the picture stays. Writes to one account's picture take effect in the order they were admitted: a change overtaken by one admitted after it changes nothing and answers the account as it stands. Answers the account.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "remove_user_picture",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true,
+              "argument": "id"
+            }
+          ]
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-confirmation": {
+          "target": "Remove the picture of {target}?",
+          "consequence": "Their initials show in its place. They can set a new picture themselves.",
+          "subject": {
+            "path": "/api/users",
+            "argument": "id",
+            "name": "name",
+            "collection": "users",
+            "identity": "id"
+          }
+        },
+        "x-display": {
+          "verb": "Removed the picture of {subject}",
+          "subject": {
+            "resource": "accounts",
+            "argument": "id"
+          }
+        },
+        "x-confirm": true,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The account's id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The account's id."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, OPTIONS"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
     "/api/accounts/{sqlName}/picture": {
       "get": {
         "summary": "Read a person's picture",

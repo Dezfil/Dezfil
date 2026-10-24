@@ -1,6 +1,6 @@
 {
-  "count": 160,
-  "overall": "3b7f255cb893cbb5fa9c2c537595c3f40ce57e8b0ddfee7792bbdf78c14cfe75",
+  "count": 161,
+  "overall": "a1047d83cb2efbc5c5c9227f4f512088a7dc053fb4f5bee3178c727ed2424913",
   "tools": {
     "get_account": "bdb509f7c0b7dd82b52b9cdd2aa6604f0c178f38eb22d8277fbab536ce86eb52",
     "update_account": "2038212b3d00690b323373e6bb3068c0427dc3515b32e614c31923adf0507f74",
@@ -117,6 +117,7 @@
     "find_accounts": "0ef7855652e34e6b2c0524448d49fdb52fefcde21a2ed5f1c9c9191343b4dc08",
     "set_account_picture": "c6e88aa8979f9429a89e08f5c5fd1d276e61d0537accc2df03ad6757c5880c28",
     "remove_account_picture": "a4ff3580e86f9ccf6f7da4db1404f3ed6a2b15e880b5c73dacce08e8d659af1c",
+    "remove_user_picture": "556b3a080d27098aab92f814a6aac8d9ce34160320ea9819304568ee823d9c47",
     "read_account_picture": "a0f28a14e45c11e2d005aa381547df125d5b6d6bdc3a7b3d6be440c1711949f4",
     "sanitize_icon_svg": "5beb6f11cd05f0091e892be75c87c869b7b95a027ada9f4de85ed3927f242f49",
     "inspect_basemap_style": "c99d024ef4727d7d5b2f34b69f7ff299aca86c0f93c645e0924d502d873077b8",

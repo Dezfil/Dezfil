@@ -80,6 +80,34 @@ export const PROFILE_PICTURE_PATHS = {
       security: AUTH_SECURITY,
     },
   },
+  "/api/users/{id}/picture": {
+    delete: {
+      ...op({
+        summary: "Remove a person's picture",
+        description:
+          "Requires a current admin account through a cookie session or bearer token. Cookie mutations " +
+          "require the same trusted Origin. Responses, including refusals, are private, no-store. Removes " +
+          "the account's picture, a deactivated account's included; its initials stand in again, and " +
+          "removing when there is none changes nothing. An admin removes a picture and never sets one: " +
+          "no operation sets another account's picture. An account whose deletion has been accepted, or " +
+          "an unknown one, answers 404 not_found, and a caller who is not an admin, or no longer one when " +
+          "the change commits, 403 forbidden; either way the picture stays. " + ORDER + "Answers the account.",
+        tag: "Accounts",
+        tool: "remove_user_picture", mcp: LOCAL_DELETE,
+        display: { verb: "Removed the picture of {subject}", subject: { resource: "accounts", argument: "id" } },
+        confirm: true,
+        confirmation: {
+          target: "Remove the picture of {target}?",
+          consequence: "Their initials show in its place. They can set a new picture themselves.",
+          subject: { path: "/api/users", argument: "id", name: "name", collection: "users", identity: "id" },
+        },
+        effects: writes(resource("accounts", "id")),
+        parameters: [pathParam("id", "The account's id.")],
+        responses: { "200": jsonOk("#/components/schemas/AccountSession"), ...writeErrors, "404": ERROR_RESPONSE },
+      }),
+      security: AUTH_SECURITY,
+    },
+  },
   "/api/accounts/{sqlName}/picture": {
     get: {
       ...op({

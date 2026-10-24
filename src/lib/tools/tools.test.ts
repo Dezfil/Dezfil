@@ -298,6 +298,8 @@ describe("tool parity", () => {
       "remove_recipe_step",
       // Removes every downloaded template from this server.
       "remove_template_downloads",
+      // Another person's picture, which only they can set again.
+      "remove_user_picture",
       "revoke_api_token",
       "revoke_inactive_publication",
       "set_basemap_style_offered",
