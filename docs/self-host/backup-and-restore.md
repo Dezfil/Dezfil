@@ -245,7 +245,7 @@ If it prints another name, start Dezfil again on `dezfil-data`. Do not create an
 
 :::tab[Docker]
 
-A new container gets none of the old one's `-e` variables: list them as [Set a variable](configuration.md#set-a-variable) shows, then start a new one with them, `DEZFIL_SECRET_KEY` too if you set one:
+A new container gets none of the old one's `-e` variables or its image's version: list them as [Set a variable](configuration.md#set-a-variable) shows, then start a new one with them, `DEZFIL_SECRET_KEY` too if you set one:
 
 ```sh title="Terminal"
 docker rm -f dezfil

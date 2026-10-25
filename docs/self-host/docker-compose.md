@@ -24,13 +24,13 @@ Turn the quick start into an instance that lasts: its keys in a file of their ow
 On a new machine, go on with step 2. If Dezfil already runs here, note its key and its variables before you replace anything:
 
 1. Sign in as an admin, open **Settings** > **System**, and find the **Encryption key** row in **Server settings**.
-2. List the container's variables:
+2. List the container's image and variables:
 
 ```sh title="Terminal"
-docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
+docker inspect --format '{{println .Config.Image}}{{range .Config.Env}}{{println .}}{{end}}' dezfil
 ```
 
-The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. The others are the ones you set, with `-e` or under `environment:`.
+The first line is the image. If it names a version, as in `ghcr.io/dezfil/dezfil:0.1.0`, give `image:` that name in step 2, so Dezfil keeps its version. The other lines hold the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`, and the ones you set, with `-e` or under `environment:`.
 
 The **Encryption key** row says which key to use in step 3:
 

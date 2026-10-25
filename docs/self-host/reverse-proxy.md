@@ -135,7 +135,7 @@ Start Dezfil again with that address in `DEZFIL_TRUSTED_PROXIES`:
 
 :::tab[Docker]
 
-List your variables first, as [Set a variable](configuration.md#set-a-variable) shows, and add them to the command, `DEZFIL_SECRET_KEY` too if you set one:
+Use your image and variables in the command, as [Set a variable](configuration.md#set-a-variable) lists them, `DEZFIL_SECRET_KEY` too if you set one:
 
 ```sh title="Terminal"
 docker rm -f dezfil
