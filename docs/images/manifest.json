@@ -378,10 +378,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-10-25",
       "width": 2880,
       "height": 1800,
-      "bytes": 162642
+      "bytes": 153500
     },
     {
       "file": "start/what-is-dezfil-workflow.webp",
@@ -389,10 +389,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-10-25",
       "width": 2880,
       "height": 1800,
-      "bytes": 138928
+      "bytes": 138374
     },
     {
       "file": "use/assistant-builder.dark.webp",
