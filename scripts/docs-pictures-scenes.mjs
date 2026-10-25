@@ -259,7 +259,7 @@ const MAIN_SCREEN_SCENES = [
   },
   {
     // The canvas of the copied Health access in Rwanda workflow, as it
-    // opens: three sources and six nodes.
+    // opens: three sources and six nodes in five note sections.
     id: "what-is-dezfil-workflow",
     file: "start/what-is-dezfil-workflow.webp",
     pages: ["docs/start/what-is-dezfil.md"],

@@ -1,13 +1,13 @@
 {
-  "id": "4591b45c-55c8-42e4-a580-4a0f9c0a52d6",
+  "id": "1c1baeee-01cb-4342-a222-2aa3787cd8a7",
   "name": "Health access in Rwanda",
   "origin": "workflow",
   "home": "dezfil_templates",
-  "createdAt": "2026-10-12T19:06:41.563Z",
-  "updatedAt": "2026-10-12T19:06:41.687Z",
+  "createdAt": "2026-10-25T12:10:11.193Z",
+  "updatedAt": "2026-10-25T12:10:11.325Z",
   "steps": [
     {
-      "id": "4825fada-2892-4125-8f42-a422bc9e1448",
+      "id": "91c836a2-1610-4b03-9dc6-94c997e00cee",
       "ordinal": 0,
       "operation": "centroid",
       "parameters": {
@@ -17,7 +17,7 @@
       "origin": null
     },
     {
-      "id": "f2bb771d-26fc-4113-aabc-2dcf0b4a0f19",
+      "id": "8ee0e18a-5641-4dbb-a8cb-575d89c62836",
       "ordinal": 1,
       "operation": "sql_step",
       "parameters": {
@@ -27,7 +27,7 @@
       "origin": null
     },
     {
-      "id": "81e238c3-d522-450c-ac7c-92920502b705",
+      "id": "652c01cc-35fc-400f-b9ff-3aebd2982b0d",
       "ordinal": 2,
       "operation": "filter_rows",
       "parameters": {
@@ -40,7 +40,7 @@
       "origin": null
     },
     {
-      "id": "7fc48482-42e4-49b1-ad4a-f8d877af067b",
+      "id": "2cb22c2f-3b1d-493b-aba1-b4e892c215ee",
       "ordinal": 3,
       "operation": "spatial_join",
       "parameters": {
@@ -59,7 +59,7 @@
       "origin": null
     },
     {
-      "id": "0ca05dce-7bfe-4d00-924f-f072163ff65f",
+      "id": "398de766-70cd-4286-a1e4-a1d7d9b953cb",
       "ordinal": 4,
       "operation": "spatial_join",
       "parameters": {
@@ -78,7 +78,7 @@
       "origin": null
     },
     {
-      "id": "87b680f1-289d-434e-bf95-b8acd85a62ca",
+      "id": "e15558e7-ed3b-496c-9904-0c13f160501e",
       "ordinal": 5,
       "operation": "sql_step",
       "parameters": {
@@ -89,72 +89,99 @@
     }
   ],
   "layout": {
-    "editRevision": "19e4fdfe5626b207cfc1c73c45bfd9b2",
-    "lastChangedAt": "2026-10-12T19:06:41.687Z",
+    "editRevision": "78db86e6c7fbb8d823b8e96a72ab9384",
+    "lastChangedAt": "2026-10-25T12:10:11.325Z",
     "lastChangedBy": {
       "name": "Dezfil templates",
       "sqlName": "dezfil_templates"
     },
     "steps": {
-      "0ca05dce-7bfe-4d00-924f-f072163ff65f": {
-        "x": 1140,
-        "y": 300
+      "2cb22c2f-3b1d-493b-aba1-b4e892c215ee": {
+        "x": 1136,
+        "y": 480
       },
-      "4825fada-2892-4125-8f42-a422bc9e1448": {
-        "x": 300,
-        "y": 40
+      "398de766-70cd-4286-a1e4-a1d7d9b953cb": {
+        "x": 1312,
+        "y": 480
       },
-      "7fc48482-42e4-49b1-ad4a-f8d877af067b": {
-        "x": 580,
-        "y": 420
+      "652c01cc-35fc-400f-b9ff-3aebd2982b0d": {
+        "x": 920,
+        "y": 176
       },
-      "81e238c3-d522-450c-ac7c-92920502b705": {
-        "x": 860,
-        "y": 150
+      "8ee0e18a-5641-4dbb-a8cb-575d89c62836": {
+        "x": 744,
+        "y": 176
       },
-      "87b680f1-289d-434e-bf95-b8acd85a62ca": {
-        "x": 1420,
-        "y": 300
+      "91c836a2-1610-4b03-9dc6-94c997e00cee": {
+        "x": 568,
+        "y": 328
       },
-      "f2bb771d-26fc-4113-aabc-2dcf0b4a0f19": {
-        "x": 580,
-        "y": 150
+      "e15558e7-ed3b-496c-9904-0c13f160501e": {
+        "x": 1552,
+        "y": 480
       }
     },
     "sources": {
       "districts": {
-        "x": 20,
+        "x": 328,
         "y": 480
       },
       "health_facilities": {
-        "x": 20,
-        "y": 260
+        "x": 328,
+        "y": 176
       },
       "population_cells": {
-        "x": 20,
-        "y": 40
+        "x": 328,
+        "y": 328
       }
     },
     "notes": [
       {
-        "id": "note-distance",
-        "x": 860,
+        "id": "note-about",
+        "x": 0,
         "y": 0,
-        "w": 300,
-        "h": 130,
+        "w": 256,
+        "h": 624,
+        "color": "blue",
+        "text": "---\nlabel: About\n---\n# Health access in Rwanda\n\nHow many people live more than 5 km from a public health facility, district by district? Five kilometres is about an hour's walk."
+      },
+      {
+        "id": "note-data",
+        "x": 280,
+        "y": 0,
+        "w": 240,
+        "h": 624,
+        "color": "green",
+        "text": "---\nlabel: Input data\n---\n## Three open datasets\n\nPeople per hexagon, public health facilities and district boundaries."
+      },
+      {
+        "id": "note-distance",
+        "x": 544,
+        "y": 0,
+        "w": 544,
+        "h": 624,
         "color": "yellow",
-        "text": "The distance is a straight line on the ellipsoid from the middle of each hexagon to the nearest facility, in metres. Roads and hills make the real journey longer."
+        "text": "---\nlabel: Step 1\n---\n## Distance to the nearest facility\n\nThe middle of each hexagon finds its nearest facility in a straight line, and the people more than 5 km away are kept. Roads and hills make the real journey longer."
+      },
+      {
+        "id": "note-districts",
+        "x": 1112,
+        "y": 0,
+        "w": 368,
+        "h": 624,
+        "color": "yellow",
+        "text": "---\nlabel: Step 2\n---\n## People per district\n\nTwo spatial joins add up each district's people: everyone, and those more than 5 km away."
       },
       {
         "id": "note-share",
-        "x": 1420,
-        "y": 460,
-        "w": 300,
-        "h": 110,
-        "color": "blue",
-        "text": "The share is the district's people more than 5 km from a facility, out of all its people."
+        "x": 1504,
+        "y": 0,
+        "w": 240,
+        "h": 624,
+        "color": "yellow",
+        "text": "---\nlabel: Result\n---\n## Share per district\n\nEach district's share of people more than 5 km from a facility."
       }
     ],
-    "updatedAt": "2026-10-12T19:06:41.687Z"
+    "updatedAt": "2026-10-25T12:10:11.325Z"
   }
 }

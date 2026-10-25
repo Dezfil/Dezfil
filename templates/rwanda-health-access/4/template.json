@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "id": "rwanda-health-access",
-  "version": 3,
+  "version": 4,
   "kind": "workflow",
   "title": "Health access in Rwanda",
   "question": "How many people in Rwanda live more than 5 km from a public health facility, district by district?",
@@ -33,17 +33,17 @@
       {
         "dataset": "population_cells",
         "source": "Kontur Population: Rwanda, population density for 400m H3 hexagons",
-        "made": "All 24,764 populated H3 hexagons of the 2023-11-01 release, 14.3 million people, read from Kontur's address on HDX on 2026-10-12; turned from Web Mercator into longitude and latitude."
+        "made": "All 24,764 populated H3 hexagons of the 2023-11-01 release, 14.3 million people, read from Kontur's address on HDX on 2026-10-25; turned from Web Mercator into longitude and latitude."
       },
       {
         "dataset": "health_facilities",
         "source": "Public health facilities in sub-Saharan Africa, Maina et al. (2019)",
-        "made": "The inventory's 572 facilities in Rwanda, read from figshare article 7725374 version 1 on 2026-10-12; name, type, ownership and province kept, placed by their latitude and longitude."
+        "made": "The inventory's 572 facilities in Rwanda, read from figshare article 7725374 version 1 on 2026-10-25; name, type, ownership and province kept, placed by their latitude and longitude."
       },
       {
         "dataset": "districts",
         "source": "geoBoundaries Rwanda districts (ADM2), from Open Data Rwanda",
-        "made": "The 30 district outlines, simplified, read from the geoBoundaries repository at commit 9469f09 on 2026-10-12; the district name kept."
+        "made": "The 30 district outlines, simplified, read from the geoBoundaries repository at commit 9469f09 on 2026-10-25; the district name kept."
       }
     ],
     "styling": [
@@ -60,7 +60,7 @@
   },
   "steps": [
     {
-      "id": "4825fada-2892-4125-8f42-a422bc9e1448",
+      "id": "91c836a2-1610-4b03-9dc6-94c997e00cee",
       "operation": "centroid",
       "output": "cell_centres",
       "reads": [
@@ -68,7 +68,7 @@
       ]
     },
     {
-      "id": "f2bb771d-26fc-4113-aabc-2dcf0b4a0f19",
+      "id": "8ee0e18a-5641-4dbb-a8cb-575d89c62836",
       "operation": "sql_step",
       "output": "nearest_facility",
       "reads": [
@@ -77,7 +77,7 @@
       ]
     },
     {
-      "id": "81e238c3-d522-450c-ac7c-92920502b705",
+      "id": "652c01cc-35fc-400f-b9ff-3aebd2982b0d",
       "operation": "filter_rows",
       "output": "beyond_5km",
       "reads": [
@@ -85,7 +85,7 @@
       ]
     },
     {
-      "id": "7fc48482-42e4-49b1-ad4a-f8d877af067b",
+      "id": "2cb22c2f-3b1d-493b-aba1-b4e892c215ee",
       "operation": "spatial_join",
       "output": "district_people",
       "reads": [
@@ -94,7 +94,7 @@
       ]
     },
     {
-      "id": "0ca05dce-7bfe-4d00-924f-f072163ff65f",
+      "id": "398de766-70cd-4286-a1e4-a1d7d9b953cb",
       "operation": "spatial_join",
       "output": "district_access",
       "reads": [
@@ -103,7 +103,7 @@
       ]
     },
     {
-      "id": "87b680f1-289d-434e-bf95-b8acd85a62ca",
+      "id": "e15558e7-ed3b-496c-9904-0c13f160501e",
       "operation": "sql_step",
       "output": "district_share",
       "reads": [

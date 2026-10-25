@@ -56,7 +56,7 @@ Keep a result with **Save as dataset**, **Download** or **Add as map layer**. Se
 
 ## Workflows
 
-![The workflow canvas of a copy of Health access in Rwanda: three datasets feeding six nodes, from Centroid to a last SQL step, two notes as colored boxes, the Sources and Tools pane on the left and Run all at the top right](../images/start/what-is-dezfil-workflow.webp)
+![The workflow canvas of a copy of Health access in Rwanda: three datasets feeding six nodes, from Centroid to a last SQL step, in five tinted note sections from About and Input data to Result, the Sources and Tools pane on the left and Run all at the top right](../images/start/what-is-dezfil-workflow.webp)
 
 A workflow chains tools, such as **Filter rows** and **Spatial join**, and each node writes a new dataset. Click **Run all** to repeat the chain when the data changes. See [Workflows](../use/workflows.md).
 

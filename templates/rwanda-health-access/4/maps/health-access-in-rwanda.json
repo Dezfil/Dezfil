@@ -1,5 +1,5 @@
 {
-  "id": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+  "id": "ab449595-d38f-4d49-b87b-9f5aaf837c4c",
   "name": "Health access in Rwanda",
   "viewport": {
     "lng": 29.88,
@@ -14,16 +14,16 @@
   "note": null,
   "legendCorner": "bottom-left",
   "legendOrder": [
-    "a57e4a9b-1f90-4e23-b525-37e19948d9f2",
-    "783f7654-d4a7-40c6-9e8f-b37d855b3c3f",
-    "24944782-c9e2-4fc0-be03-f8d237cd1fa8"
+    "2eef44fd-5611-4f7b-adfc-34dc573a2376",
+    "14b9cb63-fdce-4e5b-b245-c6d171ac8a7d",
+    "b9628406-0d15-4540-a864-a8895b9007c3"
   ],
   "timeline": null,
   "widgets": [
     {
       "id": "widget-distance",
       "type": "category",
-      "layerId": "a57e4a9b-1f90-4e23-b525-37e19948d9f2",
+      "layerId": "2eef44fd-5611-4f7b-adfc-34dc573a2376",
       "title": "People by distance",
       "field": "distance",
       "agg": "sum",
@@ -36,7 +36,7 @@
     {
       "id": "widget-far",
       "type": "formula",
-      "layerId": "24944782-c9e2-4fc0-be03-f8d237cd1fa8",
+      "layerId": "b9628406-0d15-4540-a864-a8895b9007c3",
       "title": "More than 5 km away",
       "field": "people_beyond_5km",
       "agg": "sum",
@@ -49,7 +49,7 @@
     {
       "id": "widget-facilities",
       "type": "formula",
-      "layerId": "783f7654-d4a7-40c6-9e8f-b37d855b3c3f",
+      "layerId": "14b9cb63-fdce-4e5b-b245-c6d171ac8a7d",
       "title": "Public health facilities",
       "field": null,
       "agg": "count",
@@ -74,18 +74,18 @@
     }
   ],
   "widgetsPublished": true,
-  "createdAt": "2026-10-12T19:06:42.717Z",
-  "updatedAt": "2026-10-12T19:06:42.797Z",
-  "editRevision": "b47b3a0d6a120818f1b06da63b8c72f1",
-  "lastChangedAt": "2026-10-12T19:06:42.797Z",
+  "createdAt": "2026-10-25T12:10:13.361Z",
+  "updatedAt": "2026-10-25T12:10:13.518Z",
+  "editRevision": "ea7138cb45d67dca6e9f8ee114ede248",
+  "lastChangedAt": "2026-10-25T12:10:13.519Z",
   "lastChangedBy": {
     "name": "Dezfil templates",
     "sqlName": "dezfil_templates"
   },
   "layers": [
     {
-      "id": "a57e4a9b-1f90-4e23-b525-37e19948d9f2",
-      "mapId": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+      "id": "2eef44fd-5611-4f7b-adfc-34dc573a2376",
+      "mapId": "ab449595-d38f-4d49-b87b-9f5aaf837c4c",
       "name": "People by distance to the nearest facility",
       "sql": "SELECT CASE\n         WHEN n.nearest_distance_m < 2000 THEN 'Under 2 km'\n         WHEN n.nearest_distance_m < 5000 THEN '2 to 5 km'\n         WHEN n.nearest_distance_m < 10000 THEN '5 to 10 km'\n         ELSE '10 km or more'\n       END AS distance,\n       round(n.nearest_distance_m / 1000, 1) AS km_to_facility,\n       c.population,\n       n.facility_name AS nearest_facility,\n       c.geom\nFROM population_cells AS c\nJOIN nearest_facility AS n ON n.h3 = c.h3",
       "style": {
@@ -168,18 +168,18 @@
       "legendLabels": null,
       "legendAttrs": null,
       "ordinal": 0,
-      "createdAt": "2026-10-12T19:06:42.739Z",
-      "updatedAt": "2026-10-12T19:06:42.762Z",
-      "editRevision": "b47b3a0d6a120818f1b06da63b8c72f1",
-      "lastChangedAt": "2026-10-12T19:06:42.797Z",
+      "createdAt": "2026-10-25T12:10:13.387Z",
+      "updatedAt": "2026-10-25T12:10:13.435Z",
+      "editRevision": "ea7138cb45d67dca6e9f8ee114ede248",
+      "lastChangedAt": "2026-10-25T12:10:13.519Z",
       "lastChangedBy": {
         "name": "Dezfil templates",
         "sqlName": "dezfil_templates"
       }
     },
     {
-      "id": "783f7654-d4a7-40c6-9e8f-b37d855b3c3f",
-      "mapId": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+      "id": "14b9cb63-fdce-4e5b-b245-c6d171ac8a7d",
+      "mapId": "ab449595-d38f-4d49-b87b-9f5aaf837c4c",
       "name": "Public health facilities",
       "sql": "SELECT facility_name, facility_type, ownership, geom FROM health_facilities",
       "style": {
@@ -221,18 +221,18 @@
       "legendLabels": null,
       "legendAttrs": null,
       "ordinal": 1,
-      "createdAt": "2026-10-12T19:06:42.782Z",
-      "updatedAt": "2026-10-12T19:06:42.788Z",
-      "editRevision": "b47b3a0d6a120818f1b06da63b8c72f1",
-      "lastChangedAt": "2026-10-12T19:06:42.797Z",
+      "createdAt": "2026-10-25T12:10:13.472Z",
+      "updatedAt": "2026-10-25T12:10:13.486Z",
+      "editRevision": "ea7138cb45d67dca6e9f8ee114ede248",
+      "lastChangedAt": "2026-10-25T12:10:13.519Z",
       "lastChangedBy": {
         "name": "Dezfil templates",
         "sqlName": "dezfil_templates"
       }
     },
     {
-      "id": "24944782-c9e2-4fc0-be03-f8d237cd1fa8",
-      "mapId": "c18828e3-5d30-4404-87a3-49d30440dcd1",
+      "id": "b9628406-0d15-4540-a864-a8895b9007c3",
+      "mapId": "ab449595-d38f-4d49-b87b-9f5aaf837c4c",
       "name": "Districts, share more than 5 km away",
       "sql": "SELECT district, people, people_beyond_5km, share_beyond_5km, district || chr(10) || share_beyond_5km || '%' AS label, geom FROM district_share",
       "style": {
@@ -295,10 +295,10 @@
       "legendLabels": null,
       "legendAttrs": null,
       "ordinal": 2,
-      "createdAt": "2026-10-12T19:06:42.768Z",
-      "updatedAt": "2026-10-12T19:06:42.775Z",
-      "editRevision": "b47b3a0d6a120818f1b06da63b8c72f1",
-      "lastChangedAt": "2026-10-12T19:06:42.797Z",
+      "createdAt": "2026-10-25T12:10:13.447Z",
+      "updatedAt": "2026-10-25T12:10:13.462Z",
+      "editRevision": "ea7138cb45d67dca6e9f8ee114ede248",
+      "lastChangedAt": "2026-10-25T12:10:13.519Z",
       "lastChangedBy": {
         "name": "Dezfil templates",
         "sqlName": "dezfil_templates"
