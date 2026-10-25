@@ -225,7 +225,7 @@ To go back, stop the server, put the copy in place of `data` as that section sho
 
 [Start-up](troubleshooting.md#start-up) shows what you see and fixes each line the log names. For a line it does not name, go back to the old version as above, and keep the line for a bug report.
 
-### Step 1 prints an empty line or `<no value>`
+### Step 1 prints an empty line
 
 The image was built from a checkout, not downloaded, so it names no version. Write down the checkout's commit instead, which `git rev-parse --short HEAD` prints there. To go back, check out that commit and build the image again.
 
