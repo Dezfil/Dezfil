@@ -1,7 +1,8 @@
 // A release goes out only for the version package.json declares, with the
 // changelog's section for it as its notes.
 import { describe, expect, it } from "vitest";
-// @ts-expect-error plain ESM script without type declarations
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — plain-JS CI script, no declaration file on purpose.
 import { isPrerelease, releaseNotes, versionOfTag } from "../../scripts/release-notes.mjs";
 
 const CHANGELOG = `# Changelog

@@ -5,9 +5,11 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-// @ts-expect-error plain ESM script without type declarations
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — plain-JS CI script, no declaration file on purpose.
 import { copyLicences, LICENCE_FILE, packageDirs } from "../../scripts/standalone-licences.mjs";
-// @ts-expect-error plain ESM script without type declarations
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — plain-JS CI script, no declaration file on purpose.
 import { licencePresence, PUBLISHED_WITHOUT_LICENCE } from "../../scripts/check-image-inventory.mjs";
 
 const scratch = mkdtempSync(join(tmpdir(), "dezfil-licences-"));

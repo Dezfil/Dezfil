@@ -76,8 +76,17 @@ export function picturePresence(lines, arch) {
     .map(({ file, what }) => `MISSING: ${file} — ${what}`);
 }
 /** Packages that publish no licence file of their own, by name, with what
- * their package.json declares. Any other package without one fails. */
+ * their package.json declares and where the image holds the licence's text
+ * (NOTICE says the same). Any other package without one fails. */
+const LIBVIPS_LICENCE = "LGPL-3.0-or-later: its README.md lists each bundled library's licence, and the base image keeps the LGPL and GPL texts in /usr/share/common-licenses";
+const APACHE_LICENCE = "Apache-2.0: the licence text is /app/LICENSE";
 export const PUBLISHED_WITHOUT_LICENCE = new Map([
+  ["@img/sharp-libvips-linux-arm64", LIBVIPS_LICENCE],
+  ["@img/sharp-libvips-linux-x64", LIBVIPS_LICENCE],
+  ["@next/env", "MIT: published from the Next.js repository, whose licence is next/license.md"],
+  ["@puppeteer/browsers", APACHE_LICENCE],
+  ["client-only", "MIT: publishes two code files and no licence text or copyright line"],
+  ["puppeteer-core", APACHE_LICENCE],
 ]);
 
 /** True when `parts`, a folder's path below /app/node_modules, is a package's
