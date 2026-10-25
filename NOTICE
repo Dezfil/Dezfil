@@ -10,6 +10,8 @@ originating projects are listed here as they are used:
 - MapLibre GL JS 6.11.2 (BSD-3-Clause, © 2023 MapLibre contributors) —
   unmodified ESM worker and shared chunk in public/workers/maplibre-gl-6.11.2/.
   Their upstream license headers are retained; the full license follows below.
+  The shared chunk bundles MapLibre's own dependencies, whose notices follow
+  under "Bundled MapLibre chunk notices".
   The filling of a raster tile template for one tile (CanonicalTileID.url and
   its helpers in src/tile/tile_id.ts) is adapted in src/lib/tile-template.ts,
   which carries the upstream notice; the tile's bounding box there is
@@ -32,14 +34,17 @@ originating projects are listed here as they are used:
   RdBu, PiYG, Spectral, Paired, Dark2, Set3 class colors
   (src/lib/style/palette-data.ts).
 - Tableau 10 categorical colors: taken as published in matplotlib, under
-  the matplotlib license (a BSD-style, PSF-derived license); the same ten
+  the matplotlib license (a BSD-style, PSF-derived license; Copyright (c)
+  2012- Matplotlib Development Team; All Rights Reserved); the same ten
   values are published by Vega under BSD-3-Clause. Tab10 colors
   (src/lib/style/palette-data.ts).
 - Feather Icons (MIT, © 2013–2023 Cole Bemis) — settings gear outline
   (src/components/NavLinks.tsx).
 - Natural Earth (public domain) — 1:110m land coastlines, rendered into the
   workspace shell background sheets (public/shell-sheet-light.svg,
-  public/shell-sheet-dark.svg).
+  public/shell-sheet-dark.svg), their recoloured variants
+  (public/look/atlantic-*.svg) and the copies embedded in the design
+  specimen.
 - Maki icons (CC0, © Mapbox) — the curated map-glyph subset bundled for the
   icon layer type (public/maki/*.svg).
 - Basemap thumbnails (public/basemaps/thumbs/*.webp) — small fixed-frame
@@ -109,18 +114,32 @@ originating projects are listed here as they are used:
   relation.js and geo.js, whose notice the first two files carry too.
   osmtogeojson itself is a dependency, used unmodified.
 
-Data-source logos shown in the Add data dialog identify the third-party
-services and datasets a table can be imported from (nominative use); the
-marks belong to their respective owners:
+The application's code is minified into its bundles, which keep none of
+these headers. Every entry in this file marked MIT or ISC is licensed under
+the MIT License or the ISC License whose text is reproduced under "Licence
+texts" at the end of this file, with that entry's copyright line as its
+notice.
 
-- OpenStreetMap logo (CC-BY-SA 2.0; © OpenStreetMap Foundation, logo by
-  Ken Vermette) — public/logos/osm.svg, from Wikimedia Commons.
+Data-source logos shown in the Add data dialog, and for PostgreSQL on the
+Connections pages, identify the third-party services and datasets a table
+can be imported from (nominative use); the marks belong to their respective
+owners:
+
+- OpenStreetMap logo (CC-BY-SA 2.0,
+  https://creativecommons.org/licenses/by-sa/2.0/; © OpenStreetMap
+  Foundation, logo by Ken Vermette) — public/logos/osm.svg, from Wikimedia
+  Commons, https://commons.wikimedia.org/wiki/File:Openstreetmap_logo.svg.
 - Overture Maps Foundation logo mark (© Overture Maps Foundation, a Joint
   Development Foundation project) — public/logos/overture.svg, from
   overturemaps.org.
 - PostgreSQL elephant mark, "Slonik" (© PostgreSQL Community Association
   of Canada) — public/logos/postgresql.svg, from wiki.postgresql.org;
   identifies the PostGIS/PostgreSQL import source.
+
+The aerial picture behind the sign-in, setup and invitation pages
+(public/entry/river-delta.webp) was generated for Dezfil from a text prompt
+with an AI image generator. It is not a photograph and comes from no
+third-party source.
 
 Typefaces
 ---------
@@ -152,15 +171,17 @@ The image carries this file and LICENSE at /app, beside the components
 below.
 
 - Tippecanoe 2.79.0 (https://github.com/felt/tippecanoe), built from source
-  in the image and used to build tile archives. BSD-2-Clause:
-  Copyright (c) 2022, Protomaps LLC. Copyright (c) 2014, Mapbox Inc. All
-  rights reserved. Unmodified.
+  in the image and used to build tile archives. Unmodified, under the
+  BSD-2-Clause license, whose text is reproduced under "Tippecanoe" below.
 - DuckDB extensions, baked into the image so an instance needs no network
   to load them (scripts/duckdb-extensions.mjs). The spatial, httpfs, json,
   postgres, azure and aws extensions come from the DuckDB project under the
   MIT License, Copyright 2018-2025 Stichting DuckDB Foundation. The h3
   extension is a DuckDB community extension under the Apache License 2.0,
-  and carries Uber's H3 library under the same license. All unmodified.
+  Copyright 2022 Isaac Brodsky, and carries Uber's H3 library under the
+  same license, Copyright 2017-2021 Uber Technologies, Inc. All unmodified,
+  as DuckDB builds them. The libraries those builds carry are listed under
+  "DuckDB extension components" below.
 - libvips, loaded by the sharp image library through
   @img/sharp-libvips-*. It is present as a shared library under the
   LGPL-3.0-or-later, unmodified, and replaceable: the npm package carries
@@ -187,6 +208,17 @@ source's licence and the credit it asks for, as the template's own map
 names them in its credit note. Templates a deployment downloads from a
 catalogue are not part of a release and credit their sources in their
 own maps.
+
+Dezfil's Apache-2.0 licence does not cover the templates' data. Each
+template's datasets, and the pictures drawn from them, stay under the
+licences of the sources they come from, as listed below. The licence texts
+are at these addresses: ODbL-1.0, https://opendatacommons.org/licenses/odbl/1-0/;
+ODC-By-1.0, https://opendatacommons.org/licenses/by/1-0/; CC-BY-4.0,
+https://creativecommons.org/licenses/by/4.0/; CC0-1.0,
+https://creativecommons.org/publicdomain/zero/1.0/; CC-PDDC,
+https://creativecommons.org/licenses/publicdomain/. OpenFlights also
+licenses the individual contents of its databases under the Database
+Contents License, https://opendatacommons.org/licenses/dbcl/1-0/.
 
 - earthquakes version 3 ("Forty years of big earthquakes"):
   - U.S. Geological Survey, ANSS Comprehensive Earthquake Catalog (ComCat), CC-PDDC: Credit: U.S. Geological Survey
@@ -545,3 +577,298 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Bundled MapLibre chunk notices
+------------------------------
+
+The shared chunk (public/workers/maplibre-gl-6.11.2/maplibre-gl-shared.mjs)
+bundles MapLibre GL JS's runtime dependencies. Their notices, as the
+versions package-lock.json holds publish them:
+
+- @maplibre/maplibre-gl-style-spec: Copyright (c) 2020, MapLibre
+  contributors, under the same BSD 3-Clause license and notices as MapLibre
+  GL JS, reproduced above.
+- @maplibre/geojson-vt: MIT, Copyright (c) 2025 MapLibre contributors; and
+  ISC, Copyright (c) 2024, Mapbox.
+- @maplibre/vt-pbf: MIT, Copyright (c) 2025 MapLibre contributors and
+  Copyright (c) 2015 Anand Thakker. It contains geojson_wrapper.js from
+  mapbox-gl-js, Copyright (c) 2014, Mapbox, under the mapbox-gl-js BSD
+  3-Clause license reproduced above.
+- @maplibre/mlt: MIT OR Apache-2.0, taken under MIT, Copyright (c) 2024
+  MapLibre contributors.
+- gl-matrix: MIT, Copyright (c) 2015-2025, Brandon Jones, Colin MacKenzie IV.
+- bidi-js: MIT, Copyright (c) 2021 Jason Johnston.
+- murmurhash-js: MIT, by Gary Court, an implementation of Austin Appleby's
+  MurmurHash; published without a licence text.
+- kdbush: ISC, Copyright (c) 2026, Vladimir Agafonkin.
+- quickselect: ISC, Copyright (c) 2024, Vladimir Agafonkin.
+- tinyqueue: ISC, Copyright (c) 2017, Vladimir Agafonkin.
+- potpack: ISC, Copyright (c) 2025, Mapbox.
+- earcut: ISC, Copyright (c) 2026, Mapbox.
+- @mapbox/point-geometry: ISC, Copyright (c) 2024, Mapbox.
+- pbf: BSD 3-Clause, Copyright (c) 2026, Mapbox; and @mapbox/vector-tile:
+  BSD 3-Clause, Copyright (c) 2024, Mapbox. Their license texts are the ones
+  reproduced for pbf and vector-tile-js under "Bundled MVT worker license
+  notices" above.
+- @mapbox/tiny-sdf: BSD 2-Clause, Copyright (c) 2016-2024 Mapbox, Inc.,
+  under the BSD 2-Clause text reproduced under "Licence texts" below.
+- @mapbox/unitbezier, ported from WebKit's UnitBezier.h:
+
+BSD-2-Clause
+
+Copyright (C) 2008 Apple Inc. All Rights Reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Tippecanoe
+----------
+
+Copyright (c) 2022, Protomaps LLC
+Copyright (c) 2014, Mapbox Inc.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+- Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+- Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+DuckDB extension components
+---------------------------
+
+DuckDB builds each extension with the libraries it needs linked into it.
+The builds in the image are DuckDB 1.5.4's, from the sources at the commits
+DuckDB 1.5.4 names: https://github.com/duckdb/duckdb-spatial at b68b309d,
+duckdb-httpfs at c3f215ab, duckdb-aws at 08ad34f6, duckdb-azure at 563589b2
+and duckdb-postgres at 8f813f9b, all under https://github.com/duckdb. Each
+library below is named with its licence and copyright line; the MIT, ISC,
+BSD, curl and PostgreSQL texts are under "Licence texts" at the end of this
+file, and the Apache License 2.0 is LICENSE.
+
+- spatial:
+  - GEOS (https://libgeos.org), under the GNU Lesser General Public
+    License, version 2.1; see below.
+  - GDAL (MIT style). Its copyright holders, and the notices of the code
+    GDAL itself bundles, are in its LICENSE.TXT,
+    https://github.com/OSGeo/gdal/blob/master/LICENSE.TXT.
+  - PROJ (MIT), Copyright (c) 2000, Frank Warmerdam, and the contributors
+    its source files name, with the EPSG dataset; see below.
+  - SQLite, in the public domain.
+  - Expat (MIT), Copyright (c) 1998-2000 Thai Open Source Software Center
+    Ltd and Clark Cooper; Copyright (c) 2001-2025 Expat maintainers.
+  - zlib (zlib licence), (C) 1995-2026 Jean-loup Gailly and Mark Adler.
+  - libcurl, under the curl licence reproduced under "Licence texts".
+  - OpenSSL (Apache-2.0), Copyright (c) 1998-2025 The OpenSSL Project
+    Authors; Copyright (c) 1995-1998 Eric A. Young, Tim J. Hudson.
+  - Vendored in the extension: yyjson (MIT), Copyright (c) 2020 YaoYuan;
+    protozero (BSD 2-Clause), Copyright (C) 2022, Mapbox; shapelib (MIT),
+    Copyright (c) 2011-2024, Even Rouault; Copyright (c) 1999-2013, Frank
+    Warmerdam.
+- httpfs: OpenSSL, libcurl and zlib, as above.
+- json: yyjson, as above.
+- postgres: libpq, under the PostgreSQL Licence reproduced under "Licence
+  texts". LZ4
+  (BSD 2-Clause), Copyright (c) 2011-2020, Yann Collet. OpenSSL and zlib, as
+  above.
+- azure: the Azure SDK for C++ (MIT), Copyright (c) Microsoft Corporation;
+  libxml2 (MIT), Copyright (C) 1998-2012 Daniel Veillard, Copyright (C) The
+  Libxml2 Contributors; JSON for Modern C++ (MIT), Copyright (c) 2013-2026
+  Niels Lohmann. libcurl, OpenSSL and zlib, as above.
+- aws: the AWS SDK for C++ and the AWS Common Runtime libraries
+  (aws-crt-cpp, aws-c-common, aws-c-io, aws-c-http, aws-c-auth, aws-c-cal,
+  aws-c-compression, aws-c-event-stream, aws-c-mqtt, aws-c-s3,
+  aws-c-sdkutils, aws-checksums) and s2n-tls, all Apache-2.0, Copyright
+  Amazon.com, Inc. or its affiliates. All Rights Reserved. libcurl, OpenSSL
+  and zlib, as above. Their NOTICE files read:
+
+    AWS SDK for C++
+    Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+    This product includes software developed by
+    Amazon Technologies, Inc (http://www.amazon.com/).
+
+    **********************
+    THIRD PARTY COMPONENTS
+    **********************
+    This software includes third party software subject to the following copyrights:
+    - XML parsing and utility functions from TinyXml2 - Lee Thomason.
+    - JSON support from cJSON - Copyright (c) 2009-2017 Dave Gamble and cJSON contributors
+    - OpenSSL build files for cmake used for Android Builds - Copyright (C) 2007-2012 LuaDist and Copyright (C) 2013 Brian Sidebotham
+    - Android tool chain cmake build files - Copyright (c) 2010-2011, Ethan Rublee and Copyright (c) 2011-2014, Andrey Kamaev
+
+    The licenses for these third party components are included in LICENSE.txt
+
+    AWS Crt Cpp; AWS C Common: Copyright 2018 Amazon.com, Inc. or its
+    affiliates. All Rights Reserved.
+    AWS C Io, AWS C Http, AWS C Auth, AWS C Cal, AWS C Compression, AWS C
+    Event Stream, AWS C Mqtt, AWS C S3, AWS C SDKUtils: Copyright
+    Amazon.com, Inc. or its affiliates. All Rights Reserved. AWS C Io's
+    source/pkcs11/v2.40/pkcs11.h header file is based on Public Domain
+    content from https://github.com/latchset/pkcs11-headers.
+    s2n: Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All
+    Rights Reserved.
+
+GEOS is linked into the spatial extension unmodified. It is licensed under
+the GNU Lesser General Public License, version 2.1, whose text is
+/usr/share/common-licenses/LGPL-2.1 in the image and
+https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html. Its complete source
+is at https://github.com/libgeos/geos, and the spatial extension's source,
+under the MIT License, is at the commit named above, so the extension can
+be rebuilt and relinked against a modified GEOS.
+
+The EPSG dataset carried in PROJ's proj.db is owned by IOGP, the
+International Association of Oil & Gas Producers, and is used, copied and
+distributed under the EPSG Dataset Terms of Use,
+https://epsg.org/terms-of-use.html, which ask that IOGP's ownership be
+acknowledged and that anyone given the dataset be told of those terms. It
+is distributed here unmodified and at no charge.
+
+Licence texts
+-------------
+
+The MIT License, for every entry in this file marked MIT, with that entry's
+copyright line:
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+The ISC License, for every entry in this file marked ISC, with that entry's
+copyright line:
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+The BSD 2-Clause License, for every entry in this file marked BSD 2-Clause
+that points here, with that entry's copyright line:
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+The curl licence, for libcurl:
+
+COPYRIGHT AND PERMISSION NOTICE
+
+Copyright (c) 1996 - 2026, Daniel Stenberg, <daniel@haxx.se>, and many
+contributors, see the THANKS file.
+
+All rights reserved.
+
+Permission to use, copy, modify, and distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright
+notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS. IN
+NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall not
+be used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization of the copyright holder.
+
+The PostgreSQL Licence, for libpq:
+
+PostgreSQL Database Management System
+(also known as Postgres, formerly known as Postgres95)
+
+Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group
+
+Portions Copyright (c) 1994, The Regents of the University of California
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose, without fee, and without a written agreement
+is hereby granted, provided that the above copyright notice and this
+paragraph and the following two paragraphs appear in all copies.
+
+IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
+LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS
+DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
+ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATIONS TO
+PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.

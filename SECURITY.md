@@ -17,13 +17,15 @@ Read this before deciding whether something is a vulnerability.
 Dezfil requires local account authentication for application pages and APIs,
 including MCP. The first account becomes the initial admin. Admins manage other
 accounts and instance settings; profiles, tokens and preferences are personal.
-Resource ownership is not isolated yet: signed-in accounts share maps, datasets,
-workflows and connections. Keep a new instance private until setup is complete.
+Each account's maps, workflows and datasets are private, from admins too,
+until a project's owner shares the project with other accounts as a viewer or
+an editor. Keep a new instance private until setup is complete.
 
 Published links and embeds expose only their read-only published projection
 without sign-in. Readiness and account entry flows are also anonymous.
-Authentication bypasses and unauthorized account administration are security
-issues. Other examples include:
+Authentication bypasses, unauthorized account administration, and one account
+reading or changing another's private work beyond the role it was granted are
+security issues. Other examples include:
 
 - reading or writing files outside the configured data directory;
 - executing commands or code on the host through an upload, a query, or a
@@ -68,7 +70,8 @@ still quiet after another 15 working days, you are free to publish.
 
 ## Out of scope
 
-- Resource sharing between authenticated accounts, as described above.
+- What a project's viewers and editors can see and do in that project, as
+  described above.
 - Findings from an automated scanner with no demonstrated impact.
 - Denial of service through sheer volume of requests or very large uploads.
 - Vulnerabilities in a dependency with no path to exploit them through Dezfil.

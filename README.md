@@ -40,6 +40,8 @@ which checks a change runs.
 
 ## License
 
-[Apache-2.0](LICENSE). Code borrowed from permissively licensed projects
-(e.g. GeoLibre, kepler.gl, MapStore) keeps its original license header in
-the file, with the source noted in [NOTICE](NOTICE).
+[Apache-2.0](LICENSE). Code adapted from permissively licensed projects
+(such as MapLibre GL JS, kepler.gl, deck.gl and osmtogeojson) keeps its
+original license header in the file, with the source noted in
+[NOTICE](NOTICE). The data in the shipped templates stays under its
+sources' licences, also listed there.

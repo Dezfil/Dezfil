@@ -18,7 +18,7 @@ describe("the SQL-name derivation", () => {
     ["42 Club", "club@example.test", "u42_club"],
     ["7", "seven.days@example.test", "seven_days"],
     ["!!!", "field.notes+maps@example.test", "field_notes_maps"],
-    ["سارا", "sara@example.test", "sara"],
+    ["دریا", "darya@example.test", "darya"],
     ["Bo", "bo@example.test", SQL_NAME_FALLBACK],
     ["", "", SQL_NAME_FALLBACK],
     ["DuckDB Fan", "fan@example.test", "fan"],

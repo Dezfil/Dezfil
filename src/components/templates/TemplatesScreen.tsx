@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BUILT_IN_ATTRIBUTION } from "@/lib/basemap";
 import type { TemplateList } from "@/lib/templates/card";
 import { readApiError } from "../api";
 import { useOperations } from "../builder/drawer/use-operations";
@@ -9,6 +10,7 @@ import { serverUnreachable } from "../failure-copy";
 import { IconSearch } from "../gallery-icons";
 import gallery from "../gallery.module.css";
 import { ListHeading } from "../ListHeading";
+import { PicturesCreditLine } from "../PictureCredit";
 import { useTheme } from "../theme";
 import { AsyncState, useAsync } from "../ui/AsyncState";
 import { InfoIcon } from "../ui/icons";
@@ -130,6 +132,9 @@ export function TemplatesScreen() {
     () => list?.templates.filter((card) => carriesTag(card, pick) && matchesSearch(card, query)) ?? null,
     [list, pick, query],
   );
+  // A map template's picture is drawn on the built-in style for its theme,
+  // as the copy records it, so a page showing one credits that style.
+  const pictured = shown?.some((card) => !card.steps && card.picture === "kept") ?? false;
 
   const groupOf = useCallback(
     (operation: string) => operations?.find((o) => o.id === operation)?.group ?? null,
@@ -220,6 +225,9 @@ export function TemplatesScreen() {
           }
         </AsyncState>
       </div>
+      {/* Under the scroller, as on Maps: the cards crop the credit the
+          pictures carry in their corner. */}
+      <PicturesCreditLine lines={pictured ? BUILT_IN_ATTRIBUTION : []} placement="page" />
       {copying ? <TemplateCopyDialog key={copying} id={copying} onClose={() => setCopying(null)} /> : null}
     </div>
   );

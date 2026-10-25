@@ -344,3 +344,24 @@ describe("the page and the catalogue's refresh", () => {
     expect(cards()).toHaveLength(3);
   });
 });
+
+describe("the credit for the map pictures", () => {
+  const credit = () => container.querySelector('[data-picture-credit="page"]');
+
+  it("credits the built-in basemap under the cards while a map template's picture shows", async () => {
+    await open();
+    expect(credit()?.querySelector("span")?.textContent).toBe("Map previews:");
+    const links = credit()?.querySelectorAll("a") ?? [];
+    expect(links.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+      ["© OpenMapTiles", "https://openmaptiles.org"],
+      ["© OpenStreetMap", "https://www.openstreetmap.org/copyright"],
+    ]);
+  });
+
+  it("draws no credit when no card shows a map's picture", async () => {
+    listed = list([reach, { ...storms, picture: "not_kept" }], catalogue("listed"));
+    await open();
+    expect(cards()).toHaveLength(2);
+    expect(credit()).toBeNull();
+  });
+});
