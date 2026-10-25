@@ -52,6 +52,18 @@ describe("application-owned MVT worker", () => {
     expect(vendored.slice(upstreamStart)).toBe(upstream);
   });
 
+  it("resolves every loaders.gl package in the lockfile to the worker's version", () => {
+    const packageLock = JSON.parse(
+      readFileSync(join(ROOT, "package-lock.json"), "utf8"),
+    ) as { packages: Record<string, { version?: string }> };
+    const stray = Object.entries(packageLock.packages)
+      .filter(([path]) => /(^|\/)node_modules\/@loaders\.gl\/[^/]+$/.test(path))
+      .filter(([, entry]) => entry.version !== LOADERS_GL_MVT_VERSION)
+      .map(([path, entry]) => `${path} ${entry.version}`);
+
+    expect(stray).toEqual([]);
+  });
+
   it("carries the upstream notice and every bundled third-party attribution", () => {
     const worker = readFileSync(WORKER, "utf8");
     const notice = readFileSync(join(ROOT, "NOTICE"), "utf8");

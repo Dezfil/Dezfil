@@ -55,11 +55,12 @@ describe("a tile template filled for one tile", () => {
 
   it("carries MapLibre's notice and the bounding box's, and NOTICE credits them", () => {
     const source = readFileSync("src/lib/tile-template.ts", "utf8");
+    expect(source).toContain("Adapted from MapLibre GL JS 6.11.2, src/tile/tile_id.ts");
     expect(source).toContain("Copyright (c) 2023, MapLibre contributors");
     expect(source).toContain("Redistributions of source code must retain the above copyright");
     expect(source).toContain("Copyright (c) 2017, Mapbox");
     expect(source).toContain("above copyright notice and this permission notice appear in all copies.");
     const notice = readFileSync("NOTICE", "utf8");
-    expect(notice).toMatch(/MapLibre GL JS 6\.11\.2 \(BSD-3-Clause[\s\S]*?src\/lib\/tile-template\.ts[\s\S]*?@mapbox\/whoots-js \(ISC/);
+    expect(notice).toMatch(/MapLibre GL JS \d+\.\d+\.\d+ \(BSD-3-Clause[\s\S]*?src\/tile\/tile_id\.ts, as of 6\.11\.2\) is adapted in src\/lib\/tile-template\.ts[\s\S]*?@mapbox\/whoots-js \(ISC/);
   });
 });
