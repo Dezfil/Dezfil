@@ -24,6 +24,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
+# The standalone trace copies what a package's code needs, not its licence;
+# put every traced package's licence files back beside it.
+RUN node scripts/standalone-licences.mjs node_modules .next/standalone/node_modules
 # Bake DuckDB extensions so runtime needs no network (air-gapped friendly).
 # The slim base ships no CA bundle; DuckDB fetches the extensions over HTTPS
 # from extensions.duckdb.org, so install ca-certificates first or the TLS

@@ -16,6 +16,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { LICENCE_FILE } from "./standalone-licences.mjs";
 
 export const MODEL_CATALOGUE_REPO_PATH = "src/lib/assistant/model-catalogue.json";
 export const MODEL_CATALOGUE_IMAGE_PATH = `/app/${MODEL_CATALOGUE_REPO_PATH}`;
@@ -73,6 +74,43 @@ export function picturePresence(lines, arch) {
   ];
   return required.filter(({ file, pattern }) => !files.some(present => pattern ? pattern.test(present) : present === file))
     .map(({ file, what }) => `MISSING: ${file} — ${what}`);
+}
+/** Packages that publish no licence file of their own, by name, with what
+ * their package.json declares. Any other package without one fails. */
+export const PUBLISHED_WITHOUT_LICENCE = new Map([
+]);
+
+/** True when `parts`, a folder's path below /app/node_modules, is a package's
+ * root: a name or @scope/name, possibly under another package's node_modules. */
+function isPackageRoot(parts) {
+  let i = 0;
+  while (i < parts.length) {
+    i += parts[i].startsWith("@") ? 2 : 1;
+    if (i === parts.length) return true;
+    if (i > parts.length || parts[i] !== "node_modules") return false;
+    i += 1;
+  }
+  return false;
+}
+
+/** Every package the image ships carries a licence file at its root, as its
+ * licence asks of every copy (the build copies them back after the
+ * standalone trace). */
+export function licencePresence(lines) {
+  const roots = new Set();
+  const licensed = new Set();
+  for (const line of lines) {
+    const entry = line.trim();
+    if (!entry.startsWith("f /app/node_modules/")) continue;
+    const parts = entry.slice("f /app/node_modules/".length).split("/");
+    const name = parts.pop();
+    if (!isPackageRoot(parts)) continue;
+    if (name === "package.json") roots.add(parts.join("/"));
+    if (LICENCE_FILE.test(name)) licensed.add(parts.join("/"));
+  }
+  return [...roots].sort()
+    .filter((dir) => !licensed.has(dir) && !PUBLISHED_WITHOUT_LICENCE.has(dir.replace(/^.*\/node_modules\//, "")))
+    .map((dir) => `MISSING: a licence file in /app/node_modules/${dir}`);
 }
 export const MVT_WORKER_IMAGE_PATH = `/app/${MVT_WORKER_REPO_PATH}`;
 export const BROWSER_WORKER_REPO_PATHS = [
@@ -300,7 +338,7 @@ if (isMain) {
   const arch = args[0] === "--listing"
     ? (args.includes("--arch") ? args[args.indexOf("--arch") + 1] : "x64")
     : imageArchitecture(execFileSync("docker", ["image", "inspect", "--format", "{{.Architecture}}", args[0] ?? "dezfil:ci"], { encoding: "utf8" }).trim());
-  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing), ...templatesPresence(listing), ...picturePresence(listing, arch)];
+  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing), ...templatesPresence(listing), ...picturePresence(listing, arch), ...licencePresence(listing)];
   // Positive presence proofs: the browser and trust store required by image
   // export, plus the application-owned parser worker required by
   // every tiled map host. An allowlist only says a path MAY ship;
