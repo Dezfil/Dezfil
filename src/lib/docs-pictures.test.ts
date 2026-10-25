@@ -176,7 +176,7 @@ describe("the scene list", () => {
     }
   });
 
-  it("takes the Use Dezfil scenes on data and maps, then those on sharing, after every other page's but Self-host's, so what they change as they open reaches no other page's picture", () => {
+  it("takes the Use Dezfil scenes on data and maps, then those on sharing, after every other page's but Self-host's, so what they change as they open reaches no other page's picture (the README shows one of them)", () => {
     expect(STATES.slice(-3, -1)).toEqual(["use-maps", "use-share"]);
     expect(STATE_SEEDING["use-maps"]).toBe(seedUseMaps);
     expect(STATE_SEEDING["use-share"]).toBe(seedUseShare);
@@ -185,7 +185,7 @@ describe("the scene list", () => {
       expect(taken.length).toBeGreaterThan(0);
       for (const scene of taken) {
         expect(scene.file.startsWith("use/")).toBe(true);
-        for (const page of scene.pages) expect(page.startsWith("docs/use/")).toBe(true);
+        for (const page of scene.pages) expect(page.startsWith("docs/use/") || (page === "README.md" && scene.id === "build-a-map-hex-bins")).toBe(true);
       }
     }
   });
