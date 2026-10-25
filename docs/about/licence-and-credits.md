@@ -71,6 +71,8 @@ Dezfil is built on these projects. [NOTICE](../../NOTICE) lists the code it borr
 
 The DuckDB extensions are built into the image, so an instance loads them without a network.
 
+The extensions carry libraries of their own, such as GEOS under the LGPL-2.1. NOTICE lists each one.
+
 ## Fonts
 
 All five fonts are under the SIL Open Font License 1.1. The instance serves them itself, so no page loads them from another site.
@@ -110,6 +112,7 @@ The credit follows the basemap a map is on, in these places:
 | A published or embedded map | The credit in the lower right corner, with **made with Dezfil** |
 | An image you export | The credit drawn into the image, with **Made with Dezfil**. |
 | Pictures of your maps on **Home**, **Maps** and a project's page | **Map previews:** and the credits of the basemaps they were drawn on, at the foot of the page or list |
+| Template pictures on **Templates** | **Map previews:** and the built-in credit, at the foot of the page |
 | The basemap pickers | **Previews:** and the built-in credit, under the style thumbnails |
 | Smaller maps, such as a dataset's map or a SQL result's map | The style's own credit in the map's corner. It folds behind the ⓘ button once you move the map. |
 | The builder's **Search map & places** box | The address finder's own credit, under the places it finds |
@@ -133,6 +136,8 @@ Dezfil ships no satellite imagery. An instance that offers **Satellite** brings 
 
 Each template's map credits its sources in a **Note** widget titled **Sources**. For the templates that come with Dezfil, [NOTICE](../../NOTICE) also lists each source, its licence and the credit it asks for, under Shipped templates.
 
+The templates' data stays under those licences, not under Dezfil's Apache-2.0.
+
 Templates your server downloads from the catalogue credit their sources the same way, in their own maps.
 
 Your copy of a template keeps the **Sources** note. A published map shows it while **Show widgets on published view** is on, in the **Widgets** tab. Copies of the templates that come with Dezfil start with it on.
@@ -147,7 +152,8 @@ Data you import keeps its source's licence too, so credit it the same way, in a 
 |---|---|---|
 | Natural Earth | Public domain | The coastlines in the app's background |
 | NASA Blue Marble Next Generation | Public domain | The **Satellite** thumbnail in the basemap pickers |
-| The OpenStreetMap, Overture Maps and PostgreSQL logos | Marks of their owners; the OpenStreetMap logo under CC-BY-SA 2.0 | To name those sources in **Add data** |
+| The OpenStreetMap, Overture Maps and PostgreSQL logos | Marks of their owners; the OpenStreetMap logo under CC-BY-SA 2.0 | To name those sources in **Add data**, and PostgreSQL on **Connections** |
+| The aerial picture on the sign-in page | Made for Dezfil with an AI image generator | The sign-in, setup and invitation pages |
 
 ## Next steps
 
