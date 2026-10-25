@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
   "id": "rwanda-health-access",
-  "version": 3,
+  "version": 4,
   "archive": {
-    "sha256": "3e6d04579def855925045433c793e3f85ac787fbd7dfcc9b5ab7e761c3a39b02",
-    "size": 4554974
+    "sha256": "3f6db7f5d68d8e09301c2b68c812d4dfa3b1d753910b08801480f8b0c303f5f1",
+    "size": 4553159
   },
   "origin": {
     "kind": "shipped"
@@ -24,51 +24,51 @@
     },
     "maps/health-access-in-rwanda.json": {
       "bytes": 9188,
-      "sha256": "319a7d6789b531a36933e65b36e344b909cfb41871de35693dd6cd7dd62f55cf"
+      "sha256": "5150edd174e694df42dc7351ad7e4f8775a1ee17900de026eef2b38cd4fda6ed"
     },
     "pictures/dark.png": {
-      "bytes": 474720,
-      "sha256": "9922106f9f13cd1fbee2dd95f7c5512a218356c0583a11761ea462f79a38b1e8"
+      "bytes": 473548,
+      "sha256": "fc83f14a58e8ab77700ce396cc8e6ba0c9d7c47cab06b61c7330afc9ffc9f3ea"
     },
     "pictures/light.png": {
-      "bytes": 569578,
-      "sha256": "23662645659a8ac4989dfe0a223456bef5a4d4c08a3ab3a67bbadfe950124c93"
+      "bytes": 568697,
+      "sha256": "2f222193a9db537b4264f54e7c1e210d273c922ad3074a14eb1b6932c37fc996"
     },
     "project.json": {
       "bytes": 1667,
-      "sha256": "613571d4475d858e2cbe1473627b7c2c4f3f9e0a725dd51240d80531582c2a2b"
+      "sha256": "a434b5b71f4536251f65658d1695e82b051332358148db47547a1b1d4ba8bb51"
     },
-    "results/0ca05dce-7bfe-4d00-924f-f072163ff65f.parquet": {
-      "bytes": 109915,
-      "sha256": "6410442cbc1863c49d5af79a88a0b6c90c724e0f1c2931caa38d4b210f23151a"
-    },
-    "results/4825fada-2892-4125-8f42-a422bc9e1448.parquet": {
-      "bytes": 596224,
-      "sha256": "0c1ca1fd8d46eca03fa4da51447ce3c9c45fe9e54eeb10fc8765097c0b858e5c"
-    },
-    "results/7fc48482-42e4-49b1-ad4a-f8d877af067b.parquet": {
+    "results/2cb22c2f-3b1d-493b-aba1-b4e892c215ee.parquet": {
       "bytes": 109604,
       "sha256": "3bb790e3206758215588ef3c8a4da016908630c0fbd79932436c04ffadcf93de"
     },
-    "results/81e238c3-d522-450c-ac7c-92920502b705.parquet": {
+    "results/398de766-70cd-4286-a1e4-a1d7d9b953cb.parquet": {
+      "bytes": 109915,
+      "sha256": "6410442cbc1863c49d5af79a88a0b6c90c724e0f1c2931caa38d4b210f23151a"
+    },
+    "results/652c01cc-35fc-400f-b9ff-3aebd2982b0d.parquet": {
       "bytes": 89898,
       "sha256": "03ba04d8ac0a14b6f90c744d28730debd25a1a63263a033373c7f34842499bad"
     },
-    "results/87b680f1-289d-434e-bf95-b8acd85a62ca.parquet": {
-      "bytes": 110228,
-      "sha256": "4312ddc2048c081cb945b22f7dfa11ab98403d022451dd5b908f2231673ebe19"
-    },
-    "results/f2bb771d-26fc-4113-aabc-2dcf0b4a0f19.parquet": {
+    "results/8ee0e18a-5641-4dbb-a8cb-575d89c62836.parquet": {
       "bytes": 745641,
       "sha256": "75d7be57c059423a22fdb10c79707cb35aa0ae7f14ddad6fed20f5ec39757014"
     },
+    "results/91c836a2-1610-4b03-9dc6-94c997e00cee.parquet": {
+      "bytes": 596224,
+      "sha256": "0c1ca1fd8d46eca03fa4da51447ce3c9c45fe9e54eeb10fc8765097c0b858e5c"
+    },
+    "results/e15558e7-ed3b-496c-9904-0c13f160501e.parquet": {
+      "bytes": 110228,
+      "sha256": "4312ddc2048c081cb945b22f7dfa11ab98403d022451dd5b908f2231673ebe19"
+    },
     "template.json": {
       "bytes": 4948,
-      "sha256": "d88ff594c7700ca7f6617c00342ee4b8df9323bf914e5d847f7d16eced4a9411"
+      "sha256": "697c784ef855b93ba6bb1e3f58a0b698343058352831a0eb9a3a1a516ba70e6d"
     },
     "workflows/health-access-in-rwanda.json": {
-      "bytes": 4539,
-      "sha256": "dee43cad7e4835e3e7e393b4f261b1709903cf6df65e30d53d04cd0cc15590a9"
+      "bytes": 5563,
+      "sha256": "2d1a432b48fdabece3f7c7c23ff586870c80b26bc1f262864dce14f529a3d4e1"
     }
   },
   "measured": {
@@ -90,37 +90,37 @@
       "geometryType": "POLYGON",
       "crsAssumed": false
     },
-    "results/4825fada-2892-4125-8f42-a422bc9e1448.parquet": {
+    "results/91c836a2-1610-4b03-9dc6-94c997e00cee.parquet": {
       "rowCount": 24764,
       "geometryColumn": "geom",
       "geometryType": "POINT",
       "crsAssumed": false
     },
-    "results/f2bb771d-26fc-4113-aabc-2dcf0b4a0f19.parquet": {
+    "results/8ee0e18a-5641-4dbb-a8cb-575d89c62836.parquet": {
       "rowCount": 24764,
       "geometryColumn": "geom",
       "geometryType": "POINT",
       "crsAssumed": false
     },
-    "results/81e238c3-d522-450c-ac7c-92920502b705.parquet": {
+    "results/652c01cc-35fc-400f-b9ff-3aebd2982b0d.parquet": {
       "rowCount": 2715,
       "geometryColumn": "geom",
       "geometryType": "POINT",
       "crsAssumed": false
     },
-    "results/7fc48482-42e4-49b1-ad4a-f8d877af067b.parquet": {
+    "results/2cb22c2f-3b1d-493b-aba1-b4e892c215ee.parquet": {
       "rowCount": 30,
       "geometryColumn": "geom",
       "geometryType": "POLYGON",
       "crsAssumed": false
     },
-    "results/0ca05dce-7bfe-4d00-924f-f072163ff65f.parquet": {
+    "results/398de766-70cd-4286-a1e4-a1d7d9b953cb.parquet": {
       "rowCount": 30,
       "geometryColumn": "geom",
       "geometryType": "POLYGON",
       "crsAssumed": false
     },
-    "results/87b680f1-289d-434e-bf95-b8acd85a62ca.parquet": {
+    "results/e15558e7-ed3b-496c-9904-0c13f160501e.parquet": {
       "rowCount": 30,
       "geometryColumn": "geom",
       "geometryType": "POLYGON",

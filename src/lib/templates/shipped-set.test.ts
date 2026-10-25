@@ -29,8 +29,8 @@ const SHIPPED = [
     archive: "58a09d6e9727e405912d1de385aada0883546ae7a834d4e315b170bddffb588d",
   },
   {
-    id: "rwanda-health-access", version: 3, kind: "workflow", title: "Health access in Rwanda",
-    archive: "3e6d04579def855925045433c793e3f85ac787fbd7dfcc9b5ab7e761c3a39b02",
+    id: "rwanda-health-access", version: 4, kind: "workflow", title: "Health access in Rwanda",
+    archive: "3f6db7f5d68d8e09301c2b68c812d4dfa3b1d753910b08801480f8b0c303f5f1",
   },
 ];
 
@@ -56,7 +56,8 @@ describe("the shipped set on a fresh instance with the catalogue off", () => {
     expect(list.templates.map(({ id, version, kind, title }) => ({ id, version, kind, title })))
       .toEqual(SHIPPED.map(({ id, version, kind, title }) => ({ id, version, kind, title })));
     for (const card of list.templates) {
-      expect(card).toMatchObject({ origin: "shipped", installed: 3, listed: null, present: true, picture: "kept" });
+      const { version } = SHIPPED.find((s) => s.id === card.id)!;
+      expect(card).toMatchObject({ origin: "shipped", installed: version, listed: null, present: true, picture: "kept" });
     }
     expect(list.templates.find((t) => t.id === "rwanda-health-access")?.steps).toHaveLength(6);
     expect(list.downloads).toEqual({ versions: 0, bytes: 0 });
