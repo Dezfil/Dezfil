@@ -13,7 +13,7 @@ originating projects are listed here as they are used:
   The shared chunk bundles MapLibre's own dependencies, whose notices follow
   under "Bundled MapLibre chunk notices".
   The filling of a raster tile template for one tile (CanonicalTileID.url and
-  its helpers in src/tile/tile_id.ts) is adapted in src/lib/tile-template.ts,
+  its helpers in src/tile/tile_id.ts, as of 6.11.2) is adapted in src/lib/tile-template.ts,
   which carries the upstream notice; the tile's bounding box there is
   MapLibre's inlining of @mapbox/whoots-js (ISC, © 2017 Mapbox), whose notice
   the file carries too.
