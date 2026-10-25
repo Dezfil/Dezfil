@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import type { AttributionLine } from "@/lib/basemap";
 import {
   BUILT_IN_PICTURE_BASEMAPS,
   picturesCredit,
@@ -36,6 +37,18 @@ export function PictureCredit({
   const { theme } = useTheme();
   const shown = useFreshPictures(maps);
   const lines = useMemo(() => picturesCredit(shown, basemaps, theme), [shown, basemaps, theme]);
+  return <PicturesCreditLine lines={lines} placement={placement} />;
+}
+
+/** The line itself, for a page that knows its pictures' credits without
+ * asking the server for them. No credit, no line. */
+export function PicturesCreditLine({
+  lines,
+  placement,
+}: {
+  lines: AttributionLine[];
+  placement: "page" | "foot";
+}) {
   if (lines.length === 0) return null;
   return (
     <p className={placement === "foot" ? styles.foot : styles.page} data-picture-credit={placement}>
