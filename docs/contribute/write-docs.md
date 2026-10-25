@@ -177,7 +177,7 @@ Show, then explain:
 
 ````markdown title="Example"
 ```sh title="Terminal"
-docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data ghcr.io/dezfil/dezfil
 ```
 
 - `-p 127.0.0.1:3000:3000` serves Dezfil on port 3000 of this machine only.

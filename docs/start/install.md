@@ -19,10 +19,10 @@ moved_from:
 
 ## What you need
 
-- **For Docker or Docker Compose:** Docker and git. Compose also needs the `docker compose` command.
+- **For Docker or Docker Compose:** Docker, on a 64-bit Intel, AMD or Arm machine. Compose also needs the `docker compose` command.
 - **For a development checkout:** Node.js 24 or newer, npm and git.
 
-There is no published image to pull. You clone the repository and build the image from it.
+Each release is published as the image `ghcr.io/dezfil/dezfil`, for `linux/amd64` and `linux/arm64`.
 
 ## Install
 
@@ -33,17 +33,15 @@ Docker is the quickest start. Docker Compose keeps the setup in a file, and star
 :::tab[Docker]
 
 ```sh title="Terminal"
-git clone https://github.com/Dezfil/Dezfil.git
-cd Dezfil
-docker build -t dezfil .
-docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data ghcr.io/dezfil/dezfil
 ```
 
 - `-p 127.0.0.1:3000:3000` serves Dezfil on port 3000 of this machine only. To use another port, change the first `3000`.
 - `-v dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume. Without it, a new container starts empty.
 - `--name dezfil` is the name the [everyday commands](#everyday-commands) use.
+- `ghcr.io/dezfil/dezfil` is the latest release. To run one version, add its tag, as in `ghcr.io/dezfil/dezfil:<VERSION>`.
 
-The first build takes a few minutes: it compiles the app and its tile builder. Dezfil should be ready within 30 seconds of `docker run`. Check it:
+The first `docker run` downloads the image, which takes a few minutes. Dezfil should be ready within 30 seconds of starting. Check it:
 
 ```sh title="Terminal"
 curl http://localhost:3000/api/health
@@ -59,18 +57,19 @@ Then open <http://localhost:3000>.
 
 :::tab[Docker Compose]
 
+Make a folder for the Compose file:
+
 ```sh title="Terminal"
-git clone https://github.com/Dezfil/Dezfil.git
-cd Dezfil
+mkdir dezfil
+cd dezfil
 ```
 
-Save this file as `compose.yaml` in the `Dezfil` folder:
+Save this file as `compose.yaml` in the `dezfil` folder:
 
 ```yaml title="compose.yaml"
 services:
   dezfil:
-    build: .
-    image: dezfil
+    image: ghcr.io/dezfil/dezfil
     container_name: dezfil
     ports:
       - "127.0.0.1:3000:3000"
@@ -83,20 +82,20 @@ volumes:
     name: dezfil-data
 ```
 
-Build the image and start Dezfil:
+Start Dezfil:
 
 ```sh title="Terminal"
-docker compose up -d --build
+docker compose up -d
 ```
 
-- `build: .` builds the image from the repository and `image: dezfil` names it.
+- `image: ghcr.io/dezfil/dezfil` runs the latest release. To run one version, add its tag, as in `ghcr.io/dezfil/dezfil:<VERSION>`.
 - `127.0.0.1:3000:3000` serves Dezfil on port 3000 of this machine only. To use another port, change the first `3000`.
 - `dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume.
 - `restart: unless-stopped` starts Dezfil again after a crash or a Docker restart, unless you stopped it.
 
 For an instance that lasts, with its keys and backups, see [Docker Compose](../self-host/docker-compose.md).
 
-The first build takes a few minutes: it compiles the app and its tile builder. Dezfil should be ready within 30 seconds of the container starting. Check it:
+The first start downloads the image, which takes a few minutes. Dezfil should be ready within 30 seconds of the container starting. Check it:
 
 ```sh title="Terminal"
 curl http://localhost:3000/api/health
@@ -141,6 +140,8 @@ To stop Dezfil, press Ctrl+C in its terminal. To upgrade, stop it, run `git pull
 
 A checkout lacks two programs the container brings, `tippecanoe` for the tiles of large layers and Chromium for the map pictures the server draws, and [Development setup](../contribute/development-setup.md#add-the-programs-the-container-brings) shows how to add them.
 
+To build the container image from your checkout, run `docker build -t dezfil .` in it. Then use `dezfil` in place of `ghcr.io/dezfil/dezfil` in the Docker commands.
+
 [Development setup](../contribute/development-setup.md) covers the rest: the checks, the tests and what they need.
 
 :::
@@ -175,13 +176,13 @@ To add people, open **Users** in the side menu and click **Invite**. See [Users]
 | See the logs | `docker logs -f dezfil` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
 | Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#back-up). |
-| Upgrade | Follow [Upgrade](../self-host/upgrade.md): it builds the new version, backs up, replaces the container and keeps a way back. |
+| Upgrade | Follow [Upgrade](../self-host/upgrade.md): it downloads the new version, backs up, replaces the container and keeps a way back. |
 
 :::
 
 :::tab[Docker Compose]
 
-Run these in the `Dezfil` folder.
+Run these in the folder that holds `compose.yaml`.
 
 | Task | Command |
 |---|---|
@@ -190,7 +191,7 @@ Run these in the `Dezfil` folder.
 | See the logs | `docker compose logs -f` |
 | Check health | `curl http://localhost:3000/api/health` answers `{"status":"ready"}` |
 | Back up | Stop Dezfil, then copy the `dezfil-data` volume with the commands in [Back up and restore](../self-host/backup-and-restore.md#back-up). |
-| Upgrade | Follow [Upgrade](../self-host/upgrade.md): it builds the new version, backs up, replaces the container and keeps a way back. |
+| Upgrade | Follow [Upgrade](../self-host/upgrade.md): it downloads the new version, backs up, replaces the container and keeps a way back. |
 
 :::
 

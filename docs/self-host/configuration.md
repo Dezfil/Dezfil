@@ -32,16 +32,18 @@ You change a setting in one of two places:
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e DEZFIL_UPLOAD_MAX_MB=10240 \
   -e DEZFIL_QUERY_TIMEOUT_S=120 \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
-A container keeps the variables it was created with. To change one, first list the ones it has:
+A container keeps the image and the variables it was created with. To change a variable, first list them:
 
 ```sh title="Terminal"
-docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
+docker inspect --format '{{println .Config.Image}}{{range .Config.Env}}{{println .}}{{end}}' dezfil
 ```
 
-The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then the command again with every variable you set, not only the new one, `DEZFIL_SECRET_KEY` too if you set one. The `dezfil-data` volume keeps your data.
+The first line is the image. If it names a version, as in `ghcr.io/dezfil/dezfil:0.1.0`, put that name at the end of the command, so the container keeps its version. The other lines hold the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`.
+
+Run `docker rm -f dezfil`, then the command again with every variable you set, not only the new one, `DEZFIL_SECRET_KEY` too if you set one. The `dezfil-data` volume keeps your data.
 
 Without `DEZFIL_SECRET_KEY`, the instance's key is the `secret.key` file in its volume, once Dezfil has made one. To set the variable, print that key as [Keep the key you have](docker-compose.md#keep-the-key-you-have) shows, and pass it as `-e DEZFIL_SECRET_KEY=<64_HEX_CHARACTERS>`. [Storage and programs](configuration/storage.md) says what another key breaks.
 

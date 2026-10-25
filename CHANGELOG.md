@@ -76,7 +76,8 @@ First public release.
 - An HTTP API covering every capability the interface uses, an MCP server over
   the same surface, and a packaged plugin for MCP clients.
 - A single container image that runs the whole application offline, with the
-  spatial extensions baked in.
+  spatial extensions baked in, published as `ghcr.io/dezfil/dezfil` for
+  `linux/amd64` and `linux/arm64`.
 
 [Unreleased]: https://github.com/Dezfil/Dezfil/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/Dezfil/Dezfil/releases/tag/v0.1.0

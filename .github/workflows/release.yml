@@ -1,0 +1,143 @@
+name: Release
+
+# Publishes Dezfil when a version tag is pushed (v0.1.0, v0.2.0-rc.1, ...).
+# The image is built natively on amd64 and arm64 runners and checked against
+# the runtime inventory, as the main pipeline checks its image, then started
+# once. The two images are pushed to GitHub's container registry, joined
+# under the version's tag (and `latest` unless it is a pre-release), given a
+# build provenance attestation, and released with the changelog's section.
+# Docker Hub receives the same tags when the repository holds a
+# DOCKERHUB_TOKEN secret (and DOCKERHUB_USERNAME, if not `dezfil`).
+#
+# To release: give the changelog a section for the version and package.json
+# the same version, merge that, then tag the merge commit and push the tag:
+#   git tag -a v0.1.0 -m "Dezfil 0.1.0" && git push origin v0.1.0
+on:
+  push:
+    tags: ["v*"]
+
+# Each job raises only what it writes.
+permissions:
+  contents: read
+
+# One run per tag, never cancelled half-way through a publish.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/dezfil/dezfil
+
+jobs:
+  image:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Refuses a tag that is not package.json's version or that the changelog
+      # does not record, before anything is built. The version is then a
+      # plain semantic version, safe in a shell and an image tag.
+      - name: The tag names the package's version, and the changelog records it
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > /dev/null
+      - name: Build image
+        run: |
+          docker build \
+            --label org.opencontainers.image.source="https://github.com/$GITHUB_REPOSITORY" \
+            --label org.opencontainers.image.version="${GITHUB_REF_NAME#v}" \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" \
+            --label org.opencontainers.image.licenses=Apache-2.0 \
+            --label org.opencontainers.image.title=Dezfil \
+            --label org.opencontainers.image.description="Self-hosted spatial SQL and map publishing, powered by DuckDB and files." \
+            -t dezfil:release .
+          docker image ls dezfil:release --format 'Image size: {{.Size}}'
+      - name: Runtime image inventory matches the allowlist
+        run: node scripts/check-image-inventory.mjs dezfil:release
+      - name: The image starts and answers ready
+        run: |
+          docker run -d --name dezfil-release --network=none dezfil:release
+          ready=no
+          for i in $(seq 1 60); do
+            if docker exec dezfil-release node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.json()).then(b=>process.exit(b.status==='ready'?0:1)).catch(()=>process.exit(1))"; then
+              ready=yes
+              break
+            fi
+            sleep 1
+          done
+          docker logs --tail 20 dezfil-release
+          docker rm -f dezfil-release
+          [ "$ready" = yes ]
+      - name: Push this architecture's image
+        env:
+          ARCH: ${{ matrix.arch }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag dezfil:release "$IMAGE:${GITHUB_REF_NAME#v}-$ARCH"
+          docker push "$IMAGE:${GITHUB_REF_NAME#v}-$ARCH"
+
+  publish:
+    needs: image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # the GitHub release
+      packages: write # the joined tags and the attestation
+      id-token: write # signing the attestation
+      attestations: write
+    env:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || 'dezfil' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Release notes
+        run: |
+          node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+          printf '\n## Install\n\n```sh\ndocker pull %s:%s\n```\n' "$IMAGE" "${GITHUB_REF_NAME#v}" >> "$RUNNER_TEMP/notes.md"
+      - name: Join the architectures under the version's tag
+        id: join
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          tags=(-t "$IMAGE:$version")
+          case "$version" in *-*) ;; *) tags+=(-t "$IMAGE:latest") ;; esac
+          docker buildx imagetools create "${tags[@]}" "$IMAGE:$version-amd64" "$IMAGE:$version-arm64"
+          digest=$(docker buildx imagetools inspect "$IMAGE:$version" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.join.outputs.digest }}
+          push-to-registry: true
+      - name: Copy the tags to Docker Hub
+        if: env.DOCKERHUB_TOKEN != ''
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "$DOCKERHUB_TOKEN" | docker login docker.io -u "$DOCKERHUB_USERNAME" --password-stdin
+          tags=(-t "docker.io/dezfil/dezfil:$version")
+          case "$version" in *-*) ;; *) tags+=(-t "docker.io/dezfil/dezfil:latest") ;; esac
+          docker buildx imagetools create "${tags[@]}" "$IMAGE:$version"
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          prerelease=()
+          case "$version" in *-*) prerelease=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "Dezfil $version" \
+            --notes-file "$RUNNER_TEMP/notes.md" "${prerelease[@]}"

@@ -17,7 +17,7 @@ moved_from:
 
 Everything your instance keeps is in one folder, the data folder: `/data` in the container, held in the `dezfil-data` volume. A backup is a copy of that folder, made while Dezfil is stopped. The variables you start Dezfil with stay outside it.
 
-The commands use the names from [Install](../start/install.md): a container and an image called `dezfil`, and a volume called `dezfil-data`. They work the same with Docker Compose, whose container is also called `dezfil`.
+The commands use the names from [Install](../start/install.md): a container called `dezfil`, the image `ghcr.io/dezfil/dezfil` and a volume called `dezfil-data`. They work the same with Docker Compose, whose container is also called `dezfil`. If you run a version by its tag, add the tag to the image name.
 
 ## Back up
 
@@ -25,14 +25,14 @@ The commands use the names from [Install](../start/install.md): a container and 
 docker stop dezfil
 mkdir "$HOME/dezfil-backup" && docker run --rm --user root --entrypoint sh \
   -e OWNER="$(id -u):$(id -g)" \
-  -v dezfil-data:/data:ro -v "$HOME/dezfil-backup:/backup" dezfil \
+  -v dezfil-data:/data:ro -v "$HOME/dezfil-backup:/backup" ghcr.io/dezfil/dezfil \
   -c 'cp -a /data/. /backup/ && chown -R "$OWNER" /backup && chmod 700 /backup && echo Copied'
 docker start dezfil
 ```
 
 - `docker stop dezfil` stops Dezfil, so no write lands halfway through the copy.
-- `mkdir` makes the folder outside the `Dezfil` folder, so a build leaves it out. If the folder exists, `mkdir` fails and `&&` skips the copy, so no earlier backup is overwritten.
-- `docker run --rm --user root --entrypoint sh` runs a shell as root in a throwaway container of your `dezfil` image, so it can read every file. `-e OWNER=…` passes it your user and group.
+- `mkdir` makes the folder in your home folder. If the folder exists, `mkdir` fails and `&&` skips the copy, so no earlier backup is overwritten.
+- `docker run --rm --user root --entrypoint sh` runs a shell as root in a throwaway container of Dezfil's image, so it can read every file. `-e OWNER=…` passes it your user and group.
 - `-v dezfil-data:/data:ro` mounts the volume read-only, and `-v "$HOME/dezfil-backup:/backup"` mounts the new folder.
 - `cp -a /data/. /backup/` copies every file with its mode and times. `chown -R "$OWNER" /backup` gives the copy to you, and `chmod 700 /backup` lets only you open the folder.
 - `docker start dezfil` starts Dezfil again on the same data, with the same variables.
@@ -45,7 +45,7 @@ Copied
 
 `File exists` instead means an earlier backup is there: move it away, as with `mv "$HOME/dezfil-backup" "$HOME/dezfil-backup-1"`, and run the commands again. The folder holds `metadata.sqlite`, and `secret.key` once Dezfil has made a key.
 
-Also write down the version and the settings. In the `Dezfil` folder, `git rev-parse --short HEAD` prints the commit you built. The settings are your `-e` variables, listed as [Set a variable](configuration.md#set-a-variable) shows, or `compose.yaml` and `.env`.
+Also write down the version, which [step 1 of Upgrade](upgrade.md#1-note-the-version-you-run) prints, and the settings. The settings are your `-e` variables, listed as [Set a variable](configuration.md#set-a-variable) shows, or `compose.yaml` and `.env`.
 
 > [!WARNING]
 > The backup holds every account's password hash and, as `secret.key`, the encryption key. Keep every copy of it where only you can read it, as the command leaves this one.
@@ -103,7 +103,7 @@ A newer version brings a restored backup up to date when it starts. An older ver
 docker stop dezfil
 mkdir "$HOME/dezfil-before-restore" && docker run --rm --user root --entrypoint sh \
   -e OWNER="$(id -u):$(id -g)" \
-  -v dezfil-data:/data:ro -v "$HOME/dezfil-before-restore:/backup" dezfil \
+  -v dezfil-data:/data:ro -v "$HOME/dezfil-before-restore:/backup" ghcr.io/dezfil/dezfil \
   -c 'cp -a /data/. /backup/ && chown -R "$OWNER" /backup && chmod 700 /backup && echo Copied'
 ```
 
@@ -115,7 +115,7 @@ If the volume holds nothing you need, run only `docker stop dezfil`: the restore
 
 ```sh title="Terminal"
 docker run --rm --user root --entrypoint sh \
-  -v dezfil-data:/data -v "$HOME/dezfil-backup:/backup:ro" dezfil \
+  -v dezfil-data:/data -v "$HOME/dezfil-backup:/backup:ro" ghcr.io/dezfil/dezfil \
   -c 'test -f /backup/metadata.sqlite && find /data -mindepth 1 -delete &&
       cp -a /backup/. /data/ && chown -R node:node /data && echo Restored'
 ```
@@ -161,17 +161,16 @@ Then sign in and open **Maps**. You should see your maps as they were at the bac
    ```
 
    `-p` keeps each file's mode, so only you can read the copy. There, `ls "$HOME/dezfil-backup"` should list `metadata.sqlite`, and `secret.key` if the old folder held one.
-2. Clone Dezfil there with `git clone https://github.com/Dezfil/Dezfil.git`, then run `git checkout <COMMIT>` in the `Dezfil` folder with the commit you noted. `git rev-parse --short HEAD` should print that commit.
-3. In the `Dezfil` folder, build the image with `docker build -t dezfil .`. `docker image ls dezfil` should then list it.
-4. Run the command of [step 2](#2-copy-the-backup-into-the-volume) of Restore. It creates the `dezfil-data` volume, fills it with the backup and prints `Restored`.
-5. Start Dezfil on the volume, with the settings the old instance had:
+2. Download the version you noted there, with `docker pull ghcr.io/dezfil/dezfil:<VERSION>`. `docker image ls ghcr.io/dezfil/dezfil` should then list it.
+3. Run the command of [step 2](#2-copy-the-backup-into-the-volume) of Restore. It creates the `dezfil-data` volume, fills it with the backup and prints `Restored`.
+4. Start Dezfil on the volume, with the version and the settings the old instance had:
 
 ::::tabs
 
 :::tab[Docker]
 
 ```sh title="Terminal"
-docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data ghcr.io/dezfil/dezfil:<VERSION>
 ```
 
 Add the `-e` variables of the old instance, `DEZFIL_SECRET_KEY` too if it had one.
@@ -180,7 +179,7 @@ Add the `-e` variables of the old instance, `DEZFIL_SECRET_KEY` too if it had on
 
 :::tab[Docker Compose]
 
-Copy your `compose.yaml`, and `.env` if you have one, into the `Dezfil` folder, then run:
+Copy your `compose.yaml`, and `.env` if you have one, into a folder of their own. Give the image the version you noted, as in `image: ghcr.io/dezfil/dezfil:<VERSION>`, then run:
 
 ```sh title="Terminal"
 docker compose up -d
@@ -224,7 +223,7 @@ Nothing printed means a `data.before-restore` folder is in the way: move it away
 Every page, health included, answers `Internal Server Error`, and `docker logs dezfil` shows the line. The restored files belong to another user. When only the files inside `/data` do, the line is `attempt to write a readonly database` instead. Either way, give them to `node`, then restart Dezfil:
 
 ```sh title="Terminal"
-docker run --rm --user root --entrypoint sh -v dezfil-data:/data dezfil -c 'chown -R node:node /data'
+docker run --rm --user root --entrypoint sh -v dezfil-data:/data ghcr.io/dezfil/dezfil -c 'chown -R node:node /data'
 docker restart dezfil
 ```
 
@@ -246,11 +245,11 @@ If it prints another name, start Dezfil again on `dezfil-data`. Do not create an
 
 :::tab[Docker]
 
-A new container gets none of the old one's `-e` variables: list them as [Set a variable](configuration.md#set-a-variable) shows, then start a new one with them, `DEZFIL_SECRET_KEY` too if you set one:
+A new container gets none of the old one's `-e` variables or its image's version: list them as [Set a variable](configuration.md#set-a-variable) shows, then start a new one with them, `DEZFIL_SECRET_KEY` too if you set one:
 
 ```sh title="Terminal"
 docker rm -f dezfil
-docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data ghcr.io/dezfil/dezfil
 ```
 
 :::

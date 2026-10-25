@@ -77,15 +77,9 @@ A `docker run` that stopped here made its container all the same. Remove it with
 
 ### "The container name "/dezfil" is already in use"
 
-`docker run` or `docker compose up` refuses because a container called `dezfil` exists, often a stopped one. A new container gets none of its variables, so list them first:
+`docker run` or `docker compose up` refuses because a container called `dezfil` exists, often a stopped one. A new container gets none of its image's version or variables: list them as [Set a variable](configuration.md#set-a-variable) shows. Then run `docker rm -f dezfil` and your command again with them, `DEZFIL_SECRET_KEY` too if you set one. The volume keeps your data.
 
-```sh title="Terminal"
-docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' dezfil
-```
-
-The list holds the image's own variables too, such as `PATH` and `DEZFIL_DATA_DIR`. Run `docker rm -f dezfil`, then your command again with the `-e` variables you set, `DEZFIL_SECRET_KEY` too if you set one. The volume keeps your data.
-
-With Docker Compose, put those variables under `environment:` in `compose.yaml`, or in `.env` as [Docker Compose](docker-compose.md#3-make-the-keys-file) does, then run `docker compose up -d`.
+With Docker Compose, give `image:` that image and put those variables under `environment:` in `compose.yaml`, or in `.env` as [Docker Compose](docker-compose.md#3-make-the-keys-file) does, then run `docker compose up -d`.
 
 ### Dezfil asks you to create the first account again
 
