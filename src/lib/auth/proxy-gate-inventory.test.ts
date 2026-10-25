@@ -79,7 +79,7 @@ it("refuses cross-site cookie mutations across the protected inventory without r
 });
 
 it("allows only explicit anonymous methods and data-free assets, even with an invalid cookie", () => {
-  const publicPaths = ["/api/health", "/api/auth/entry", "/accept", "/v/token", "/v/token?embed=1", "/v", "/v/token/extra", "/v/token/extra/more", "/_next/static/chunks/app.js", "/_next/static/media/font.woff2", "/icon.svg", "/shell-sheet-light.svg", "/entry/river-delta.webp", "/maki/marker.svg", "/workers/maplibre-gl-6.11.2/maplibre-gl-worker.mjs", "/workers/loaders.gl-mvt-worker-4.4.5.js"];
+  const publicPaths = ["/api/health", "/api/auth/entry", "/accept", "/v/token", "/v/token?embed=1", "/v", "/v/token/extra", "/v/token/extra/more", "/_next/static/chunks/app.js", "/_next/static/media/font.woff2", "/icon.svg", "/shell-sheet-light.svg", "/entry/river-delta.webp", "/maki/marker.svg", "/workers/maplibre-gl-6.14.0/maplibre-gl-worker.mjs", "/workers/loaders.gl-mvt-worker-4.5.4.js"];
   for (const pathname of publicPaths) {
     const response = gateRequest(input(pathname, "GET", { cookie: "dezfil_session=invalid" }));
     expect.soft(response.headers.get("x-middleware-next"), pathname).toBe("1");

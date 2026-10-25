@@ -36,7 +36,7 @@ export function templatesPresence(lines) {
 }
 
 export const MVT_WORKER_REPO_PATH =
-  "public/workers/loaders.gl-mvt-worker-4.4.5.js";
+  "public/workers/loaders.gl-mvt-worker-4.5.4.js";
 export const INGRESS_REPO_PATHS = [
   "scripts/ingress-preload.mjs", "scripts/preload-options.mjs", "src/lib/auth/ingress.mjs", "src/lib/auth/reception.mjs",
 ];
@@ -124,8 +124,8 @@ export function licencePresence(lines) {
 export const MVT_WORKER_IMAGE_PATH = `/app/${MVT_WORKER_REPO_PATH}`;
 export const BROWSER_WORKER_REPO_PATHS = [
   MVT_WORKER_REPO_PATH,
-  "public/workers/maplibre-gl-6.11.2/maplibre-gl-worker.mjs",
-  "public/workers/maplibre-gl-6.11.2/maplibre-gl-shared.mjs",
+  "public/workers/maplibre-gl-6.14.0/maplibre-gl-worker.mjs",
+  "public/workers/maplibre-gl-6.14.0/maplibre-gl-shared.mjs",
 ];
 
 /** Every path the image may carry at the top of /app. The standalone

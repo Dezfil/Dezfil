@@ -1,10 +1,10 @@
 /*!
- * loaders.gl MVT parser worker v4.4.5
+ * loaders.gl MVT parser worker v4.5.4
  * SPDX-License-Identifier: MIT
  * Copyright (c) vis.gl contributors
  * Copyright (c) 2015 Uber Technologies, Inc.
  *
- * Vendored from @loaders.gl/mvt 4.4.5, dist/mvt-worker.js.
+ * Vendored from @loaders.gl/mvt 4.5.4, dist/mvt-worker.js.
  * After this application prelude, the upstream bundle follows byte-for-byte.
  * Full loaders.gl and bundled transitive notices are reproduced in /NOTICE.
  */
@@ -2095,7 +2095,7 @@
   var dist_default = new ProbeLog({ id: "@probe.gl/log" });
 
   // ../loader-utils/src/lib/log-utils/log.ts
-  var VERSION2 = true ? "4.4.5" : "latest";
+  var VERSION2 = true ? "4.5.4" : "latest";
   var version = VERSION2[0] >= "0" && VERSION2[0] <= "9" ? `v${VERSION2}` : "";
   function createLog() {
     const log2 = new ProbeLog({ id: "loaders.gl" });
@@ -2228,7 +2228,7 @@
 
   // ../loader-utils/src/lib/worker-loader-utils/create-loader-worker.ts
   var requestId = 0;
-  async function createLoaderWorker(loader) {
+  async function createLoaderWorker(loader, selectLoader = () => loader) {
     if (!await WorkerBody.inWorkerThread()) {
       return;
     }
@@ -2237,8 +2237,9 @@
         case "process":
           try {
             const { input, options = {}, context = {} } = payload;
+            const selectedLoader = selectLoader(options);
             const result = await parseData({
-              loader,
+              loader: selectedLoader,
               arrayBuffer: input,
               options,
               // @ts-expect-error fetch missing
@@ -2299,9 +2300,15 @@
     } else {
       throw new Error(`Could not load data with ${loader.name} loader`);
     }
+    const workerModules = Object.fromEntries(
+      Object.entries(options.modules || {}).filter(([, value]) => typeof value === "string")
+    );
     options = {
       ...options,
-      modules: loader && loader.options && loader.options.modules || {},
+      modules: {
+        ...loader && loader.options && loader.options.modules || {},
+        ...workerModules
+      },
       core: {
         ...options.core,
         worker: false
@@ -2727,8 +2734,7 @@
       properties: vtFeature.properties
     };
     if (vtFeature.id !== null) {
-      result.properties ||= {};
-      result.properties.id = vtFeature.id;
+      result.id = vtFeature.id;
     }
     return result;
   }
@@ -2986,7 +2992,7 @@
   };
 
   // src/mvt-loader.ts
-  var VERSION3 = true ? "4.4.5" : "latest";
+  var VERSION3 = true ? "4.5.4" : "latest";
   var MVTWorkerLoader = {
     ...MVTFormat,
     dataType: null,

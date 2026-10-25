@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { createRequire } from "node:module";
+import { dirname } from "node:path";
 import { Readable } from "node:stream";
 import type { IncomingMessage } from "node:http";
 import { ApiError } from "@/lib/api/errors";
@@ -130,6 +132,15 @@ describe("style inspection", () => {
     const huge = Buffer.alloc(2 * 1024 * 1024 + 1, 0x7b);
     const result = await inspectStyle("https://x.test/s", respond(huge));
     expect(result).toEqual({ verdict: "not_style", detail: "The style is larger than 2 MB." });
+  });
+});
+
+describe("style validator", () => {
+  it("is the copy of the style specification the map renderer itself loads", () => {
+    const require = createRequire(import.meta.url);
+    const renderer = dirname(require.resolve("maplibre-gl/package.json"));
+    expect(require.resolve("@maplibre/maplibre-gl-style-spec", { paths: [renderer] }))
+      .toBe(require.resolve("@maplibre/maplibre-gl-style-spec"));
   });
 });
 
