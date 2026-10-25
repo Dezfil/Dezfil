@@ -125,7 +125,7 @@ docker exec -it dezfil node scripts/admin-recover.mjs \
 If the container is stopped, run the script in a one-off container on the same volume:
 
 ```sh title="Terminal"
-docker run --rm -it -v dezfil-data:/data dezfil \
+docker run --rm -it -v dezfil-data:/data ghcr.io/dezfil/dezfil \
   node scripts/admin-recover.mjs --data-dir /data --origin <YOUR_DEZFIL_ADDRESS> --email <ADMIN_EMAIL>
 ```
 

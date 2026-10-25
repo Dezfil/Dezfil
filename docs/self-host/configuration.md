@@ -32,7 +32,7 @@ You change a setting in one of two places:
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e DEZFIL_UPLOAD_MAX_MB=10240 \
   -e DEZFIL_QUERY_TIMEOUT_S=120 \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
 A container keeps the variables it was created with. To change one, first list the ones it has:

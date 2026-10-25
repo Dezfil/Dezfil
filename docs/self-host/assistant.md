@@ -30,7 +30,7 @@ Create an API key in your Anthropic or OpenAI account. The provider bills that a
 ```sh title="Terminal"
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e ANTHROPIC_API_KEY=<YOUR_ANTHROPIC_KEY> \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
 :::
@@ -40,7 +40,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
 ```sh title="Terminal"
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e OPENAI_API_KEY=<YOUR_OPENAI_KEY> \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
 :::
@@ -69,7 +69,7 @@ docker rm -f dezfil
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e ANTHROPIC_API_KEY=<YOUR_ANTHROPIC_KEY> \
   -e DEZFIL_AI_MODELS_ANTHROPIC=claude-sonnet-5,claude-haiku-4 \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
 The chip then offers Opus 5, Sonnet 5 and Haiku 4: the default model is always on the list. With one model left, the chip goes and the pane shows that model's id, such as `claude-opus-5`, instead.

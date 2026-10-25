@@ -16,7 +16,7 @@ order: 1
 Turn the quick start into an instance that lasts: its keys in a file of their own, a health check Docker reads, logs that stay small, and a start after every reboot.
 
 - **You need:** Docker with the `docker compose` command, on the machine that serves Dezfil.
-- **The code:** the `Dezfil` folder from [Install](../start/install.md). On a new machine, run `git clone https://github.com/Dezfil/Dezfil.git`.
+- **A folder:** the `dezfil` folder from [Install](../start/install.md), or a new one. It holds the Compose file and its keys.
 - **For the key:** `openssl`, which makes a random encryption key.
 
 ## 1. Note what your instance runs with
@@ -40,13 +40,12 @@ The **Encryption key** row says which key to use in step 3:
 
 ## 2. Write the Compose file
 
-In the `Dezfil` folder, save this file as `compose.yaml`:
+In the `dezfil` folder, save this file as `compose.yaml`:
 
 ```yaml title="compose.yaml"
 services:
   dezfil:
-    build: .
-    image: dezfil
+    image: ghcr.io/dezfil/dezfil
     container_name: dezfil
     ports:
       - "127.0.0.1:3000:3000"
@@ -71,7 +70,7 @@ volumes:
     name: dezfil-data
 ```
 
-- `build: .` builds the image from the folder, and `image: dezfil` names it.
+- `image: ghcr.io/dezfil/dezfil` runs the latest release. To stay on one version, add its tag, as in `ghcr.io/dezfil/dezfil:<VERSION>`, and change it when you [upgrade](upgrade.md).
 - `127.0.0.1:3000:3000` serves Dezfil on port 3000 of this machine only. To serve it under your domain, see [Reverse proxy and HTTPS](reverse-proxy.md).
 - `dezfil-data:/data` keeps everything Dezfil stores in the `dezfil-data` volume. `name: dezfil-data` keeps that exact name; without it, Compose adds the folder's name, as in `dezfil_dezfil-data`.
 - `env_file: .env` passes the variables you write in step 3 to Dezfil.
@@ -92,7 +91,7 @@ chmod 600 .env
 
 - `DEZFIL_SECRET_KEY` encrypts the passwords of saved database connections and the service addresses an admin saves in **Settings**. It takes 64 hex characters.
 - `openssl rand -hex 32` makes a random key of that length.
-- `chmod 600 .env` lets only your user read the file. Git ignores `.env`, and Docker leaves it out of the image it builds.
+- `chmod 600 .env` lets only your user read the file.
 
 With a new key in `.env` from the first start, a copy of the volume alone cannot read those passwords.
 
@@ -113,10 +112,10 @@ When you change `.env` later, run `docker compose up -d`. Compose replaces the c
 ## 4. Start Dezfil
 
 ```sh title="Terminal"
-docker compose up -d --build
+docker compose up -d
 ```
 
-The first build takes a few minutes.
+The first start downloads the image, which takes a few minutes.
 
 If Dezfil runs from Install's Docker command, Compose stops at `The container name "/dezfil" is already in use`. Remove that container with `docker rm -f dezfil`, which keeps the volume, and run the command again. Compose then says the `dezfil-data` volume "already exists but was not created by Docker Compose", and uses it all the same.
 
@@ -165,7 +164,7 @@ A restart ends the tool and workflow runs in progress. When Dezfil starts again,
 A volume that holds data may hold a key Dezfil made, as `secret.key`. Everything it encrypted needs that same key. Print it:
 
 ```sh title="Terminal"
-docker run --rm -v dezfil-data:/data:ro --entrypoint cat dezfil /data/secret.key
+docker run --rm -v dezfil-data:/data:ro --entrypoint cat ghcr.io/dezfil/dezfil /data/secret.key
 ```
 
 ```text title="Output"
@@ -173,7 +172,7 @@ docker run --rm -v dezfil-data:/data:ro --entrypoint cat dezfil /data/secret.key
 ```
 
 - `-v dezfil-data:/data:ro` mounts the volume read-only.
-- `--entrypoint cat dezfil /data/secret.key` prints the key file with the `dezfil` image you built.
+- `--entrypoint cat ghcr.io/dezfil/dezfil /data/secret.key` prints the key file with Dezfil's image.
 
 Use that value in step 3. The volume keeps its `secret.key`, so its backups still hold that key. If you see `cat: /data/secret.key: No such file or directory` instead, the volume holds no key: read the **Encryption key** row again, as step 1 says.
 

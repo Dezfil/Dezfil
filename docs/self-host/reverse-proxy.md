@@ -141,7 +141,7 @@ List your variables first, as [Set a variable](configuration.md#set-a-variable) 
 docker rm -f dezfil
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e DEZFIL_TRUSTED_PROXIES=<PROXY_ADDRESS> \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
 The `dezfil-data` volume keeps your data.

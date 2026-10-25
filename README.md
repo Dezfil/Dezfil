@@ -16,8 +16,7 @@ shareable view, from one container.
 With Docker installed:
 
 ```sh
-docker build -t dezfil .
-docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data dezfil
+docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data ghcr.io/dezfil/dezfil
 ```
 
 For development, with live reload, run `npm ci` and then `npm run dev`.

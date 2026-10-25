@@ -86,7 +86,7 @@ List your variables first, as [Set a variable](configuration.md#set-a-variable) 
 docker rm -f dezfil
 docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e DEZFIL_EGRESS_ALLOWLIST=<YOUR_HOST>,<YOUR_RANGE> \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
 :::
@@ -132,7 +132,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -e DEZFIL_BASEMAP_ATTRIBUTION="<YOUR_CREDIT>" \
   -e DEZFIL_OVERPASS_URL=<YOUR_OVERPASS_URL> \
   -e DEZFIL_EGRESS_ALLOWLIST=<YOUR_TILE_HOST>,<YOUR_OVERPASS_HOST> \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
 :::
@@ -213,7 +213,7 @@ for store in legacy-nss current-nss; do
   NSS_TRUST_TYPE=NSS certutil -N -d "sql:$store" --empty-password
   NSS_TRUST_TYPE=NSS certutil -A -d "sql:$store" -n 'Private root' -t 'C,,' -i private-root.pem
 done
-docker run --rm --user root --entrypoint sh -v "$PWD:/trust" dezfil -c 'cd /trust &&
+docker run --rm --user root --entrypoint sh -v "$PWD:/trust" ghcr.io/dezfil/dezfil -c 'cd /trust &&
   chown -R node:node legacy-nss current-nss && chmod 700 legacy-nss current-nss && ls legacy-nss current-nss'
 ```
 
@@ -246,7 +246,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
   -v "$PWD/legacy-nss:/home/node/.pki/nssdb" \
   -v "$PWD/current-nss:/home/node/.local/share/pki/nssdb" \
   -e NODE_EXTRA_CA_CERTS=/trust/private-root.pem \
-  dezfil
+  ghcr.io/dezfil/dezfil
 ```
 
 :::
