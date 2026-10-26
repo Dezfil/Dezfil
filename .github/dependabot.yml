@@ -16,6 +16,19 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
     groups:
+      # The renderer ships copies of its own and its parser's workers under
+      # public/workers, which a test holds to the installed versions. A bump
+      # here needs those copies replaced by hand, so it arrives on its own
+      # and does not hold back the week's other patches.
+      rendering-chain:
+        patterns:
+          - "maplibre-gl"
+          - "@maplibre/*"
+          - "@deck.gl/*"
+          - "pmtiles"
+        update-types:
+          - minor
+          - patch
       production-minor-and-patch:
         dependency-type: production
         update-types:
@@ -28,6 +41,23 @@ updates:
           - patch
     # A major bump lands on its own, because it needs a human to read the
     # release notes.
+    ignore:
+      # The documentation checks read a page the way the documentation site
+      # renders it: its frontmatter with the YAML parser of the site's
+      # content loader (js-yaml 4), its body with the exact Markdown parser
+      # versions the site uses. They move when the site's do.
+      - dependency-name: "js-yaml"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "mdast-util-from-markdown"
+      - dependency-name: "mdast-util-gfm"
+      - dependency-name: "micromark-extension-gfm"
+      # Next.js's lint configuration still brings plugins that do not accept
+      # ESLint 10, and the TypeScript lint parser does not yet accept
+      # TypeScript 7. Lift these when they do.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # The actions the pipeline pins. A stale action is a supply chain risk of
   # its own.
