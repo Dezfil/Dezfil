@@ -130,7 +130,12 @@ jobs:
       - run: npm run lint:docs
       # No tracked file names a documentation path that moved or left.
       - run: npm run lint:retired-paths
-      - run: npm test
+      # A hosted runner runs the suite under more load than a developer
+      # machine, and each of the first runs here had a different
+      # timing-bound case run past its limit, each passing in the others.
+      # One retry absorbs that: a case that fails twice still fails the job,
+      # and the output marks a case that needed its retry.
+      - run: npm test -- --retry=1
         env:
           # The authenticated test fixtures refuse to run without an
           # explicit scratch data directory, so no suite can ever touch
