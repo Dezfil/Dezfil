@@ -7,7 +7,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import path from "node:path";
 import { VectorTile } from "@mapbox/vector-tile";
-import Pbf from "pbf";
+import { PbfReader } from "pbf";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { ingestFile } from "@/lib/ingest/ingest";
 import { resetQueryInstance } from "@/lib/duckdb";
@@ -175,7 +175,7 @@ describe("current published tile eligibility", () => {
     expect(bytes).not.toBeNull();
     let buf = Buffer.from(bytes!);
     if (buf[0] === 0x1f && buf[1] === 0x8b) buf = gunzipSync(buf);
-    const tile = new VectorTile(new Pbf(buf));
+    const tile = new VectorTile(new PbfReader(buf));
     const features = tile.layers.features;
     expect(features.length).toBeGreaterThan(0);
     for (let i = 0; i < features.length; i++) {
