@@ -39,8 +39,10 @@ const READER = { name: "Ana Diaz", email: "ana@example.com", password: "field no
  * and port the instance is given. None is set, as on a new instance,
  * whatever the shell running the test exports. */
 const UNSET = SETTING_CATALOGUE.flatMap(({ environment }) => environment && environment !== "DEZFIL_DATA_DIR" && environment !== "PORT" ? [environment] : []);
-/** The fields whose value differs from run to run. */
-const VARIES = new Set(["runtimeMs"]);
+/** The fields whose value differs from run to run, or from one machine to
+ * another: the size of a table file the engine writes is 3,839 bytes on the
+ * macOS build the examples were read on and 3,821 on a Linux runner. */
+const VARIES = new Set(["runtimeMs", "sizeBytes"]);
 
 type Example = { description?: string; value?: unknown; "x-filenames"?: Record<string, string> };
 type Media = { examples?: Record<string, Example> };

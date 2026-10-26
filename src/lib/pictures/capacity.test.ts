@@ -16,6 +16,8 @@ afterAll(() => { vi.unstubAllEnvs(); resetQueryInstance(); closeMetadataDb(); })
 
 const basemapUrl = "http://127.0.0.1:3582/style.json";
 
+// Each of the hundreds of launches publishes a full set of picture sizes:
+// about 20 s alone, past the suite's 30 s limit under a full run's load.
 it.each(["missing", "mixed"] as const)("drains the %s capacity fixture, keeps current pictures and resumes once", async kind => {
   vi.stubEnv("DEZFIL_EXPORT_RENDER_CONCURRENCY", "2");
   const scope = testAccountScope(metadataDb(), kind), maps = await seedPictureCapacity(scope, kind, basemapUrl);
@@ -55,7 +57,7 @@ it.each(["missing", "mixed"] as const)("drains the %s capacity fixture, keeps cu
   for (const map of maps) expect(getPictureState(map.id)).toMatchObject({ state: "current", requestedGeneration: 1, publishedGeneration: 1 });
   await make().look(); await service.queue.drain();
   expect(launches).toHaveLength(count);
-});
+}, 120_000);
 
 it("an imagery address replacement changes freshness despite the stable proxy address", () => {
   const scope = testAccountScope(), map = createMap(scope, "Imagery");
