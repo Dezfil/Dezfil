@@ -63,6 +63,19 @@ jobs:
         run: |
           echo "$HOME/tippecanoe-bin" >> "$GITHUB_PATH"
           "$HOME/tippecanoe-bin/tippecanoe" --version
+      # Some unit tests read through the engine's own extensions, such as
+      # httpfs for an object store, and never install one themselves. A new
+      # runner has none, so install the image's list once where the engine
+      # looks by default, cached by that list and the locked engine version.
+      - name: Cache the DuckDB extensions
+        id: duckdb-extensions-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.duckdb/extensions
+          key: duckdb-extensions-${{ runner.os }}-${{ hashFiles('scripts/duckdb-extensions.mjs', 'package-lock.json') }}
+      - name: Install the DuckDB extensions (only on a cache miss)
+        if: steps.duckdb-extensions-cache.outputs.cache-hit != 'true'
+        run: node scripts/install-duckdb-extensions.mjs "$HOME/.duckdb/extensions"
       - run: npm run lint
       # A clean type check of this tree needs about 2.5 GB of heap (5,250
       # files, 600,000 types). Node's default on the runner is smaller, so
