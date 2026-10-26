@@ -36,8 +36,8 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -46,7 +46,7 @@ jobs:
       # binary by version so we don't recompile it from source every run.
       - name: Cache the tippecanoe binary
         id: tippecanoe-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/tippecanoe-bin
           key: tippecanoe-${{ runner.os }}-${{ env.TIPPECANOE_VERSION }}
@@ -69,7 +69,7 @@ jobs:
       # looks by default, cached by that list and the locked engine version.
       - name: Cache the DuckDB extensions
         id: duckdb-extensions-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.duckdb/extensions
           key: duckdb-extensions-${{ runner.os }}-${{ hashFiles('scripts/duckdb-extensions.mjs', 'package-lock.json') }}
@@ -156,7 +156,7 @@ jobs:
     env:
       GITLEAKS_VERSION: 8.30.1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install gitleaks
         run: |
           curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
@@ -172,13 +172,13 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build image
         run: docker build -t dezfil:ci .
       - name: Record image size
         run: |
           docker image ls dezfil:ci --format 'Image size: {{.Size}}'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       # The artifact we ship contains what we say and nothing else: /app must
