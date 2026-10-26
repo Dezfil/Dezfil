@@ -1,9 +1,10 @@
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { expect, it, vi } from "vitest";
-import { closeMetadataDb } from "@/lib/metadata/db";
+import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
+import { getPictureState, requestPicture } from "@/lib/pictures/state";
 import { bodyProbe } from "../../../scripts/body-probe.mjs";
 vi.mock("@/lib/export/render-image", () => ({ renderMapImage: vi.fn(async () => {
   const png = Buffer.alloc(24); png.set([137,80,78,71,13,10,26,10]); png.writeUInt32BE(4096, 16); png.writeUInt32BE(4096, 20);
@@ -35,10 +36,17 @@ it("drives every JSON operation with the served probe's requests and assertions"
   vi.stubGlobal("fetch", dispatch);
   const printed = vi.spyOn(console, "log").mockImplementation(() => {});
   const methods = new Set<string>();
+  let workerSettled = false;
   try {
     const result = await bodyProbe("http://instance.test", { serverLog: log, runTransport: false,
       exchangeImpl: async (url: string, { method = "POST", headers = {}, chunks = [] }: { method?: string; headers?: Record<string, string>; chunks?: Iterable<Uint8Array> | AsyncIterable<Uint8Array> } = {}) => {
         methods.add(method);
+        // The picture worker fails every map's picture whatever request is refused meanwhile.
+        if (!workerSettled) {
+          workerSettled = true;
+          for (const { id } of metadataDb().prepare("SELECT id FROM maps").all() as { id: string }[]) if (!getPictureState(id)) requestPicture(id, "worker", Date.now());
+          metadataDb().prepare("UPDATE map_pictures SET state = 'failed'").run();
+        }
         if (headers["content-length"] === undefined) expect(headers["transfer-encoding"], `${method} ${new URL(url).pathname}: frame every unknown-length body`).toBe("chunked");
         else expect(headers["transfer-encoding"]).toBeUndefined();
         const iterator = Symbol.asyncIterator in chunks ? (chunks as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]() : (chunks as Iterable<Uint8Array>)[Symbol.iterator]();

@@ -21,6 +21,7 @@ let dir: string;
 beforeEach(async () => { dir = await setupGeometryTest(); });
 afterEach(async () => { await cleanupGeometryTest(dir); vi.clearAllMocks(); });
 async function apply(name: string, choice: GeometryChoice) { return setGeometry(testAccountScope(), name, (await inspectGeometry(testAccountScope(), name)).revision, choice); }
+// Writing 50,000 long lines ran past 20 s on a busy hosted runner.
 it("writes long lines with bounded memory and no engine spill directory, then removes its stage", async () => {
   const t = await stored(`SELECT i, 'LINESTRING (' || array_to_string(list_transform(range(160), p ->
     printf('%.7f %.7f', 8 + i * 0.000001 + p * 0.00002, 50 + sin(p * 0.1 + i) * 0.001)), ', ') || ')' payload FROM range(50000) t(i)`);
@@ -38,7 +39,7 @@ it("writes long lines with bounded memory and no engine spill directory, then re
   const projected = await stored("SELECT 'POINT (1000 1000)' payload");
   await expect(setGeometry(testAccountScope(), projected.name, geometryRevision(projected), { format: "wkt", columns: ["payload"] })).rejects.toMatchObject({ code: "geometry_choice_invalid" });
   expect(await readdir(ingestScratchDir())).toEqual([]);
-}, 20_000);
+}, 60_000);
 it.each(["upload", "url"] as const)("legacy %s trajectories apply offline, keep all originals and project identity", async source => {
   const csv = path.join(dir, "gone.csv"); await writeFile(csv, await readFile("src/lib/ingest/fixtures/trajectories.csv"));
   const table = await stored(`SELECT * FROM read_csv(${lit(csv)})`, { source, sourceParams: source === "url" ? { url: "https://gone.test/route.csv" } : null });
