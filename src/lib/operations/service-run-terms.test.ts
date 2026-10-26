@@ -147,8 +147,11 @@ describe.each(SERVICES)("a $service run", ({ operation, gap, limit, failure, tab
   const load = async (...names: string[]) => { for (const name of names) await importFromUrl(scope(), `${fixture.base}/${name}.csv`, table(name)); };
   const run = (input: string, name: string) => startRun(scope(), { operation, parameters: { ...parameters(table(input)), name } });
   const GAP = 600;
-  // Below a full gap, above any request's own time on this machine.
-  const SLACK = 40;
+  // The gap runs from one request's start in the app, but is read where the
+  // fixture receives each request, so a request delayed on its way in
+  // shortens the next gap: 58 ms on a busy hosted runner. Under half a gap,
+  // so a kept gap still reads apart from the second run's none.
+  const SLACK = 150;
 
   it("keeps the gap it was admitted with, and one admitted after takes the new gap", async () => {
     await load(tables.first, tables.second);
