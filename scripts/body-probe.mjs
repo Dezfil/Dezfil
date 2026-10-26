@@ -9,6 +9,11 @@ import { mcpBodyControl } from './mcp-body-control.mjs';
 import { seedBodyFixtures, invalidBody, concreteBodyPath } from './body-probe-fixtures.mjs';
 import { sizedJson, chunksOf, assertByteRefusal, assertValidation, assertNoBodyMutation } from './body-probe-support.mjs';
 
+/** Fields the server changes on its own while the probe runs: a token's last
+ * use, and a map's picture, which the background picture worker makes or fails
+ * whatever request is refused meanwhile. */
+const SERVER_DRIVEN = new Set(['lastUsedAt', 'picture', 'pictureState', 'pictureVersion']);
+
 /** Full served probe. The injectable transport is only for route-level tests;
  * the command always uses real HTTP, production fixtures and the transport arms.
  * @param {string} base
@@ -30,7 +35,7 @@ export async function bodyProbe(base, { serverLog, exchangeImpl = exchange, runT
     const urls = ['/api/maps', '/api/projects', '/api/tables', '/api/recipes', '/api/settings', '/api/users', '/api/account/tokens', `/api/maps/${fixture.mapId}`, `/api/maps/${fixture.mapId}/history`, `/api/recipes/${fixture.recipeId}`, `/api/recipes/${fixture.recipeId}/layout`];
     const values = [];
     for (const url of urls) { const result = await api('GET', url); assert.equal(result.status, 200, url); values.push(result.json); }
-    return JSON.parse(JSON.stringify(values, (key, value) => key === 'lastUsedAt' ? undefined : value));
+    return JSON.parse(JSON.stringify(values, (key, value) => SERVER_DRIVEN.has(key) ? undefined : value));
   };
   const before = await state(), evidence = [];
   for (const { template, method, operation } of operations) {
