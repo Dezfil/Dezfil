@@ -192,22 +192,26 @@ describe("the query engine's Test", () => {
     expect(contents(folder)).toEqual(held);
   });
 
-  it("answers past its limit when the question does not finish within it, interrupting it", async () => {
+  it("answers past its limit when the question does not finish within it, interrupting it even when it starts late", async () => {
     // Warm first, so the limit falls on the question.
     expect(await test()).toMatchObject({ result: "passed" });
-    const asked = Promise.withResolvers<void>();
+    const asked = Promise.withResolvers<void>(), late = Promise.withResolvers<void>();
     const ask = DuckDBConnection.prototype.runAndReadAll;
-    vi.spyOn(DuckDBConnection.prototype, "runAndReadAll").mockImplementationOnce(function (this: DuckDBConnection) {
+    vi.spyOn(DuckDBConnection.prototype, "runAndReadAll").mockImplementationOnce(async function (this: DuckDBConnection) {
       asked.resolve();
-      // A question that would run for minutes.
+      // A question that would run for minutes, starting only once the limit
+      // has already interrupted it, as one can on a busy machine.
+      await late.promise;
       return ask.call(this, "SELECT count(*) FROM range(1000000) a, range(1000000) b");
     });
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    // Intervals stay real: the repeated interrupt is what stops a late question.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const answer = test();
     await asked.promise;
     await vi.advanceTimersByTimeAsync(PART_TEST_LIMITS.query_engine * 1000 + 1000);
     expect(await answer).toEqual({ part: "query_engine", result: "failed", reason: "timed_out" });
     vi.useRealTimers();
+    late.resolve();
     // The question was interrupted: its connection goes back within moments.
     await vi.waitFor(() => expect(engineStateForTests().leases).toBe(0), { timeout: 5000 });
     expect(await test()).toMatchObject({ result: "passed" });
