@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { captureBasis } from './revision-fixtures.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { provisionJourney } from './journey-auth.mjs';
-import { journeyApi } from './journey-http.mjs';
+import { journeyApi, named } from './journey-http.mjs';
 import { connect } from './mcp-process-probe.mjs';
 
 const missing = 'never-created-resource';
@@ -117,7 +117,7 @@ export async function verifyOwnership(base, { owners }) {
       assert.equal(downloaded.status, 200); assert.ok((await downloaded.text()).includes(owner.sentinel));
       assert.equal(expectStatus(await api('GET', `/api/maps/${owner.mapId}`), 200).name, owner.sentinel);
     }
-    const mcp = await connect(base, fetch, owner.token);
+    const mcp = await connect(base, named(), owner.token);
     try {
       assert.equal((await mcp.call('get_map', { id: owner.mapId })).id, owner.mapId);
       assert.deepEqual((await mcp.call('run_sql', { sql: 'SELECT sentinel FROM roads' })).preview, [{ sentinel: owner.sentinel }]);
