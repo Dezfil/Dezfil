@@ -481,13 +481,22 @@ describe("one walk at a time", () => {
   it("answers a read after a cache's Clear within 10 seconds of its asking, the Clear ending the walk under way, whose readers get what it had counted", async () => {
     put("tables/orphan.parquet", 1000);
     put("cache/geocode/answer-1.json", 60);
-    // Every walk is held at the tables folder's read.
+    // Every walk is held at the tables folder's read. A walk takes the folders
+    // in the order the disk lists them, so the first is waited for at that
+    // read itself: a quiet moment along the way can come before it.
     const held = Promise.withResolvers<never>();
-    watch.hold = (call, at) => (call === "readdir" && at === path.join(data, "tables") ? held.promise : undefined);
+    let reached = 0;
+    watch.hold = (call, at) => {
+      if (call !== "readdir" || at !== path.join(data, "tables")) return undefined;
+      reached += 1;
+      return held.promise;
+    };
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
     try {
       let beforeAt: number | null = null;
       const before = readStorage(p.context, p.db).finally(() => { beforeAt = Date.now(); });
+      for (const until = performance.now() + 10_000; reached === 0 && performance.now() < until;) await sleep(20);
+      expect(reached, "the walk did not reach the tables folder's read").toBe(1);
       for (let rest = 0, last = -1; rest < 3; rest = watch.calls === last ? rest + 1 : 0) { last = watch.calls; await sleep(20); }
       expect(watch.walks).toBe(1);
       // Nine seconds into that walk, a cache is cleared and a read is asked.
