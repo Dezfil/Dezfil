@@ -22,11 +22,11 @@ export async function deletionRoads(base, admin, wirePort) {
       async function call(name, args) {
         if (road === 'mcp') {
           const result = await mcpRequest(base, admin.token, 'tools/call', { name, arguments: args });
-          assert.ok(!result.isError, `MCP ${name}`); return result.structuredContent.result;
+          assert.ok(!result.isError, `MCP ${name}: ${JSON.stringify(result.structuredContent?.result)}`); return result.structuredContent.result;
         }
         if (road === 'assistant') {
           const result = await wire.call(base, { token: admin.token }, name, args, { mutation: name !== 'preview_user_deletion' });
-          assert.equal(result.ok, true, `assistant ${name}`); return result.body;
+          assert.equal(result.ok, true, `assistant ${name}: ${JSON.stringify(result.body)}`); return result.body;
         }
         const { id, ...body } = args;
         return good(await transport(name === 'preview_user_deletion' ? 'GET' : name === 'delete_user' ? 'DELETE' : 'POST',

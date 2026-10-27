@@ -3,7 +3,10 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, openSync, readSync, closeSync } from 'node:fs';
 import path from 'node:path';
 export function storeFiles(directory, prefix = '') {
-  return readdirSync(path.join(directory, prefix), { withFileTypes: true }).flatMap(entry => {
+  let entries;
+  // A folder removed after its parent was listed holds nothing live.
+  try { entries = readdirSync(path.join(directory, prefix), { withFileTypes: true }); } catch (error) { if (prefix && error.code === 'ENOENT') return []; throw error; }
+  return entries.flatMap(entry => {
     const file = path.join(prefix, entry.name);
     assert.ok(!entry.isSymbolicLink(), 'proof store contains no symbolic links');
     return entry.isDirectory() ? storeFiles(directory, file) : [file];
@@ -16,7 +19,11 @@ export function scanStore(directory, sentinels) {
   const hits = Object.fromEntries(sentinels.map(value => [value, []]));
   const overlap = Math.max(...needles.map(value => value.length)) - 1;
   for (const file of storeFiles(directory)) {
-    const fd = openSync(path.join(directory, file), 'r'), chunk = Buffer.alloc(65536);
+    // The server's own short-lived files (its writability probe, SQLite's
+    // journal) can go between the listing and the read; a gone file holds nothing live.
+    let fd;
+    try { fd = openSync(path.join(directory, file), 'r'); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+    const chunk = Buffer.alloc(65536);
     let tail = Buffer.alloc(0);
     try {
       for (;;) {
