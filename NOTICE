@@ -673,10 +673,10 @@ DuckDB extension components
 ---------------------------
 
 DuckDB builds each extension with the libraries it needs linked into it.
-The builds in the image are DuckDB 1.5.4's, from the sources at the commits
-DuckDB 1.5.4 names: https://github.com/duckdb/duckdb-spatial at b68b309d,
-duckdb-httpfs at c3f215ab, duckdb-aws at 08ad34f6, duckdb-azure at 563589b2
-and duckdb-postgres at 8f813f9b, all under https://github.com/duckdb. Each
+The builds in the image are DuckDB 1.5.6's, from the sources at the commits
+DuckDB 1.5.6 names: https://github.com/duckdb/duckdb-spatial at 04270fe7,
+duckdb-httpfs at 4bc690db, duckdb-aws at 28c853c0, duckdb-azure at 003214c9
+and duckdb-postgres at 318dabb2, all under https://github.com/duckdb. Each
 library below is named with its licence and copyright line; the MIT, ISC,
 BSD, curl and PostgreSQL texts are under "Licence texts" at the end of this
 file, and the Apache License 2.0 is LICENSE.

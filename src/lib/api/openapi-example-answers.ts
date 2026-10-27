@@ -648,7 +648,7 @@ export const INSTANCE_SETTINGS = {
   startedAt: "2026-10-20T09:00:00.000Z",
   warnings: [],
   parts: {
-    query_engine: { version: "1.5.4", started: true, extensions: ["spatial", "h3", "json"] },
+    query_engine: { version: "1.5.6", started: true, extensions: ["spatial", "h3", "json"] },
     tile_builder: { found: true, version: null },
     image_renderer: { found: false, available: false, imagesAtOnce: 2 },
     metadata_database: { file: "metadata.sqlite" },

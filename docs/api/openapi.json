@@ -8306,7 +8306,7 @@
                       "warnings": [],
                       "parts": {
                         "query_engine": {
-                          "version": "1.5.4",
+                          "version": "1.5.6",
                           "started": true,
                           "extensions": [
                             "spatial",
@@ -11310,7 +11310,7 @@
                       "warnings": [],
                       "parts": {
                         "query_engine": {
-                          "version": "1.5.4",
+                          "version": "1.5.6",
                           "started": true,
                           "extensions": [
                             "spatial",
