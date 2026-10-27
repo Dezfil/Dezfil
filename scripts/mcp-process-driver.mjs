@@ -42,7 +42,7 @@ if (image) {
 } else {
   const { seedRestart, readRestart, departure } = await import('./mcp-process-probe.mjs');
   const standalone = path.join(root, '.next/standalone');
-  for (const name of ['@duckdb', 'better-sqlite3', 'bindings', 'file-uri-to-path']) await cp(path.join(root, 'node_modules', name), path.join(standalone, 'node_modules', name), { recursive: true });
+  for (const name of ['@duckdb', 'better-sqlite3']) await cp(path.join(root, 'node_modules', name), path.join(standalone, 'node_modules', name), { recursive: true });
   await mkdir(path.join(root, '.claude'), { recursive: true });
   const data = await mkdtemp(path.join(root, '.claude/mcp-process-'));
   const file = path.join(data, 'mcp-events.ndjson'); await writeFile(file, '');

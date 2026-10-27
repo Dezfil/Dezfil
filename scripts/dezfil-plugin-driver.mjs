@@ -13,7 +13,7 @@ assertEvidenceWorktree(root);
 assert.ok(Number.isInteger(port) && port >= 3300 && port <= 65535);
 const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const base = `http://127.0.0.1:${port}`; const standalone = path.join(root, '.next/standalone');
-for (const name of ['@duckdb', 'better-sqlite3', 'bindings', 'file-uri-to-path']) await cp(path.join(root, 'node_modules', name), path.join(standalone, 'node_modules', name), { recursive: true });
+for (const name of ['@duckdb', 'better-sqlite3']) await cp(path.join(root, 'node_modules', name), path.join(standalone, 'node_modules', name), { recursive: true });
 await cp(path.join(root, '.next/static'), path.join(standalone, '.next/static'), { recursive: true });
 await cp(path.join(root, 'public'), path.join(standalone, 'public'), { recursive: true });
 await mkdir(path.join(root, '.claude'), { recursive: true });
