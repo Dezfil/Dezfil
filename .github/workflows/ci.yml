@@ -357,7 +357,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/journeys"
           chmod 777 "$RUNNER_TEMP/journeys"
           start() {
-            docker run -d --rm --name dezfil-ownership-ci --network=none \
+            docker run -d --name dezfil-ownership-ci --network=none \
               -e PORT=3383 -e DEZFIL_RENDER_CAP_FEATURES=2000 \
               -e DEZFIL_EGRESS_ALLOWLIST=127.0.0.1 \
               -v dezfil-ownership-ci-data:/data dezfil:ci
@@ -376,11 +376,18 @@ jobs:
               dezfil-mcp-probe:ci node /probe/scripts/ownership-journey.mjs \
               "$1" http://127.0.0.1:3383 /state/ownership-state.json
           }
+          # The server is removed here rather than by --rm, so a failed
+          # journey can still show what the server logged.
+          trap 'status=$?
+            if [ "$status" -ne 0 ]; then
+              docker inspect -f "server: {{.State.Status}}, exit {{.State.ExitCode}}, out of memory {{.State.OOMKilled}}" dezfil-ownership-ci || true
+              docker logs -t dezfil-ownership-ci 2>&1 | tail -n 200 || true
+            fi
+            docker rm -f dezfil-ownership-ci >/dev/null 2>&1 || true' EXIT
           start
           journey seed
           docker stop dezfil-ownership-ci
-          # --rm removes the container after stop returns; wait until the name is free.
-          for i in $(seq 1 50); do docker container inspect dezfil-ownership-ci >/dev/null 2>&1 || break; sleep 0.2; done
+          docker rm dezfil-ownership-ci
           start
           journey verify
           docker stop dezfil-ownership-ci
