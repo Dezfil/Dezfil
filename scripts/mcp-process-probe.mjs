@@ -1,4 +1,5 @@
 import { provisionJourney, tokenFetch } from './journey-auth.mjs';
+import { ownConnection } from './journey-http.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -9,7 +10,7 @@ export const slowSql = tag => `SELECT count(*) AS mcpprobe_${tag} FROM range(200
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export async function connect(base, transportFetch = fetch, token) {
   const credential = token ?? (await provisionJourney(base)).token;
-  const authenticatedFetch = tokenFetch(base, credential, transportFetch);
+  const authenticatedFetch = tokenFetch(base, credential, ownConnection(transportFetch));
   const client = new Client({ name: 'dezfil-process-probe', version: '1' });
   await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/api/mcp`), { fetch: authenticatedFetch }));
   const journey = await journeyClient(client, async path => {

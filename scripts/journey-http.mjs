@@ -20,6 +20,22 @@ export function named(send = fetch) {
   };
 }
 
+/** `send`, but every exchange takes a connection of its own. The MCP client
+ * compiles a tool's output schema just before the tool's first call, which on
+ * a busy machine holds the event loop past the server's five-second keep-alive;
+ * a kept-alive connection the server closed meanwhile would then carry the
+ * call, and the call would get no answer.
+ * @param {(url: any, init?: any) => Promise<Response>} [send]
+ * @returns {(url: string | URL | Request, init?: RequestInit) => Promise<Response>} */
+export function ownConnection(send = fetch) {
+  return (url, init = {}) => {
+    const headers = new Headers(url instanceof Request ? url.headers : undefined);
+    new Headers(init.headers).forEach((value, name) => headers.set(name, value));
+    headers.set('connection', 'close');
+    return send(url, { ...init, headers });
+  };
+}
+
 /** HTTP support for the headless API journey. Omit credentials for public reads. */
 export function journeyApi(base, { token, cookie, origin } = {}) {
   const send = token ? tokenFetch(base, token) : fetch;
