@@ -2,8 +2,8 @@
 
 Use a detached scratch checkout of the candidate, never the working checkout
 or its data. Build there, then provision the standalone exactly as the image
-does: copy `public`, `.next/static`, complete native packages (`@duckdb`,
-`better-sqlite3`, `bindings`, `file-uri-to-path`), and the ingress preload's
+does: copy `public`, `.next/static`, the native packages (`@duckdb`,
+`better-sqlite3`), and the ingress preload's
 `scripts/ingress-preload.mjs`, `scripts/preload-options.mjs` and
 `src/lib/auth/ingress.mjs` at their same relative paths. Keep every inherited
 request-bounds probe in the wider image battery.

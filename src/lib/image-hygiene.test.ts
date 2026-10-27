@@ -24,6 +24,7 @@ import {
   MVT_WORKER_IMAGE_PATH,
   MVT_WORKER_REPO_PATH,
   SHIPPED_TEMPLATES_INDEX_IMAGE_PATH,
+  sqlitePresence,
   TOP_LEVEL_ALLOWLIST,
   templatesPresence,
   trackedManifest,
@@ -67,6 +68,36 @@ describe("the picture library in the shipped image", () => {
   it("reads the architecture Docker reports, and refuses one it does not ship", () => {
     expect([imageArchitecture("amd64"), imageArchitecture("arm64")]).toEqual(["x64", "arm64"]);
     expect(() => imageArchitecture("s390x")).toThrow("Unsupported image architecture: s390x");
+  });
+});
+
+describe("the metadata store's engine in the shipped image", () => {
+  const listing = (arch: string) => [
+    "f /app/node_modules/better-sqlite3/package.json",
+    "f /app/node_modules/better-sqlite3/lib/index.js",
+    `f /app/node_modules/better-sqlite3/prebuilds/linux-${arch}.node`,
+  ];
+  it.each(["x64", "arm64"])("passes a %s listing with that platform's binary alone", (arch) => {
+    expect(sqlitePresence(listing(arch), arch)).toEqual([]);
+  });
+  it("names the binary when the image lacks it", () => {
+    expect(sqlitePresence(listing("x64").slice(0, 2), "x64")).toEqual([
+      "MISSING: /app/node_modules/better-sqlite3/prebuilds/linux-x64.node — the metadata store's x64 binary",
+    ]);
+  });
+  it("judges the image's own architecture: an arm64 binary in an x64 image is both missing and foreign", () => {
+    expect(sqlitePresence(listing("arm64"), "x64")).toEqual([
+      "MISSING: /app/node_modules/better-sqlite3/prebuilds/linux-x64.node — the metadata store's x64 binary",
+      "a binary for another platform: /app/node_modules/better-sqlite3/prebuilds/linux-arm64.node",
+    ]);
+  });
+  it("names every other platform's binary the package publishes", () => {
+    const others = ["darwin-arm64", "linuxmusl-x64", "win32-x64"].map(
+      (target) => `f /app/node_modules/better-sqlite3/prebuilds/${target}.node`,
+    );
+    expect(sqlitePresence([...listing("x64"), ...others], "x64")).toEqual(
+      others.map((line) => `a binary for another platform: ${line.slice(2)}`),
+    );
   });
 });
 

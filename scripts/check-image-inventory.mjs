@@ -75,6 +75,17 @@ export function picturePresence(lines, arch) {
   return required.filter(({ file, pattern }) => !files.some(present => pattern ? pattern.test(present) : present === file))
     .map(({ file, what }) => `MISSING: ${file} — ${what}`);
 }
+/** The metadata store's engine publishes a prebuilt binary for every
+ * platform it supports; the build keeps only the one the package picks on
+ * the image's own platform, so the image ships that binary and no other. */
+export function sqlitePresence(lines, arch) {
+  const files = lines.map(line => line.trim()).filter(line => line.startsWith("f ")).map(line => line.slice(2));
+  const binary = `/app/node_modules/better-sqlite3/prebuilds/linux-${arch}.node`;
+  const missing = files.includes(binary) ? [] : [`MISSING: ${binary} — the metadata store's ${arch} binary`];
+  const foreign = files.filter(file => /^\/app\/node_modules\/better-sqlite3\/prebuilds\/[^/]+\.node$/.test(file) && file !== binary)
+    .map(file => `a binary for another platform: ${file}`);
+  return [...missing, ...foreign];
+}
 /** Packages that publish no licence file of their own, by name, with what
  * their package.json declares and where the image holds the licence's text
  * (NOTICE says the same). Any other package without one fails. */
@@ -347,7 +358,7 @@ if (isMain) {
   const arch = args[0] === "--listing"
     ? (args.includes("--arch") ? args[args.indexOf("--arch") + 1] : "x64")
     : imageArchitecture(execFileSync("docker", ["image", "inspect", "--format", "{{.Architecture}}", args[0] ?? "dezfil:ci"], { encoding: "utf8" }).trim());
-  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing), ...templatesPresence(listing), ...picturePresence(listing, arch), ...licencePresence(listing)];
+  const violations = [...judge(listing, trackedManifest()), ...cataloguePresence(listing), ...ingressPresence(listing), ...recoveryPresence(listing), ...templatesPresence(listing), ...picturePresence(listing, arch), ...sqlitePresence(listing, arch), ...licencePresence(listing)];
   // Positive presence proofs: the browser and trust store required by image
   // export, plus the application-owned parser worker required by
   // every tiled map host. An allowlist only says a path MAY ship;

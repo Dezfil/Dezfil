@@ -121,8 +121,7 @@ mkdir -p .next/standalone/scripts .next/standalone/src/lib/auth .next/standalone
 cp scripts/ingress-preload.mjs scripts/preload-options.mjs .next/standalone/scripts/
 cp src/lib/auth/ingress.mjs src/lib/auth/reception.mjs .next/standalone/src/lib/auth/
 cp src/lib/assistant/model-catalogue.json .next/standalone/src/lib/assistant/
-cp -R node_modules/@duckdb node_modules/better-sqlite3 node_modules/bindings \
-  node_modules/file-uri-to-path .next/standalone/node_modules/
+cp -R node_modules/@duckdb node_modules/better-sqlite3 .next/standalone/node_modules/
 ```
 
 > [!WARNING]
