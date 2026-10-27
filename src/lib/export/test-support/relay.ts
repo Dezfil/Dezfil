@@ -49,7 +49,7 @@ export class RelaySockets {
     socket.once("close", () => { closed = true; });
     await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("error", reject); });
     return { socket, get bytes() { return bytes; }, get closed() { return closed; },
-      async read(n: number) { await until(() => bytes.length >= n || closed); expect(bytes.length).toBeGreaterThanOrEqual(n); return bytes.subarray(0, n); } };
+      async read(n: number, ms?: number) { await until(() => bytes.length >= n || closed, ms); expect(bytes.length).toBeGreaterThanOrEqual(n); return bytes.subarray(0, n); } };
   }
   async live(target: Awaited<ReturnType<RelaySockets["target"]>>) {
     const client = await this.client(target.port, target.host);

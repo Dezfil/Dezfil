@@ -16,17 +16,19 @@ it("streams coalesced and fragmented frames with backpressure and no authenticat
   vi.stubEnv("DEZFIL_EGRESS_ALLOWLIST", "echo.test");
   const target = await network.target(); await network.live(target);
   const resolve = vi.fn(async () => ["127.0.0.1"]);
-  const relay = await start({ resolve });
+  // A busy runner can take past the one-second request bound to deliver a
+  // frame byte by byte. This case is about streaming; its own case holds the bound.
+  const relay = await start({ resolve, requestBoundMs: 10_000 });
   for (const fragmented of [true, false]) {
     const client = await network.client(relay.port);
     const frame = socksRequest("echo.test", target.port);
     if (fragmented) for (const byte of frame) { client.socket.write(Buffer.from([byte])); await new Promise<void>(r => setImmediate(r)); }
     else client.socket.write(frame);
-    expect([...(await client.read(12))]).toEqual([5, 0, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
+    expect([...(await client.read(12, 10_000))]).toEqual([5, 0, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
     client.socket.pause();
     const payload = Buffer.alloc(2 * 1024 * 1024, 173);
     client.socket.write(payload); client.socket.resume();
-    expect((await client.read(12 + payload.length)).subarray(12)).toEqual(payload);
+    expect((await client.read(12 + payload.length, 10_000)).subarray(12)).toEqual(payload);
     client.socket.destroy();
   }
   expect(resolve).toHaveBeenCalledTimes(2);
