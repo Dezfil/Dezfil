@@ -16,7 +16,7 @@ npm run build
 mkdir -p .next/standalone/.next
 cp -R .next/static .next/standalone/.next/
 cp -R public .next/standalone/
-for pkg in @duckdb better-sqlite3 bindings file-uri-to-path sharp @img detect-libc semver; do
+for pkg in @duckdb better-sqlite3 sharp @img detect-libc semver; do
   rm -rf .next/standalone/node_modules/$pkg && cp -R node_modules/$pkg .next/standalone/node_modules/
 done
 PORT=3100 HOSTNAME=127.0.0.1 node --import=./scripts/ingress-preload.mjs .next/standalone/server.js

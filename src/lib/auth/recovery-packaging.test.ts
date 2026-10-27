@@ -30,9 +30,9 @@ it("keeps the runtime import closure to copied ESM, Node built-ins and the exist
 it("copies the recovery entry and runtime modules explicitly into the runner", () => {
   const docker = readFileSync("Dockerfile", "utf8").split("AS runner")[1];
   for (const file of runtime) expect(docker).toContain(`/app/${file} ./${file}`);
-  for (const dependency of ["better-sqlite3", "bindings", "file-uri-to-path"]) {
-    expect(docker).toContain(`/app/node_modules/${dependency} ./node_modules/${dependency}`);
-  }
+  // The SQLite driver loads its prebuilt binary itself; its one declared
+  // dependency, node-addon-api, is headers for compiling and never loaded.
+  expect(docker).toContain("/app/node_modules/better-sqlite3 ./node_modules/better-sqlite3");
 });
 it("invokes the checkout entry through the package script with native Node ESM", () => {
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));

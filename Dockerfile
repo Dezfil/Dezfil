@@ -27,6 +27,16 @@ RUN npm run build
 # The standalone trace copies what a package's code needs, not its licence;
 # put every traced package's licence files back beside it.
 RUN node scripts/standalone-licences.mjs node_modules .next/standalone/node_modules
+# better-sqlite3 publishes a prebuilt binary for every platform, and the
+# SQLite sources to compile one where none fits. Keep only the binary the
+# package itself loads on this platform, in the package and in the trace;
+# the build fails if there is none.
+RUN keep="$(node -p "require('./node_modules/better-sqlite3/lib/binding.js').getPrebuildPath()")" \
+    && test -f "$keep" \
+    && for pkg in node_modules/better-sqlite3 .next/standalone/node_modules/better-sqlite3; do \
+         if [ -d "$pkg/prebuilds" ]; then find "$pkg/prebuilds" -name '*.node' ! -name "${keep##*/}" -delete; fi; \
+         rm -rf "$pkg/deps" "$pkg/src" "$pkg/binding.gyp"; \
+       done
 # Bake DuckDB extensions so runtime needs no network (air-gapped friendly).
 # The slim base ships no CA bundle; DuckDB fetches the extensions over HTTPS
 # from extensions.duckdb.org, so install ca-certificates first or the TLS
@@ -87,8 +97,6 @@ COPY --from=build --chown=node:node /app/duckdb-extensions ./duckdb-extensions
 # better-sqlite3 prebuild); copy those packages in whole so the engine loads.
 COPY --from=build --chown=node:node /app/node_modules/@duckdb ./node_modules/@duckdb
 COPY --from=build --chown=node:node /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
-COPY --from=build --chown=node:node /app/node_modules/bindings ./node_modules/bindings
-COPY --from=build --chown=node:node /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
 # Profile pictures are decoded and re-encoded by sharp: its package, the
 # binary and libvips of the image's own architecture under @img, and the two
 # packages its JavaScript requires, whole.

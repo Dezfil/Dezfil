@@ -75,7 +75,7 @@ The [Dockerfile](../../Dockerfile) builds the image in stages on `node:24-slim`.
 | `tippecanoe` 2.79.0, compiled in a build stage of its own | `/usr/local/bin/tippecanoe` | The tiles of large layers |
 | Chromium, a certificate bundle and the Liberation fonts | `/usr/bin/chromium`, named by `DEZFIL_CHROMIUM_PATH` | Image exports, the pictures on map cards and the look at a map the assistant or an agent asks for, drawn with software GL |
 | The engine's extensions: spatial, h3, httpfs, json, postgres, azure and aws | `/app/duckdb-extensions`, named by `DUCKDB_EXTENSION_DIR` | Installed at build time by `scripts/install-duckdb-extensions.mjs` from the one list in `scripts/duckdb-extensions.mjs`, which the offline check reads too |
-| The native packages the standalone build leaves out: `@duckdb`, `better-sqlite3`, `bindings` and `file-uri-to-path` | `/app/node_modules/` | The engine's and the metadata store's native code, copied whole |
+| The native packages the standalone build leaves out: `@duckdb` and `better-sqlite3` | `/app/node_modules/` | The engine's and the metadata store's native code. `@duckdb` is copied whole; `better-sqlite3` keeps only the prebuilt binary it loads on the image's own platform |
 | The picture library `sharp`, the binary and libvips of the image's own architecture under `@img`, and `detect-libc` and `semver`, which it requires | `/app/node_modules/` | Profile pictures: read, cropped and written as WebP. It loads on first use, so without it only pictures are refused |
 | `public/`, the model catalogue and the shipped templates | At their paths in the source | Read at run time where the source keeps them |
 | `LICENSE` and `NOTICE` | `/app` | The licences of the code and the components the image carries |

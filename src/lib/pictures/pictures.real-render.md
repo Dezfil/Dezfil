@@ -4,8 +4,8 @@ Build and provision a production instance in a separate checkout with its own
 scratch data directory, a real image renderer and tile builder. After building,
 provision the standalone as in [the project departure proof](../../../scripts/sharing-journey.md):
 copy `public` to `.next/standalone/public`, `.next/static` to
-`.next/standalone/.next/static`, and the complete native packages (`@duckdb`,
-`better-sqlite3`, `bindings`, `file-uri-to-path`) into its `node_modules`.
+`.next/standalone/.next/static`, and the native packages (`@duckdb`,
+`better-sqlite3`) into its `node_modules`.
 Copy the ingress preload and its supporting files at the same relative paths,
 as that recipe describes. The traced standalone alone cannot render these proofs.
 Use a port other than the development listener. Auto must be unpinned and its light and
