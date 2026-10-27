@@ -88,13 +88,13 @@
     "e2e:result-budget": "playwright test e2e/query-result-budget.spec.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.110.0",
-    "@codemirror/autocomplete": "^6.20.3",
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@codemirror/autocomplete": "^6.20.4",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/language": "^6.12.4",
     "@codemirror/state": "^6.7.1",
-    "@codemirror/view": "^6.43.6",
+    "@codemirror/view": "^6.43.15",
     "@deck.gl/aggregation-layers": "9.4.0",
     "@deck.gl/core": "9.4.0",
     "@deck.gl/extensions": "9.4.0",
