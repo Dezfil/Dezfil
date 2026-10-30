@@ -707,7 +707,7 @@ test("the Projects list and the project home", async ({
     // A project the caller cannot reach answers like a missing one, so the
     // page does not name it.
     expect((await page.goto("/projects/no-such-project"))?.status()).toBe(404);
-    await expectNotFoundPage(page);
+    await expectNotFoundPage(page, "project");
     await expect(page.getByRole("heading", { name: "Maps" })).toHaveCount(0);
   });
 
