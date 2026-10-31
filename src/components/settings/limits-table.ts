@@ -1,7 +1,7 @@
 import { formatSettingNumber } from "./server-set";
 
 /**
- * The Limits tab's rows: five cards, each row under the label the page
+ * The Limits tab's rows: six cards, each row under the label the page
  * shows, mapped by key onto the configuration read. The read supplies
  * the range, the default, the value and whether the page may change it;
  * this table supplies the words, the order, and the unit wherever the
@@ -13,12 +13,21 @@ import { formatSettingNumber } from "./server-set";
  * run have under the current time limits, and the largest image the
  * server renders. Both come from the read's own facts. A capacity row is
  * marked when the read reports its service's address not set.
+ *
+ * A counted row is a setting with the instance's count beside its value,
+ * from the read's own count. A choice row draws the values the read offers
+ * in this table's words.
  */
 
 export type LimitsRow =
   | { readonly kind: "setting"; readonly key: string; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string;
     /** The unit the page writes after the number, where it is not the read's; empty for none. */
     readonly unit?: string }
+  | { readonly kind: "counted"; readonly key: string; readonly of: "maps" | "projects" | "people"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly unit: string }
+  | { readonly kind: "choice"; readonly key: string; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string;
+    readonly words: Readonly<Record<string, string>>;
+    /** The quiet line under the row while its value is not this. */
+    readonly noteUnless: string; readonly note: string }
   | { readonly kind: "capacity"; readonly of: "geocode" | "travel"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly key?: undefined;
     /** The read's setting for the address of the service the tool calls. */
     readonly service: string }
@@ -37,6 +46,8 @@ const setting = (key: string, id: string, label: string, keys: string, words: { 
 /** No unit after a count. */
 const COUNT = { unit: "" };
 const EVERY_10_SECONDS = { unit: "every 10 seconds" };
+const counted = (key: string, of: "maps" | "projects" | "people", id: string, label: string, keys: string): LimitsRow =>
+  ({ kind: "counted", key, of, id, label, keys, meta: "Zero means no limit.", ...COUNT });
 
 export const LIMITS_CARDS: readonly LimitsCard[] = [
   { id: "limits-imports", title: "Imports", keys: "import upload size file", rows: [
@@ -72,18 +83,29 @@ export const LIMITS_CARDS: readonly LimitsCard[] = [
     setting("publicRateLimit", "set-public-requests", "Requests per visitor", "rate limit anonymous published view widgets", EVERY_10_SECONDS),
     setting("publicTileRateLimit", "set-public-tiles", "Tile requests per visitor", "rate limit anonymous tiles published", EVERY_10_SECONDS),
   ] },
+  { id: "limits-instance", title: "This instance", keys: "instance count hosted quota capacity", rows: [
+    counted("mapsLimit", "maps", "set-maps-limit", "Maps on this instance", "maps count limit quota duplicates template copies"),
+    counted("projectsLimit", "projects", "set-projects-limit", "Projects on this instance", "projects count limit quota"),
+    counted("peopleLimit", "people", "set-people-limit", "People on this instance", "people accounts members count limit quota"),
+    { kind: "choice", key: "tokenLifetimeMax", id: "set-longest-token", label: "Longest token lifetime", keys: "api mcp token expiry expire lifetime bound maximum",
+      words: { none: "No limit", "30d": "30 days", "90d": "90 days", "1y": "1 year" },
+      noteUnless: "none", note: "Tokens made earlier keep their own expiry." },
+  ] },
 ];
 
-/** Every row that draws a setting of the read. */
-export function limitsSettingRows(): Extract<LimitsRow, { kind: "setting" }>[] {
-  return LIMITS_CARDS.flatMap(card => card.rows).filter((row): row is Extract<LimitsRow, { kind: "setting" }> => row.kind === "setting");
+/** Every row that draws a number of the read. */
+export function limitsSettingRows(): Extract<LimitsRow, { kind: "setting" | "counted" }>[] {
+  return LIMITS_CARDS.flatMap(card => card.rows).filter((row): row is Extract<LimitsRow, { kind: "setting" | "counted" }> => row.kind === "setting" || row.kind === "counted");
 }
 
+/** Every row that draws a setting of the read, a number or a choice. */
+const rowsWithSetting = () => LIMITS_CARDS.flatMap(card => card.rows).flatMap(row => row.key === undefined ? [] : [{ key: row.key, label: row.label, id: row.id }]);
+
 /** The label each setting Limits draws is shown under, by key. */
-export const LIMITS_LABELS: Readonly<Record<string, string>> = Object.fromEntries(limitsSettingRows().map(row => [row.key, row.label]));
+export const LIMITS_LABELS: Readonly<Record<string, string>> = Object.fromEntries(rowsWithSetting().map(row => [row.key, row.label]));
 
 /** Where each setting Limits draws is, as a row address inside the tab. */
-export const LIMITS_ROW_IDS: Readonly<Record<string, string>> = Object.fromEntries(limitsSettingRows().map(row => [row.key, row.id]));
+export const LIMITS_ROW_IDS: Readonly<Record<string, string>> = Object.fromEntries(rowsWithSetting().map(row => [row.key, row.id]));
 
 /** The unit the page writes after each setting Limits draws, by key, where
  * it is not the read's own; empty for a count. */
@@ -111,6 +133,14 @@ export function inLabels(message: string, labels: Readonly<Record<string, string
 }
 
 const grouped = (count: number) => new Intl.NumberFormat("en-US").format(count);
+
+/** What a counted row shows beside its value. */
+export const countedText = (count: number) => `${grouped(count)} now`;
+
+/** A choice row's value in its words; a value it does not word shows as itself. */
+export function limitChoiceWords(row: Extract<LimitsRow, { kind: "choice" }>, value: unknown): string {
+  return row.words[String(value)] ?? String(value ?? "");
+}
 
 /** Whether the read reports a service's address set: an address discloses
  * only whether it is set and where; null when the read does not say. */

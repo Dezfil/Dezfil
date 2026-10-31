@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { accountRequest, failureMessage, settingsWrite } from "./api";
 import type { CacheFacts, ReleaseListFacts } from "./data-table";
 import type { LibraryStyleRead } from "./libraries-table";
+import type { readInstanceLimits } from "@/lib/instance-limit-read";
 import type { PartStates } from "@/lib/system/part-states";
 import type { Value } from "./save-unit";
 import type { ReadSetting } from "./server-set";
@@ -20,6 +21,8 @@ export interface ServicesRead {
  * facts the System tab shows beside them, each part's state and what the
  * services keep. Admins only. */
 export interface InstanceRead {
+  /** The count limits in force with the instance-wide counts, and the longest token lifetime. */
+  readonly instanceLimits: ReturnType<typeof readInstanceLimits>;
   /** Sign-in through an outside service: the mode as it was read at start,
    * how many public keys it trusts and both generations, never a key. */
   readonly externalSignIn?: { readonly enabled: boolean; readonly keyCount: number; readonly signOutGeneration: number; readonly doorGeneration: number };

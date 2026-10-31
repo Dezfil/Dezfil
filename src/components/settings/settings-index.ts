@@ -13,7 +13,7 @@ import {
   BASEMAPS_CARD, BUILT_IN_META, builtInMeta, builtInRows, hostOf, libraryStyleRowId, offeredWords, SATELLITE_ADDRESS_ROW, SATELLITE_CARD,
   SATELLITE_CREDIT_ROW, satelliteAddressWords, SINGLE_MAP_ROW, switchOn,
 } from "./libraries-table";
-import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
+import { capacityText, countedText, limitChoiceWords, LIMITS_CARDS, withShownUnit } from "./limits-table";
 import { colorsWords, PALETTES_CARD, paletteRowId } from "./palettes-table";
 import { choiceLabel, LOOK_CARDS, rowShown } from "./look-tab";
 import { CONNECTIONS_CARD, PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, SIGN_OUT_CARD, type RuleCard } from "./security-table";
@@ -192,7 +192,10 @@ function limitsCards(read: InstanceRead): IndexCard[] {
   return LIMITS_CARDS.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => {
     const value = row.kind === "capacity" ? capacityText(row.of, row.of === "geocode" ? read.capacities.geocodeRows : read.capacities.isochroneOrigins)
       : row.kind === "image" ? `${formatSettingNumber(read.maxImageDimension)} ${row.unit}`
-        : read.settings[row.key] ? withShownUnit(row.key, read.settings[row.key].value, read.settings[row.key].unit) : "";
+        : !read.settings[row.key] ? ""
+          : row.kind === "choice" ? limitChoiceWords(row, read.settings[row.key].value)
+            : row.kind === "counted" ? `${withShownUnit(row.key, read.settings[row.key].value, read.settings[row.key].unit)} · ${countedText(read.instanceLimits[row.of].count)}`
+              : withShownUnit(row.key, read.settings[row.key].value, read.settings[row.key].unit);
     return { id: row.id, label: row.label, keys: row.keys, value };
   }) }));
 }

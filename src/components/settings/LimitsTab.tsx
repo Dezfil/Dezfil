@@ -2,15 +2,17 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
+import { Select } from "@/components/ui/Field";
 import { dataRowAddress } from "./data-table";
 import { keptValues, useInstanceRead, writeInstanceSettings, type InstanceRead } from "./instance-read";
-import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, serviceSetUp, shownUnit, withShownUnit, type LimitsCard, type LimitsRow } from "./limits-table";
+import { capacityText, countedText, inLabels, limitChoiceWords, LIMITS_CARDS, LIMITS_LABELS, serviceSetUp, shownUnit, withShownUnit, type LimitsCard, type LimitsRow } from "./limits-table";
 import { SaveUnit, type UnitSnapshot, type Value } from "./save-unit";
 import { useDrawn } from "./settings-land";
 import { formatSettingNumber, serverSetState, unitControlFor } from "./server-set";
 import { LockedField, NumberField, RowError, Rows, SettingRow, ValueText } from "./SettingRows";
 import { ResetSlot, SavedMark, SettingsCard } from "./SettingsCard";
 import { useSaveUnit, useUnitFocus } from "./use-save-unit";
+import ruleStyles from "./RuleCard.module.css";
 import styles from "./SettingsCard.module.css";
 
 type Settings = InstanceRead["settings"];
@@ -21,12 +23,14 @@ function refusalLabels(settings: Settings): Record<string, string> {
   return { ...Object.fromEntries(Object.entries(settings).map(([key, setting]) => [key, setting.label])), ...LIMITS_LABELS };
 }
 
-/** Limits: imports, queries, tools, image export and public requests, as
- * the configuration read reports them. Each number is kept as it changes;
- * what the server decides is drawn locked; the capacities a geocode and
- * a travel-time run have follow the time limits from each write's
- * response, marked Not set up while the service's address is not set,
- * which leads to that address's row on Data & services. */
+/** Limits: imports, queries, tools, image export, public requests and this
+ * instance's own limits, as the configuration read reports them. Each number
+ * is kept as it changes and a choice as it is made; what the server decides
+ * is drawn locked; the capacities a geocode and a travel-time run have follow
+ * the time limits from each write's response, marked Not set up while the
+ * service's address is not set, which leads to that address's row on Data &
+ * services. A counted row's count comes from the read or the write's response
+ * too. */
 export function LimitsTab() {
   const { read, error, retry } = useInstanceRead();
   const [answered, setAnswered] = useState<InstanceRead | null>(null);
@@ -38,7 +42,7 @@ export function LimitsTab() {
 }
 
 function limitsUnit(spec: LimitsCard, settings: Settings, onAnswer: (read: InstanceRead) => void): SaveUnit {
-  const keys = spec.rows.flatMap(row => row.kind === "setting" && settings[row.key] ? [row.key] : []);
+  const keys = spec.rows.flatMap(row => row.key !== undefined && settings[row.key] ? [row.key] : []);
   return new SaveUnit({
     title: spec.title,
     controls: keys.map(key => unitControlFor(settings[key])),
@@ -86,16 +90,32 @@ function LimitsRowView({ row, now, unit, card, words }: {
   }
   const setting = now.settings[row.key];
   if (!setting) return null;
+  const count = row.kind === "counted" ? countedText(now.instanceLimits[row.of].count) : undefined;
   const decided = serverSetState(setting);
   if (decided) {
+    const value = row.kind === "choice" ? limitChoiceWords(row, setting.value) : withShownUnit(row.key, setting.value, setting.unit);
+    return <SettingRow id={row.id} label={row.label} meta={row.meta} after={count}>
+      <LockedField label={row.label} value={value} state={decided} width="m" />
+    </SettingRow>;
+  }
+  const error = card.errors[row.key], errorId = `${row.id}-error`;
+  if (row.kind === "choice") {
+    const value = String(card.values[row.key] ?? "");
+    const offered = setting.write?.kind === "choice" ? setting.write.values : [];
     return <SettingRow id={row.id} label={row.label} meta={row.meta}>
-      <LockedField label={row.label} value={withShownUnit(row.key, setting.value, setting.unit)} state={decided} width="m" />
+      <Select className={ruleStyles.select} aria-label={row.label} data-unit-key={row.key} value={value}
+        aria-invalid={error ? true : undefined} aria-describedby={error ? errorId : undefined} onChange={event => unit.choose(row.key, event.target.value)}>
+        {offered.map(choice => <option key={choice} value={choice}>{limitChoiceWords(row, choice)}</option>)}
+      </Select>
+      {card.saved.includes(row.key) && <SavedMark />}
+      {error && <RowError id={errorId}>{words(error)}</RowError>}
+      {value !== row.noteUnless && <p className={ruleStyles.under}>{row.note}</p>}
     </SettingRow>;
   }
   const range = setting.write?.kind === "integer" ? setting.write : null;
-  const error = card.errors[row.key], errorId = `${row.id}-error`;
   return <SettingRow id={row.id} label={row.label} meta={row.meta}>
-    <NumberField label={row.label} unitKey={row.key} value={String(card.values[row.key] ?? "")} unit={shownUnit(row.key, setting.unit)}
+    {/* The count takes the place of a unit: a limit has none, and the two read as one. */}
+    <NumberField label={row.label} unitKey={row.key} value={String(card.values[row.key] ?? "")} unit={count ?? shownUnit(row.key, setting.unit)}
       min={range?.min} max={range?.max} error={error} errorId={errorId}
       onStep={text => unit.step(row.key, text)} onType={text => unit.edit(row.key, text)} onCommit={() => unit.commit(row.key)} />
     {card.saved.includes(row.key) && <SavedMark />}

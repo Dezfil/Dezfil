@@ -12,7 +12,7 @@ vi.mock("next/link", () => ({
 }));
 
 /**
- * Limits: five cards drawn from the configuration read, each number kept
+ * Limits: six cards drawn from the configuration read, each number kept
  * as it changes through the write, the capacities taken from the write's
  * response. The server is a fake that applies a write the way the
  * foundation does (a null returns the default), refuses the timeout
@@ -22,6 +22,7 @@ vi.mock("next/link", () => ({
 let stored: Record<string, unknown>;
 let pinned: Record<string, unknown>;
 let capacities: { geocodeRows: number; isochroneOrigins: number };
+let counts: { maps: number; projects: number; people: number };
 let refuse: { status: number; code: string; message: string } | null;
 let failRead: boolean;
 let requests: { url: string; method: string; body: unknown }[];
@@ -33,12 +34,18 @@ function answer() {
   return instanceReadFixture({
     ...Object.fromEntries(Object.entries(stored).filter(([, value]) => value !== null).map(([key, value]) => [key, { value, source: "stored", storedValue: value }])),
     ...Object.fromEntries(Object.entries(pinned).map(([key, value]) => [key, { value, source: "environment", locked: true }])),
-  }, { capacities });
+  }, { capacities, instanceLimits: {
+    maps: { key: "mapsLimit", limit: Number(pinned.mapsLimit ?? stored.mapsLimit ?? 0), count: counts.maps },
+    projects: { key: "projectsLimit", limit: Number(pinned.projectsLimit ?? stored.projectsLimit ?? 0), count: counts.projects },
+    people: { key: "peopleLimit", limit: Number(pinned.peopleLimit ?? stored.peopleLimit ?? 0), count: counts.people },
+    tokenLifetimeMax: "none",
+  } });
 }
 
 beforeEach(() => {
   stored = {}; pinned = {}; refuse = null; failRead = false; requests = [];
   capacities = { geocodeRows: 27, isochroneOrigins: 13 };
+  counts = { maps: 12, projects: 3, people: 1250 };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => {
     const method = init.method ?? "GET", body = init.body ? JSON.parse(String(init.body)) : undefined;
     requests.push({ url, method, body });
@@ -78,6 +85,9 @@ const cards = () => container.querySelectorAll("section");
 const card = (title: string) => cards().find(section => section.querySelector("h2")?.textContent === title)!;
 const row = (label: string) => container.querySelector(`[id="${container.querySelectorAll("b").find(b => b.textContent === label)!.id.replace(/-label$/, "")}"]`)!;
 const field = (label: string) => container.querySelectorAll("input").find(input => input.getAttribute("aria-label") === label)!;
+const select = (label: string) => container.querySelectorAll("select").find(element => element.getAttribute("aria-label") === label)!;
+const chosen = (label: string) => (props(select(label)) as unknown as { value: string }).value;
+const choose = (label: string, value: string) => act(async () => props(select(label)).onChange({ target: { value } }));
 function props(element: HostElement) {
   const key = Object.keys(element).find(name => name.startsWith("__reactProps$"))!;
   return (element as unknown as Record<string, Record<string, (event: unknown) => void>>)[key];
@@ -93,10 +103,10 @@ const press = (scope: HostElement, label: string) => act(async () => { scope.que
 const saved = (label: string) => row(label).querySelectorAll('[role="status"]').map(element => element.textContent);
 
 describe("Limits", () => {
-  it("draws the five cards from the configuration read, each row under its label with the read's unit and range", async () => {
+  it("draws the six cards from the configuration read, each row under its label with the read's unit and range", async () => {
     await open();
     expect(requests.map(request => request.url)).toEqual(["/api/instance/settings"]);
-    expect(cards().map(section => section.querySelector("h2")!.textContent)).toEqual(["Imports", "Queries", "Tools", "Image export", "Public requests"]);
+    expect(cards().map(section => section.querySelector("h2")!.textContent)).toEqual(["Imports", "Queries", "Tools", "Image export", "Public requests", "This instance"]);
     expect(field("Data processing time limit").value).toBe("3600");
     expect([field("Data processing time limit").getAttribute("min"), field("Data processing time limit").getAttribute("max")]).toEqual(["60", "21600"]);
     expect(field("Bytes drawn per layer").value).toBe("134,217,728 bytes");
@@ -114,7 +124,7 @@ describe("Limits", () => {
     expect(row("Tile requests per visitor").textContent).toBe("Tile requests per visitorevery 10 seconds");
     expect(row("OpenStreetMap area").textContent).toContain("km²");
     const editable = container.querySelectorAll("input").filter(input => !input.disabled);
-    expect(editable).toHaveLength(15);
+    expect(editable).toHaveLength(18);
     expect(editable.every(input => input.getAttribute("type") === "number")).toBe(true);
   });
 
@@ -251,7 +261,7 @@ describe("Limits", () => {
     stored = { queryTimeoutS: 90, previewRows: 2000 };
     await open();
     expect(buttons(card("Image export"))).not.toContain("Reset to defaults");
-    // Five cards may each offer it: the card's title tells them apart by name.
+    // Each card may offer it: the card's title tells them apart by name.
     const named = (scope: HostElement) => scope.querySelectorAll("[data-unit-slot]").map(button => button.getAttribute("aria-label"));
     expect(named(card("Queries"))).toEqual(["Reset to defaults: Queries"]);
     await press(card("Queries"), "Reset to defaults");
@@ -265,6 +275,72 @@ describe("Limits", () => {
     await settle();
     expect(writes()[1]).toEqual({ queryTimeoutS: 90, previewRows: 2000 });
     expect(field("Query time limit").value).toBe("90");
+  });
+
+  it("shows each count beside its limit, the same with no limit set", async () => {
+    stored = { mapsLimit: 20 };
+    await open();
+    expect(field("Maps on this instance").value).toBe("20");
+    expect(row("Maps on this instance").textContent).toBe("Maps on this instanceZero means no limit.12 now");
+    expect(field("Projects on this instance").value).toBe("0");
+    expect(row("Projects on this instance").textContent).toContain("3 now");
+    expect(row("People on this instance").textContent).toContain("1,250 now");
+  });
+
+  it("keeps a limit as the other numbers are, allows zero, and takes the count from the write's response", async () => {
+    await open();
+    await type("Maps on this instance", "2");
+    expect(writes()).toEqual([]);
+    expect(row("Maps on this instance").textContent).toContain("12 now");
+    counts = { ...counts, maps: 13 };
+    await leave("Maps on this instance");
+    await settle();
+    expect(writes()).toEqual([{ mapsLimit: 2 }]);
+    expect(saved("Maps on this instance")).toEqual(["Saved"]);
+    // Set below the count, the row still shows both.
+    expect(field("Maps on this instance").value).toBe("2");
+    expect(row("Maps on this instance").textContent).toContain("13 now");
+    await type("Maps on this instance", "0");
+    await leave("Maps on this instance");
+    await settle();
+    expect(writes()[1]).toEqual({ mapsLimit: 0 });
+    expect(row("Maps on this instance").textContent).not.toContain("Enter a number");
+    await type("People on this instance", "-1");
+    await leave("People on this instance");
+    await settle();
+    expect(writes()).toHaveLength(2);
+    expect(row("People on this instance").textContent).toContain("Enter a number from 0 to");
+  });
+
+  it("draws a limit a variable pins locked, with its count beside it", async () => {
+    pinned = { projectsLimit: 5 };
+    await open();
+    expect(field("Projects on this instance").disabled).toBe(true);
+    expect(field("Projects on this instance").value).toBe("5");
+    expect(row("Projects on this instance").textContent).toContain("Set in the server's environment by DEZFIL_PROJECTS_LIMIT.");
+    expect(row("Projects on this instance").textContent).toContain("3 now");
+  });
+
+  it("offers the longest token lifetime as the read offers it, kept as it is chosen", async () => {
+    await open();
+    expect(select("Longest token lifetime").querySelectorAll("option").map(option => [option.getAttribute("value"), option.textContent]))
+      .toEqual([["none", "No limit"], ["30d", "30 days"], ["90d", "90 days"], ["1y", "1 year"]]);
+    expect(chosen("Longest token lifetime")).toBe("none");
+    expect(row("Longest token lifetime").textContent).not.toContain("keep their own expiry");
+    await choose("Longest token lifetime", "90d");
+    await settle();
+    expect(writes()).toEqual([{ tokenLifetimeMax: "90d" }]);
+    expect(saved("Longest token lifetime")).toEqual(["Saved"]);
+    expect(row("Longest token lifetime").textContent).toContain("Tokens made earlier keep their own expiry.");
+  });
+
+  it("draws a token lifetime a variable pins locked, in its words", async () => {
+    pinned = { tokenLifetimeMax: "30d" };
+    await open();
+    expect(container.querySelectorAll("select").filter(element => element.getAttribute("aria-label") === "Longest token lifetime")).toEqual([]);
+    expect(field("Longest token lifetime").disabled).toBe(true);
+    expect(field("Longest token lifetime").value).toBe("30 days");
+    expect(row("Longest token lifetime").textContent).toContain("Set in the server's environment by DEZFIL_TOKEN_LIFETIME_MAX.");
   });
 
   it("draws a failed read as the error note with Try again", async () => {

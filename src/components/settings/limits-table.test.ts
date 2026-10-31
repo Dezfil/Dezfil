@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readInstanceSettings } from "@/lib/settings/read";
 import { TIMEOUT_RELATIONSHIP } from "@/lib/settings/relationships";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
-import { capacityText, inLabels, LIMITS_CARDS, LIMITS_LABELS, LIMITS_UNITS, limitsSettingRows, serviceSetUp, shownUnit, withShownUnit } from "./limits-table";
+import { capacityText, countedText, inLabels, limitChoiceWords, LIMITS_CARDS, LIMITS_LABELS, LIMITS_ROW_IDS, LIMITS_UNITS, limitsSettingRows, serviceSetUp, shownUnit, withShownUnit } from "./limits-table";
 
 /**
  * The Limits tab's label table, held against the configuration read the
@@ -32,7 +32,7 @@ describe("the Limits label table against the read", () => {
     const drawn = limitsSettingRows().map(row => row.key);
     expect(new Set(drawn).size).toBe(drawn.length);
     expect(drawn.filter(key => settings[key]?.editable).sort()).toEqual(editable.sort());
-    expect(editable).toHaveLength(15);
+    expect(editable).toHaveLength(18);
     for (const key of drawn) expect(settings[key]?.kind).toBe("number");
   });
 
@@ -59,13 +59,34 @@ describe("the Limits label table against the read", () => {
     expect(typeof answer.maxImageDimension).toBe("number");
   });
 
-  it("lays out the five cards in the order and under the labels the page shows", () => {
+  it("ties each counted row to the count the read carries for its limit, and each row to the read's own label", () => {
+    const answer = read();
+    const counted = LIMITS_CARDS.flatMap(card => card.rows).flatMap(row => row.kind === "counted" ? [row] : []);
+    expect(counted.map(row => [row.key, row.of])).toEqual([["mapsLimit", "maps"], ["projectsLimit", "projects"], ["peopleLimit", "people"]]);
+    for (const row of counted) {
+      expect(answer.instanceLimits[row.of].key).toBe(row.key);
+      expect(row.label).toBe(answer.settings[row.key].label);
+    }
+  });
+
+  it("words every choice the read offers for the longest token lifetime, and finds the row by its key", () => {
+    const answer = read();
+    const row = LIMITS_CARDS.flatMap(card => card.rows).find(each => each.kind === "choice")!;
+    expect(row.key).toBe("tokenLifetimeMax");
+    expect(row.label).toBe(answer.settings.tokenLifetimeMax.label);
+    expect(answer.settings.tokenLifetimeMax.write.values.map((value: string) => limitChoiceWords(row, value))).toEqual(["No limit", "30 days", "90 days", "1 year"]);
+    expect(LIMITS_LABELS.tokenLifetimeMax).toBe("Longest token lifetime");
+    expect(LIMITS_ROW_IDS.tokenLifetimeMax).toBe(row.id);
+  });
+
+  it("lays out the six cards in the order and under the labels the page shows", () => {
     expect(LIMITS_CARDS.map(card => [card.title, card.rows.map(row => row.label)])).toEqual([
       ["Imports", ["Largest upload", "Data processing time limit", "Largest link import", "Link import time limit", "OpenStreetMap area", "Overture area"]],
       ["Queries", ["Query time limit", "Rows shown in results", "Features drawn per layer", "Bytes drawn per layer"]],
       ["Tools", ["Tools running at once", "Tools waiting", "Time limit per tool run", "Geocode addresses", "Travel-time area"]],
       ["Image export", ["Largest image", "Images at once", "Time limit per image"]],
       ["Public requests", ["Requests per visitor", "Tile requests per visitor"]],
+      ["This instance", ["Maps on this instance", "Projects on this instance", "People on this instance", "Longest token lifetime"]],
     ]);
     expect(LIMITS_LABELS).toMatchObject({
       uploadMaxMb: "Largest upload", operationConcurrency: "Tools running at once", operationQueueMax: "Tools waiting",
@@ -80,20 +101,21 @@ describe("the units the page shows", () => {
   it("writes a count with no unit, a rate window as every 10 seconds, the largest image per side, and the read's unit for the rest", () => {
     const settings: Record<string, { unit?: string }> = read().settings;
     const shown = LIMITS_CARDS.map(card => [card.title, card.rows.flatMap(row =>
-      row.kind === "setting" ? [shownUnit(row.key, settings[row.key].unit)] : row.kind === "image" ? [row.unit] : [])]);
+      row.kind === "setting" || row.kind === "counted" ? [shownUnit(row.key, settings[row.key].unit)] : row.kind === "image" ? [row.unit] : [])]);
     expect(shown).toEqual([
       ["Imports", ["MB", "seconds", "MB", "seconds", "km²", "km²"]],
       ["Queries", ["seconds", "rows", "features", "bytes"]],
       ["Tools", ["", "", "seconds"]],
       ["Image export", ["px per side", "", "seconds"]],
       ["Public requests", ["every 10 seconds", "every 10 seconds"]],
+      ["This instance", ["", "", ""]],
     ]);
   });
 
   it("names a unit only where the read's is not the page's, and only for a row Limits draws", () => {
     const settings: Record<string, { unit?: string }> = read().settings;
     const drawn = new Set(limitsSettingRows().map(row => row.key));
-    expect(Object.keys(LIMITS_UNITS).sort()).toEqual(["exportRenderConcurrency", "operationConcurrency", "operationQueueMax", "publicRateLimit", "publicTileRateLimit"]);
+    expect(Object.keys(LIMITS_UNITS).sort()).toEqual(["exportRenderConcurrency", "mapsLimit", "operationConcurrency", "operationQueueMax", "peopleLimit", "projectsLimit", "publicRateLimit", "publicTileRateLimit"]);
     for (const [key, unit] of Object.entries(LIMITS_UNITS)) {
       expect(drawn.has(key)).toBe(true);
       expect(settings[key].unit).not.toBe(unit);
@@ -116,6 +138,13 @@ describe("the words a refusal is shown in", () => {
     expect(shown).toBe("Query time limit must be less than Time limit per tool run. The effective timeout limits do not satisfy this relationship.");
     expect(inLabels("remoteMaxMb: Locked by DEZFIL_REMOTE_MAX_MB.", LIMITS_LABELS)).toBe("Largest link import: Locked by DEZFIL_REMOTE_MAX_MB.");
     expect(inLabels("Enter a number from 5 to 600.", LIMITS_LABELS)).toBe("Enter a number from 5 to 600.");
+  });
+});
+
+describe("a count's words", () => {
+  it("says how many there are now, grouped", () => {
+    expect(countedText(0)).toBe("0 now");
+    expect(countedText(1250)).toBe("1,250 now");
   });
 });
 
