@@ -51,6 +51,33 @@ const form = (showTitle: boolean) => (showTitle ? "the titled panel" : "the pane
 
 beforeEach(() => modelChoice.resetForTests());
 
+describe("which key pays", () => {
+  const paying = (models: typeof SEVERAL, kind: "own" | "instance", instanceKey: boolean): Status =>
+    ({ enabled: true, provider: "openai", model: "gpt-5.6-terra", stepBudget: 8, models, instanceKey, payer: { kind, provider: "openai" } });
+
+  it("ends the chip in the payer where the instance has a key", () => {
+    for (const showTitle of both) {
+      expect(pane({ status: paying(SEVERAL, "own", true), showTitle })).toContain("· your key");
+      expect(pane({ status: paying(SEVERAL, "instance", true), showTitle })).toContain("· instance key");
+    }
+  });
+
+  it("ends the model line in the payer where one model is offered", () => {
+    for (const showTitle of both) {
+      expect(pane({ status: paying(ONE, "own", true), showTitle }), form(showTitle)).toContain("gpt-5.6-terra · your key");
+      expect(pane({ status: paying(ONE, "instance", true), showTitle }), form(showTitle)).toContain("gpt-5.6-terra · instance key");
+    }
+  });
+
+  it("says nothing where the instance has none", () => {
+    for (const showTitle of both) for (const models of [SEVERAL, ONE]) {
+      const html = pane({ status: paying(models, "own", false), showTitle });
+      expect(html).not.toContain("your key");
+      expect(html).not.toContain("instance key");
+    }
+  });
+});
+
 describe("page 04's five states, in both of the pane's forms", () => {
   it("several models: the picker stands in the composer's footer and the model line is gone", () => {
     for (const showTitle of both) {

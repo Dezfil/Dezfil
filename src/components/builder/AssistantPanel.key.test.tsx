@@ -1,6 +1,6 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HostEvent, installDomHost, type HostElement } from "@/components/testing/dom-host";
 import { conversation } from "./assistant/conversation-store";
 import { AssistantPanel } from "./AssistantPanel";
@@ -31,6 +31,8 @@ beforeEach(() => {
   }));
   host = installDomHost();
   container = host.document.createElement("div");
+  // The transcript follows its end, which the host does not lay out.
+  Object.getPrototypeOf(container).scrollTo ??= () => {};
   host.document.body.appendChild(container);
   root = createRoot(container as unknown as Element);
 });
@@ -57,4 +59,48 @@ it("takes the key in place of the sentence alone, then shows the composer withou
   expect(container.querySelector('[aria-label="Ask the assistant"]')).not.toBeNull();
   expect(keyField()).toBeNull();
   expect(container.textContent).not.toContain("sk-a-real-looking-value");
+});
+
+describe("a personal key the provider rejects", () => {
+  const send = async (message: string) => {
+    const composer = container.querySelector('[aria-label="Ask the assistant"]')!;
+    await act(async () => props(composer).onChange({ target: { value: message } }));
+    await act(async () => { composer.closest("form")!.dispatchEvent(new HostEvent("submit", { bubbles: true, cancelable: true })); });
+    await settle();
+  };
+  const click = async (label: string) => { await act(async () => { container.querySelectorAll("button").find(button => button.textContent?.trim() === label)!.dispatchEvent(new HostEvent("click", { bubbles: true, cancelable: true })); }); await settle(); };
+
+  it("offers Replace key in the note, with the form in place and the conversation kept", async () => {
+    saved = "sk-a-rejected-looking-value-0000";
+    const replying = vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const url = String(input);
+      if (url === "/api/account/assistant-key" && init.method === "PUT") {
+        saved = (JSON.parse(String(init.body)) as { key: string }).key;
+        return Response.json({ key: { provider: "anthropic", lastFour: saved.slice(-4), savedAt: "2026-10-31T12:00:00.000Z" }, unreadable: false });
+      }
+      if (url === "/api/assistant") return Response.json({ enabled: true, provider: "anthropic", model: "claude-sonnet-5", stepBudget: 8, instanceKey: false, payer: { kind: "own", provider: "anthropic", lastFour: saved!.slice(-4), savedAt: "2026-10-31T12:00:00.000Z" } });
+      if (url === "/api/assistant/runs") return Response.json({ id: "run-1", state: "reserved", text: "", actions: [], incomplete: false }, { status: 201 });
+      if (url === "/api/assistant/messages") return new Response(`${JSON.stringify({ type: "error", code: "assistant_auth", message: "Your Anthropic key was rejected.", detail: "401 invalid x-api-key" })}\n${JSON.stringify({ type: "done", reason: "error" })}\n`, { headers: { "content-type": "application/x-ndjson" } });
+      return Response.json({ pending: [] });
+    });
+    vi.stubGlobal("fetch", replying);
+    await act(async () => root.render(<AssistantPanel onMutate={() => {}} layerDataDownloads={{} as never} />));
+    await settle();
+    await send("Colour the parks.");
+    expect(container.textContent).toContain("Your Anthropic key was rejected.");
+    expect(container.textContent).toContain("401 invalid x-api-key");
+
+    await click("Replace key");
+    expect(keyField()).not.toBeNull();
+    expect(container.querySelector('[aria-label="Ask the assistant"]')).toBeNull();
+    expect(container.textContent).toContain("Colour the parks.");
+    await act(async () => props(keyField()!).onChange({ target: { value: "sk-a-better-looking-value-1111" } }));
+    await act(async () => { keyField()!.closest("form")!.dispatchEvent(new HostEvent("submit", { bubbles: true, cancelable: true })); });
+    await settle();
+
+    expect(saved).toBe("sk-a-better-looking-value-1111");
+    expect(container.querySelector('[aria-label="Ask the assistant"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("Your Anthropic key was rejected.");
+    expect(container.textContent).toContain("Colour the parks.");
+  });
 });

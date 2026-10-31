@@ -52,6 +52,15 @@ describe("a SQL error's own text survives", () => {
   });
 });
 
+describe("the failure note's Replace key", () => {
+  const note = (code: string, onReplaceKey?: () => void) => renderToStaticMarkup(<PaneFailureNote failure={{ code, message: "Your OpenAI key was rejected." }} pendingActions={0} onDismiss={() => {}} onReplaceKey={onReplaceKey} />);
+  it("stands on a rejected key that is the person's own, and nowhere else", () => {
+    expect(note("assistant_auth", () => {})).toContain("Replace key");
+    expect(note("assistant_auth")).not.toContain("Replace key");
+    expect(note("assistant_provider", () => {})).not.toContain("Replace key");
+  });
+});
+
 describe("capacity", () => {
   it("names the person's own share when that is what is full, and the instance's otherwise", () => {
     const own = failureWords({ code: "assistant_capacity", message: ASSISTANT_ACCOUNT_CAPACITY }, { pendingActions: 0 });

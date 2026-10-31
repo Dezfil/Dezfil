@@ -32,6 +32,13 @@ const WORDS: Record<string, string> = {
   assistant_reservation_limit: "Two of your messages have not started yet. Wait a few minutes, then send again.",
 };
 
+/** Which key pays, where there are two it could be. An instance with none says
+ * nothing: the person's own key is the only one there is. */
+export function payerWords(status: { instanceKey?: boolean; payer?: { kind: "own" | "instance" } }): string | null {
+  if (!status.instanceKey || !status.payer) return null;
+  return status.payer.kind === "own" ? "your key" : "instance key";
+}
+
 export function failureWords(failure: PaneFailure, situation: PaneSituation): string {
   if (failure.code === "assistant_capacity") {
     const full = failure.message === ASSISTANT_ACCOUNT_CAPACITY ? ACCOUNT_CAPACITY : CAPACITY;
