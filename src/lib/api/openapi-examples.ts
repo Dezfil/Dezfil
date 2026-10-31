@@ -386,7 +386,7 @@ export const WORKED_EXAMPLES: WorkedExamples = {
   "GET /api/config": {
     newInstance: {
       summary: "Read the values in effect",
-      description: "Needs a token. On a new instance, with its palettes trimmed to two of the twenty-three.",
+      description: "Needs a token. After the quickstart and MCP examples have each created a map, with its palettes trimmed to two of the twenty-three.",
       response: answer("200", CONFIG),
     },
   },
@@ -405,7 +405,7 @@ export const WORKED_EXAMPLES: WorkedExamples = {
   "GET /api/instance/settings": {
     defaults: {
       summary: "Read the instance's settings",
-      description: "Needs an admin's token. On a new instance run from a checkout with DEZFIL_DATA_DIR=/data and PORT=3000.",
+      description: "Needs an admin's token. After the quickstart and MCP examples have each created a map, on an instance run from a checkout with DEZFIL_DATA_DIR=/data and PORT=3000.",
       response: answer("200", INSTANCE_SETTINGS),
     },
   },

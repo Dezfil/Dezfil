@@ -6863,13 +6863,13 @@
                 "examples": {
                   "defaults": {
                     "summary": "Read the instance's settings",
-                    "description": "Needs an admin's token. On a new instance run from a checkout with DEZFIL_DATA_DIR=/data and PORT=3000.",
+                    "description": "Needs an admin's token. After the quickstart and MCP examples have each created a map, on an instance run from a checkout with DEZFIL_DATA_DIR=/data and PORT=3000.",
                     "value": {
                       "instanceLimits": {
                         "maps": {
                           "key": "mapsLimit",
                           "limit": 0,
-                          "count": 0
+                          "count": 2
                         },
                         "projects": {
                           "key": "projectsLimit",
@@ -6969,36 +6969,6 @@
                           "secret": false,
                           "editable": true,
                           "value": 0,
-                          "source": "default",
-                          "locked": false,
-                          "invalidOverride": false,
-                          "storedValue": null
-                        },
-                        "tokenLifetimeMax": {
-                          "key": "tokenLifetimeMax",
-                          "environment": "DEZFIL_TOKEN_LIFETIME_MAX",
-                          "label": "Longest token lifetime",
-                          "purpose": "The longest lifetime new tokens may take. None leaves the token rule unbounded.",
-                          "defaultValue": "none",
-                          "documentedDefault": "none",
-                          "kind": "choice",
-                          "scope": "instance",
-                          "readBy": "admin",
-                          "changedBy": "admin",
-                          "environmentTiming": "restart",
-                          "timing": "live",
-                          "secret": false,
-                          "editable": true,
-                          "write": {
-                            "kind": "choice",
-                            "values": [
-                              "none",
-                              "30d",
-                              "90d",
-                              "1y"
-                            ]
-                          },
-                          "value": "none",
                           "source": "default",
                           "locked": false,
                           "invalidOverride": false,
@@ -8080,6 +8050,36 @@
                           "secret": false,
                           "editable": true,
                           "value": 600,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "tokenLifetimeMax": {
+                          "key": "tokenLifetimeMax",
+                          "environment": "DEZFIL_TOKEN_LIFETIME_MAX",
+                          "kind": "choice",
+                          "label": "Longest token lifetime",
+                          "purpose": "The longest lifetime new tokens may take. None leaves the token rule unbounded.",
+                          "defaultValue": "none",
+                          "documentedDefault": "none",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "admin",
+                          "environmentTiming": "restart",
+                          "timing": "live",
+                          "secret": false,
+                          "editable": true,
+                          "write": {
+                            "kind": "choice",
+                            "values": [
+                              "none",
+                              "30d",
+                              "90d",
+                              "1y"
+                            ]
+                          },
+                          "value": "none",
                           "source": "default",
                           "locked": false,
                           "invalidOverride": false,
@@ -10162,7 +10162,7 @@
                         "maps": {
                           "key": "mapsLimit",
                           "limit": 0,
-                          "count": 0
+                          "count": 2
                         },
                         "projects": {
                           "key": "projectsLimit",
@@ -10262,36 +10262,6 @@
                           "secret": false,
                           "editable": true,
                           "value": 0,
-                          "source": "default",
-                          "locked": false,
-                          "invalidOverride": false,
-                          "storedValue": null
-                        },
-                        "tokenLifetimeMax": {
-                          "key": "tokenLifetimeMax",
-                          "environment": "DEZFIL_TOKEN_LIFETIME_MAX",
-                          "label": "Longest token lifetime",
-                          "purpose": "The longest lifetime new tokens may take. None leaves the token rule unbounded.",
-                          "defaultValue": "none",
-                          "documentedDefault": "none",
-                          "kind": "choice",
-                          "scope": "instance",
-                          "readBy": "admin",
-                          "changedBy": "admin",
-                          "environmentTiming": "restart",
-                          "timing": "live",
-                          "secret": false,
-                          "editable": true,
-                          "write": {
-                            "kind": "choice",
-                            "values": [
-                              "none",
-                              "30d",
-                              "90d",
-                              "1y"
-                            ]
-                          },
-                          "value": "none",
                           "source": "default",
                           "locked": false,
                           "invalidOverride": false,
@@ -11373,6 +11343,36 @@
                           "secret": false,
                           "editable": true,
                           "value": 600,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "tokenLifetimeMax": {
+                          "key": "tokenLifetimeMax",
+                          "environment": "DEZFIL_TOKEN_LIFETIME_MAX",
+                          "kind": "choice",
+                          "label": "Longest token lifetime",
+                          "purpose": "The longest lifetime new tokens may take. None leaves the token rule unbounded.",
+                          "defaultValue": "none",
+                          "documentedDefault": "none",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "admin",
+                          "environmentTiming": "restart",
+                          "timing": "live",
+                          "secret": false,
+                          "editable": true,
+                          "write": {
+                            "kind": "choice",
+                            "values": [
+                              "none",
+                              "30d",
+                              "90d",
+                              "1y"
+                            ]
+                          },
+                          "value": "none",
                           "source": "default",
                           "locked": false,
                           "invalidOverride": false,
@@ -19111,13 +19111,13 @@
                 "examples": {
                   "newInstance": {
                     "summary": "Read the values in effect",
-                    "description": "Needs a token. On a new instance, with its palettes trimmed to two of the twenty-three.",
+                    "description": "Needs a token. After the quickstart and MCP examples have each created a map, with its palettes trimmed to two of the twenty-three.",
                     "value": {
                       "instanceLimits": {
                         "maps": {
                           "key": "mapsLimit",
                           "limit": 0,
-                          "count": 0
+                          "count": 2
                         },
                         "projects": {
                           "key": "projectsLimit",
