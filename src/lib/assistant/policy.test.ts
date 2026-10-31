@@ -10,9 +10,10 @@ describe("the page action policy", () => {
     expect(policyFor({ page: "workflow", recipeId: "r", selectedStepId: null, lastRunId: null })).toBe("read_only");
   });
 
-  it("the full policy offers every generated tool unchanged", () => {
+  it("the full policy offers every generated tool unchanged, but what a declaration keeps from the assistant", () => {
     const tools = buildTools();
-    expect(admittedTools("full", tools)).toBe(tools);
+    expect(admittedTools("full", tools)).toEqual(tools.filter((tool) => !tool.effects.keptFromAssistant));
+    expect(tools.some((tool) => tool.effects.keptFromAssistant)).toBe(true);
   });
 
   it("the read-only policy admits exactly the unconditional read-only operations", () => {
@@ -33,7 +34,7 @@ describe("the page action policy", () => {
     for (const tool of tools) {
       if (names.includes(tool.name)) continue;
       expect(!tool.effects.readOnly || tool.effects.planningArgument !== undefined || tool.effects.reachesOutside === true ||
-        tool.confirm || tool.confirmWhen !== undefined, tool.name).toBe(true);
+        tool.effects.keptFromAssistant === true || tool.confirm || tool.confirmWhen !== undefined, tool.name).toBe(true);
     }
     // The registry holds conditional operations, one that reaches outside and
     // read-only ones that ask first, so each exclusion is exercised, not vacuous.
@@ -75,14 +76,14 @@ describe("the page action policy", () => {
     // Read-only operations the policy refuses all the same, each for a
     // declared reason.
     const refused = buildTools().filter((t) => t.effects.readOnly && !names.includes(t.name)).map((t) => t.name).sort();
-    expect(refused).toEqual(["read_storage", "refresh_templates", "test_part", "test_service"]);
+    expect(refused).toEqual(["get_assistant_key", "read_storage", "refresh_templates", "test_part", "test_service"]);
   });
 
   it("admits answers per tool the way the set is built", () => {
     const tools = buildTools();
     for (const tool of tools) {
       expect(admits("read_only", tool)).toBe(admittedTools("read_only", tools).includes(tool));
-      expect(admits("full", tool)).toBe(true);
+      expect(admits("full", tool)).toBe(!tool.effects.keptFromAssistant);
     }
   });
 });

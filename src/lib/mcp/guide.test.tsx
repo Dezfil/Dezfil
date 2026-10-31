@@ -23,7 +23,7 @@ it('points the token step at the card above and links the API reference and the 
 });
 it('draws the card and every row the Settings search declares for it, under the declared ids', () => {
   const account = { id: 'ada', name: 'Ada', email: 'ada@example.test', isAdmin: false } as Account;
-  const declared = settingsDeclarations({ account, tokens: [], look: null, instance: null, entry: null, health: null, assistant: null, palettes: null }, false)
+  const declared = settingsDeclarations({ account, tokens: [], look: null, instance: null, entry: null, health: null, palettes: null }, false)
     .tokens!.find(card => card.id === 'mcp')!;
   expect(declared.rows.map(row => row.id)).toEqual(['set-mcp-client', 'mcp-check']);
   const html = renderToStaticMarkup(<McpCard />);

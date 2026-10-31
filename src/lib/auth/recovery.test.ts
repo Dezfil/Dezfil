@@ -7,6 +7,7 @@ import { insertAccount, markOriginalAccount, listAccounts } from "@/lib/metadata
 import { issueSession, authenticateSession, authenticateToken, createApiToken } from "./credentials";
 import { issueLink } from "./link-issuance.mjs";
 import { recoverAdmin, RECOVERY_LIFETIME_MS } from "./recovery.mjs";
+import { readAssistantKey, saveAssistantKey } from "@/lib/assistant/keys/store";
 import { runAdminRecover } from "../../../scripts/admin-recover.mjs";
 
 let directory: string, db: Database;
@@ -28,6 +29,15 @@ function snapshot(id?: string) {
 }
 beforeEach(() => { directory = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "admin-recovery-")); db = open(path.join(directory, "metadata.sqlite")); });
 afterEach(() => { vi.unstubAllEnvs(); if (db.open) db.close(); rmSync(directory, { recursive: true, force: true }); });
+
+it("removes the recovered admin's own assistant key and leaves everyone else's", () => {
+  add("ada"); markOriginalAccount("ada", db); add("lin");
+  saveAssistantKey("ada", "anthropic", "sk-recovered-admin-000000000", db);
+  saveAssistantKey("lin", "openai", "sk-other-admin-000000000000", db);
+  recoverAdmin({ dataDir: directory, origin, email: "ada@example.test" }, now + 1);
+  expect(readAssistantKey("ada", db)).toBeNull();
+  expect(readAssistantKey("lin", db)).toMatchObject({ key: "sk-other-admin-000000000000" });
+});
 
 it("atomically replaces links and revokes the target password, sessions and API/MCP tokens only", () => {
   const target = add("ada"); markOriginalAccount("ada", db);

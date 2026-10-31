@@ -95,7 +95,7 @@ it("draws the Password card and an editable email with the mode off", async () =
 });
 
 const search = (external: boolean | undefined, query: string) => {
-  const sources: IndexSources = { account: ADA, external, tokens: [], look: null, instance: null, entry: null, health: null, assistant: null, palettes: null };
+  const sources: IndexSources = { account: ADA, external, tokens: [], look: null, instance: null, entry: null, health: null, palettes: null };
   return searchSettings(buildSearchIndex(settingsDeclarations(sources, false), false), query).map(hit => hit.name);
 };
 it("finds the password rows only once the mode is known to be off", () => {

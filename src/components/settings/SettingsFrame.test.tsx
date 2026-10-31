@@ -152,6 +152,7 @@ describe("the Settings frame", () => {
     expect(columnLinks()).toEqual([
       { text: "Account", href: "/settings/account" },
       { text: "API & MCP", href: "/settings/tokens" },
+      { text: "Assistant", href: "/settings/assistant" },
       { text: "Appearance", href: "/settings/appearance" },
       { text: "General", href: "/settings/general" },
       { text: "Maps", href: "/settings/maps" },
@@ -197,9 +198,9 @@ describe("the Settings frame", () => {
     expect(readLastTab()).toBe("libraries");
   });
 
-  it("shows a member Account, API & MCP, Appearance and General only, and never makes the configuration read", async () => {
+  it("shows a member Account, API & MCP, Assistant, Appearance and General only, and never makes the configuration read", async () => {
     await open("/settings/general", "", "member");
-    expect(columnLinks().map(link => link.text)).toEqual(["Account", "API & MCP", "Appearance", "General"]);
+    expect(columnLinks().map(link => link.text)).toEqual(["Account", "API & MCP", "Assistant", "Appearance", "General"]);
     expect(requests).not.toContain("/api/instance/settings");
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
   });
@@ -215,7 +216,7 @@ describe("the Settings frame", () => {
       expect(byId("account")?.tagName).toBe("SECTION");
       expect(column().querySelectorAll('a[aria-current="page"]').map(a => a.textContent)).toEqual(["Account"]);
     }
-    expect(columnLinks().map(link => link.text)).toEqual(["Account", "API & MCP", "Appearance", "General"]);
+    expect(columnLinks().map(link => link.text)).toEqual(["Account", "API & MCP", "Assistant", "Appearance", "General"]);
     for (const id of ["card-new-maps", "card-workflow-canvas", "publishing-export", "set-minimap", "set-export-width", "set-basemap",
       "data-geocoder", "set-geocoder-address", "data-who", "card-basemaps", "card-satellite", "card-palettes", "set-custom-styles"]) expect(byId(id)).toBeNull();
     expect(requests.every(url => !url.startsWith("/api/instance"))).toBe(true);
@@ -394,12 +395,12 @@ describe("changing tabs", () => {
     expect(byId("limits-public")).not.toBeNull();
   });
 
-  it("waits for every first read of a tab: System shows once its configuration, assistant and health reads have landed", async () => {
+  it("waits for every first read of a tab: System shows once its configuration and health reads have landed", async () => {
     await open("/settings/account");
     closeGate(["/api/health"]);
     await change("/settings/system");
     await settle();
-    // The configuration and the assistant have answered; the health read has not.
+    // The configuration has answered; the health read has not.
     expect(shown().map(tabOf)).toEqual(["account"]);
     expect(slot("system")?.querySelector('[id="sys-assistant-status"]')).not.toBeNull();
     await openGate();
@@ -412,7 +413,7 @@ describe("changing tabs", () => {
 
   it("marks and scrolls to the row an address names only once its tab is shown", async () => {
     await open("/settings/account");
-    closeGate(["/api/assistant", "/api/health"]);
+    closeGate(["/api/health"]);
     await change("/settings/system", "#sys-version");
     await settle();
     // The row is drawn out of sight; nothing lands on it there.

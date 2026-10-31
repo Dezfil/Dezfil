@@ -47,13 +47,25 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     const result = await json<{ pending: PendingReceipt[] }>("/api/assistant/pending");
     store.set({ availablePending: result.pending });
   }, [store]);
-  useEffect(() => {
-    let cancelled = false;
+  // Reads can come back out of order, and only the latest one asked says who pays.
+  const latestStatusRead = useRef(0);
+  const readStatus = useCallback((onFailure: () => void) => {
+    const read = ++latestStatusRead.current;
     void json<Exclude<Status, null>>("/api/assistant").then((value) => {
-      if (!cancelled) { setStatus(value); setStatusFailed(false); }
-    }).catch(() => { if (!cancelled) setStatusFailed(true); });
-    return () => { cancelled = true; };
-  }, [statusAttempt]);
+      if (read === latestStatusRead.current) { setStatus(value); setStatusFailed(false); }
+    }).catch(() => { if (read === latestStatusRead.current) onFailure(); });
+  }, []);
+  useEffect(() => {
+    readStatus(() => setStatusFailed(true));
+    return () => { latestStatusRead.current += 1; };
+  }, [readStatus, statusAttempt]);
+  // A key saved or removed in another tab changes who pays for the next turn.
+  // Where a status already stands, a failed read leaves it standing.
+  useEffect(() => {
+    const reread = () => readStatus(() => { if (status === null) setStatusFailed(true); });
+    window.addEventListener("focus", reread);
+    return () => window.removeEventListener("focus", reread);
+  }, [readStatus, status]);
 
   const { applyReceipt, readOutcome, recover: recoverUnordered } = useAssistantRecovery({ recoveryId, onMutate: refreshAfterRecovery, replace, pendingList });
   const recover = useCallback((id?: string) => {
@@ -128,7 +140,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
           replace(next);
           // The region hears each event as it is applied, whatever the render cadence.
           store.announce(...eventAnnouncements(next, event));
-          if (event.type === "error") store.set({ error: { code: event.code, message: event.message } });
+          if (event.type === "error") store.set({ error: { code: event.code, message: event.message, ...(event.detail ? { detail: event.detail } : {}) } });
         }
       }
     } catch (e) {

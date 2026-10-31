@@ -1,4 +1,4 @@
-import { assistantBeginMark, assistantWorkEnded, registerAssistantStore } from "./retained-work";
+import { assistantBeginMark, assistantWorkEnded, registerAssistantStore, type AccountEndReason } from "./retained-work";
 import { withoutWriteRevision } from "./edit-revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { ResolvedConfirmation } from "./action-metadata";
@@ -59,7 +59,7 @@ export interface ParkedRun {
   headers: Record<string, string>;
 }
 
-export type Resolution = "approved" | "declined" | "superseded";
+export type Resolution = "approved" | "declined" | "superseded" | "key_changed";
 
 /** Admission refuses instead of evicting an open confirmation. */
 const MAX_PARKED = 8;
@@ -82,7 +82,7 @@ export class PendingActionStore {
   park(scope: AccountScope, run: Omit<ParkedRun, "accountId">): string {
     const accountId = requireAccountScope(scope);
     const beginMark = run.beginMark ?? assistantBeginMark();
-    if (assistantWorkEnded(beginMark)) throw new ApiError("authentication_required", "Sign in to continue.", 401);
+    if (assistantWorkEnded(beginMark, accountId)) throw new ApiError("authentication_required", "Sign in to continue.", 401);
     if (this.parked.size >= MAX_PARKED) throw new ApiError("assistant_capacity", ERROR_CATALOGUE.assistant_capacity, 409);
     const { exchange, ...data } = run;
     void exchange;
@@ -124,6 +124,11 @@ export class PendingActionStore {
       run.exchange.dispose?.(); this.parked.delete(id); this.remember(id, "superseded", run.accountId);
     }
   }
+  endAccountBefore(accountId: string, mark: number, reason: AccountEndReason): void {
+    for (const [id, run] of this.parked) if (run.accountId === accountId && (run.beginMark ?? 0) < mark) {
+      run.exchange.dispose?.(); this.parked.delete(id); this.remember(id, reason === "key_changed" ? "key_changed" : "superseded", accountId);
+    }
+  }
   eraseAccount(accountId: string): void {
     for (const [id, run] of this.parked) if (run.accountId === accountId) { run.exchange.dispose?.(); this.parked.delete(id); }
     for (const [id, trace] of this.trace) if (trace.accountId === accountId) this.trace.delete(id);
@@ -147,4 +152,4 @@ const pendingHost = globalThis as typeof globalThis & { [pendingKey]?: PendingSt
 const pendingState: PendingState = pendingHost[pendingKey] ??= { parked: new Map(), trace: new Map() };
 export const pendingActions = new PendingActionStore(pendingState);
 
-registerAssistantStore({ endBefore: mark => pendingActions.endBefore(mark), erase: accountId => pendingActions.eraseAccount(accountId) });
+registerAssistantStore({ endBefore: mark => pendingActions.endBefore(mark), endAccountBefore: (accountId, mark, reason) => pendingActions.endAccountBefore(accountId, mark, reason), erase: accountId => pendingActions.eraseAccount(accountId) });

@@ -70,11 +70,11 @@ In password mode your own row offers **Change password**: you cannot remove your
 
 These steps apply in password mode.
 
-1. Open the person's row and click **Reset password**. You should see **The current password and earlier links will stop working. Browser sessions will end; API tokens stay valid.**
+1. Open the person's row and click **Reset password**. You should see **The current password, earlier links and browser sessions stop working, and any AI key of theirs is removed.**
 2. Click **Reset password** again to confirm. You should see the **Sign-in link** and when it expires.
 3. Click **Copy link**, send the link to the person, then click **Done**.
 
-They open the link and choose a new password, as a new person does. For someone who has not used their invitation, the button reads **New sign-in link**. A new link replaces every earlier one.
+They open the link and choose a new password, as a new person does. Using it ends the account's API tokens and its assistant work begun before it; tokens made before that stop working. For someone who has not used their invitation, the button reads **New sign-in link**. A new link replaces every earlier one.
 
 The sign-in page tells people who forgot their password: **Forgot your password? An admin can reset it.** To name someone else, such as your GIS team, type it in **Settings** > **General** > **Lost password contact** and click **Save**.
 
@@ -93,11 +93,11 @@ To close an account and keep its work:
 1. Open the person's row and click **Deactivate**. You should see **Browser sessions will end and API tokens will lose access. Their work stays here.**
 2. Click **Deactivate** again. You should see **Ana Diaz: deactivated**, and the row under **Deactivated · 1**.
 
-The person cannot sign in. Their picture stays, dimmed beside their name. Their maps, workflows, datasets and projects stay where they are: people who reach them can open them and copy a map or workflow, but nobody can change them. Their published maps stay public.
+The person cannot sign in. Their maps, workflows, datasets and projects stay where they are: people who reach them can open them and copy a map or workflow, but nobody can change them. Their published maps stay public.
 
-To undo it, open the row and click **Reactivate**. Everything returns to the same person.
+To undo it, open the row and click **Reactivate**. Everything returns to the same person, their own AI key included.
 
-To take one offline and keep the account, an admin revokes its link through the API: `DELETE /api/publications/<PUBLISH_TOKEN>` with an admin's token, where `<PUBLISH_TOKEN>` ends the map's link, after `/v/`. It answers 204 with no body, and the link stops working at once. An active owner's link answers 404 and stays. The [operation reference](https://dezfil.io/docs/api/reference/publish/#delete-api-publications-token) shows the call.
+To take one offline and keep the account, an admin revokes its link through the API: `DELETE /api/publications/<PUBLISH_TOKEN>` with an admin's token, where `<PUBLISH_TOKEN>` ends the map's link, after `/v/`. The link stops working at once. An active owner's link answers 404 and stays.
 
 To delete an account with everything it owns:
 
@@ -180,9 +180,9 @@ https://maps.example.com/accept#secret=<SECRET>
 ```
 
 1. Open the link within 15 minutes; the expiry is in UTC. You should see **Choose your password**.
-2. Type a new **Password** and click **Set password**. You should see **Home**, or the landing page your instance opens on, signed in as that admin.
+2. Type a new **Password** and click **Set password**. You should see **Home**, signed in as that admin.
 
-The script works with the server running or stopped, and a second run replaces the link. It ends that account's old password, earlier links, browser sessions and API tokens, so make new tokens in **Settings** > **API & MCP**. Other accounts keep theirs.
+The script works with the server running or stopped, and a second run replaces the link. It ends that account's old password, earlier links, browser sessions, API tokens and own AI key, so make new tokens in **Settings** > **API & MCP**. Other accounts keep theirs.
 
 > [!NOTE]
 > If someone else took over the instance, the script lets you back in but leaves their accounts and changes in place. Restore a backup from before, as [Back up and restore](backup-and-restore.md) describes.

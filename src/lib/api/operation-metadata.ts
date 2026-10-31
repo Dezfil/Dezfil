@@ -31,6 +31,10 @@ export interface OperationEffects {
    * and workflow assistants' read-only policy refuses it. Whether the
    * embedded assistant asks first is the operation's own confirm. */
   reachesOutside?: true;
+  /** Never offered to or admitted by the in-app assistant, on any page: the
+   * operation holds a person's secret, which must not enter a model
+   * conversation through this server. MCP clients and scripts keep it. */
+  keptFromAssistant?: true;
 }
 export interface ConfirmationWords {
   /** Contains {target}, replaced with the resolved name and stable identity. */
@@ -82,6 +86,9 @@ export interface OperationDisplay {
   };
 }
 export const READ_ONLY: OperationEffects = { readOnly: true, writes: [] };
+export function keptFromAssistant(effects: OperationEffects): OperationEffects {
+  return { ...effects, keptFromAssistant: true };
+}
 /** Changes nothing here, and reaches outside this server to do it. */
 export const REACHES_OUTSIDE: OperationEffects = { readOnly: true, writes: [], reachesOutside: true };
 export function writes(...resources: ResourceWrite[]): OperationEffects {

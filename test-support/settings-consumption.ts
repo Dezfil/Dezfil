@@ -14,7 +14,9 @@ type Sources = Record<string, string>;
  * PATH, the system's program search path, read to find a configured
  * program given by name, and UV_THREADPOOL_SIZE, the runtime's own worker
  * pool size, read only to size the share PostGIS source calls may take. */
-const plumbing = new Set(["NODE_ENV", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "PATH", "UV_THREADPOOL_SIZE"]);
+const plumbing = new Set(["NODE_ENV", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "PATH", "UV_THREADPOOL_SIZE",
+  // The provider SDKs read these themselves; the code names them only to cancel them on a person's key.
+  "ANTHROPIC_CUSTOM_HEADERS", "OPENAI_CUSTOM_HEADERS"]);
 /** The settings readers a consumer imports, by module: the numbers' and
  * switches' resolver, and the service addresses' resolver. */
 const RESOLVERS: Record<string, readonly string[]> = {

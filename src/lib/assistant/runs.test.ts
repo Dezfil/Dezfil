@@ -2,6 +2,7 @@ import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, expect, it } from "vitest";
 import { AssistantRunStore } from "./runs";
 import { compactReceipt, jsonBytes } from "./recovery-data";
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 
 describe("bounded recovery owner", () => {
   it("separates provider messages while replacing each streamed segment exactly once", () => {
@@ -18,8 +19,9 @@ describe("bounded recovery owner", () => {
   });
   it("expires unused reservations at five minutes, never a live or pending run", () => {
     let clock = 0; const store = new AssistantRunStore(() => clock);
-    const reserved = store.reserve(testAccountScope()).id; const running = store.reserve(testAccountScope()).id; const parked = store.reserve(testAccountScope()).id;
-    store.bind(testAccountScope(), running, { message: "Work" }); store.bind(testAccountScope(), parked, { message: "Pause" });
+    const running = store.reserve(testAccountScope()).id; store.bind(testAccountScope(), running, { message: "Work" });
+    const parked = store.reserve(testAccountScope()).id; store.bind(testAccountScope(), parked, { message: "Pause" });
+    const reserved = store.reserve(testAccountScope()).id;
     store.record(testAccountScope(), parked, { type: "confirm_required", id: "pending", tool: "delete_map", args: { id: "original" } });
     clock = 299_999; expect(store.read(testAccountScope(), reserved).state).toBe("reserved");
     clock++; expect(store.read(testAccountScope(), reserved).state).toBe("unavailable");
@@ -27,6 +29,28 @@ describe("bounded recovery owner", () => {
     clock = 86_400_000;
     expect(store.read(testAccountScope(), running).state).toBe("running"); expect(store.pending(testAccountScope())[0].args).toEqual({ id: "original" });
     expect(store.read(testAccountScope(), parked).state).toBe("awaiting_confirmation");
+  });
+  it("takes a place at binding, keeps it through a wait for confirmation, and needs none to resume", () => {
+    const store = new AssistantRunStore();
+    const held: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const id = store.reserve(testAccountScope()).id; store.bind(testAccountScope(), id, { message: `Work ${i}` }); held.push(id);
+      store.record(testAccountScope(), id, { type: "confirm_required", id: `pending-${i}`, tool: "delete_map", args: {} });
+    }
+    const fifth = store.reserve(testAccountScope()).id;
+    expect(() => store.bind(testAccountScope(), fifth, { message: "Fifth" })).toThrow(/four/);
+    store.resume(testAccountScope(), held[0], "approved");
+    expect(store.read(testAccountScope(), held[0]).state).toBe("running");
+    expect(() => store.bind(testAccountScope(), fifth, { message: "Fifth" })).toThrow(/four/);
+    store.finish(testAccountScope(), held[0]);
+    expect(store.bind(testAccountScope(), fifth, { message: "Fifth" })).toBe(true);
+  });
+  it("lets an expired reservation free its account's count", () => {
+    let clock = 0; const store = new AssistantRunStore(() => clock);
+    store.reserve(testAccountScope()); store.reserve(testAccountScope());
+    expect(() => store.reserve(testAccountScope())).toThrow(ERROR_CATALOGUE.assistant_reservation_limit);
+    clock = 300_000;
+    expect(store.reserve(testAccountScope()).state).toBe("reserved");
   });
   it("retains the newest 256 terminal receipts and never executes an evicted or pre-restart identity", () => {
     const store = new AssistantRunStore();

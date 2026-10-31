@@ -887,6 +887,11 @@
     "table:auth_generations": {
       "action": "retain",
       "rule": "Keep the instance sign-out and door generations across account deletion."
+    },
+    "table:assistant_keys": {
+      "action": "erase",
+      "rule": "Erase the target's own assistant key: its encrypted envelope, provider, last four characters and saving time.",
+      "fixture": "table:assistant_keys"
     }
   },
   "tables": {
@@ -920,7 +925,8 @@
     "workspace_settings": "table:workspace_settings",
     "map_pictures": "table:map_pictures",
     "auth_ticket_ids": "table:auth_ticket_ids",
-    "auth_generations": "table:auth_generations"
+    "auth_generations": "table:auth_generations",
+    "assistant_keys": "table:assistant_keys"
   },
   "sources": {
     "location:src/app/api/health/route.ts#GET:dataDir": {
@@ -2658,6 +2664,26 @@
       ]
     },
     "memory:src/lib/api/openapi-assistant-context.ts#ASSISTANT_CONTEXT_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-keys.ts#ASSISTANT_KEY_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-keys.ts#ASSISTANT_KEY_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-keys.ts#errors": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-keys.ts#facts": {
       "stores": [
         "memory:immutable-configuration"
       ]
@@ -5142,6 +5168,11 @@
         "memory:assistant-work"
       ]
     },
+    "memory:src/lib/assistant/retained-work.ts#accountEnds": {
+      "stores": [
+        "memory:assistant-work"
+      ]
+    },
     "memory:src/lib/assistant/retained-work.ts#holder.cleanups": {
       "stores": [
         "memory:assistant-cleanups"
@@ -7438,6 +7469,7 @@
   },
   "accountReferences": {
     "account_preferences.account_id": "owner",
+    "assistant_keys.account_id": "owner",
     "auth_links.account_id": "owner",
     "auth_sessions.account_id": "owner",
     "auth_tokens.account_id": "owner",

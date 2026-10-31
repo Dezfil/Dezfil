@@ -1,5 +1,5 @@
 import { authenticatedOp as op } from "./openapi-authenticated";
-import { jsonOk, pathParam } from "./openapi-helpers";
+import { ERROR_RESPONSE, jsonOk, pathParam } from "./openapi-helpers";
 import { READ_ONLY, writes, resource } from "./operation-metadata";
 
 /** Execution ownership belongs to clients; models cannot reserve themselves. */
@@ -7,9 +7,9 @@ export const ASSISTANT_RUN_PATHS = {
   "/api/assistant/runs": {
     post: op({
       summary: "Reserve an assistant run",
-      description: "Obtain a server-issued run identity bound to the authenticated account before sending a new message. Performs no model or product operation. Eight reserved, running or awaiting-confirmation runs share capacity; unused reservations expire after five minutes. Capacity refusal preserves occupied slots and points to GET /api/assistant/pending and DELETE /api/assistant/runs/{id} for recovery or release.",
+      description: "Obtain a server-issued run identity bound to the authenticated account before sending a new message. Performs no model or product operation. A reservation needs a usable key, the caller's own or the instance's: without one it answers 404 assistant_disabled. It takes no capacity and expires unused after five minutes; an account holds at most two, and a third answers 409 assistant_reservation_limit. The eight slots, four per account, are taken when a submission binds a run, so assistant_capacity comes from the message operation, not from here.",
       tag: "Agents", tool: false, effects: writes(resource("assistant")),
-      responses: { "201": jsonOk("#/components/schemas/AssistantRun") },
+      responses: { "201": jsonOk("#/components/schemas/AssistantRun"), "404": ERROR_RESPONSE, "409": ERROR_RESPONSE },
     }),
   },
   "/api/assistant/runs/{id}": {
@@ -22,7 +22,7 @@ export const ASSISTANT_RUN_PATHS = {
     }),
     delete: op({
       summary: "Release an assistant reservation or abandon a pending turn",
-      description: "Release an unused reservation (state becomes unavailable) or abandon an awaiting-confirmation turn (interrupted, pending action superseded). Neither starts model or tool work. Other states refuse with 409 assistant_run_state. Frees admission capacity; the old identity never starts new work.",
+      description: "Release an unused reservation (state becomes unavailable) or abandon an awaiting-confirmation turn (interrupted, pending action superseded). Neither starts model or tool work. Other states refuse with 409 assistant_run_state. Abandoning frees the run's slot and releasing frees the reservation's place in the account's two; the old identity never starts new work.",
       tag: "Agents", tool: false, effects: writes(resource("assistant", "id")),
       parameters: [pathParam("id", "Server-issued run identity")],
       responses: { "200": jsonOk("#/components/schemas/AssistantRun") },

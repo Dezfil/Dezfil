@@ -48,7 +48,7 @@ Dezfil sends no email and reports nothing about itself: there is no telemetry. L
 | An address finder (Nominatim-compatible) | `DEZFIL_GEOCODER_URL`, or **Address** on the **Address finder** card | Someone presses Enter in **Search map & places**, or runs **Geocode addresses** | The search text, or each address in the chosen column |
 | A travel-time service (Valhalla-compatible) | `DEZFIL_ISOCHRONE_URL`, or **Address** on the **Travel time** card | Someone runs **Isochrone / travel-time area** | Each origin's coordinates, the travel mode and the time bands |
 | Satellite imagery | `DEZFIL_SATELLITE_URL`, or **Tile address** on the **Satellite imagery** card of **Settings** > **Libraries** | A map on **Satellite** is drawn, in a browser or in a picture the server makes | Each tile's zoom, column and row, with the key in your template, from your server |
-| The AI provider, `api.anthropic.com` or `api.openai.com` | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` | Someone sends a message to the assistant | The conversation and what the assistant reads: see [What the provider receives](assistant.md#what-the-provider-receives) |
+| The AI provider, `api.anthropic.com` or `api.openai.com` | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, or a person's own key | Someone sends a message to the assistant | The conversation and what the assistant reads: see [What the provider receives](assistant.md#what-the-provider-receives) |
 
 To stop an address-based data service again, click **Remove** beside its saved address, then **Remove address**. An address a variable sets is locked in Settings and names its variable: unset the variable and replace the container, as [Set a variable](configuration.md#set-a-variable) shows.
 
@@ -196,9 +196,9 @@ Members keep the connections they already have, and datasets imported from links
 
 ### What has no off switch
 
-**OpenStreetMap** and **Overture Maps** stay in **Add data** for everyone. OpenStreetMap reaches the public Overpass server unless you point it at your own, and Overture Maps reads the public bucket. **Who may import from links** does not cover either.
+**A person's own AI key** needs no setup of yours. It goes only to the provider's public host, past any gateway named by `ANTHROPIC_BASE_URL` or `OPENAI_BASE_URL`, which apply to the instance key alone. To stop it, block both hosts.
 
-Without a connection to them, an import from either fails and says why.
+**OpenStreetMap** and **Overture Maps** stay in **Add data** for everyone. OpenStreetMap reaches the public Overpass server unless you point it at your own, and Overture Maps reads the public bucket. **Who may import from links** does not cover either.
 
 ## Trust a private certificate authority
 
@@ -291,11 +291,9 @@ An image export through the API or the assistant answers with this one. List eac
 
 The browser cannot reach the basemap's tile host. Your data still draws. On a closed network, set `DEZFIL_BASEMAP_URL` to a style the browsers can reach, and move maps on **Dark**, **Light** or **Streets** to **Auto**, which draws it.
 
-Preview maps keep the built-in style, as the NOTE under [step 2](#2-hide-the-built-in-basemaps) says.
-
 ### The Templates page lists no templates from the catalogue
 
-The catalogue is off, or the server cannot reach it. On the **Templates** card, check that **Catalogue** reads **In use**, then click **Test**. **Could not reach the service.** means the server's request failed: the name did not resolve, the connection was refused, or the answer broke off.
+The catalogue is off, or the server cannot reach it. On the **Templates** card, check that **Catalogue** reads **In use**, then click **Test**. **Could not reach the service.** means the server's request failed.
 
 ## Next steps
 

@@ -51,7 +51,7 @@ DEZFIL_DATA_DIR="$PWD/.claude/test-data/file-limit-server" DEZFIL_UPLOAD_MAX_MB=
 Run the external-sign-in container in the same network namespace, listening
 on 3393 with a separate data volume.
 
-Green exits zero with `"label":"confirmed"`, 70 JSON operations and 840
+Green exits zero with `"label":"confirmed"`, 71 JSON operations and 852
 boundary checks, the measured fixture bytes, and a counted MCP upload. A red
 exits nonzero with `"label":"failed"` and the failed assertion. Truncation, a
 swallowed refusal, an unbounded MCP handoff, changed resource state, missing

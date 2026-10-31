@@ -61,6 +61,7 @@ export const GUIDANCE_SECTIONS: readonly { id: string; audience: 'shared' | 'ass
       "A token_outdated response means everyone was signed out or the door generation advanced; sign in again and create a new API token. " +
       "External sign-in tickets are browser arrivals, never API or MCP credentials. In that mode invitations return only the account, without a link, and password operations return external_sign_in_only. " +
       "The confirmed sign_everyone_out tool ends every account's sessions, tokens and older assistant work, including the caller's. " +
+      "The tools set_assistant_key, get_assistant_key and remove_assistant_key hold your own AI key, on an account's own credential; no tool returns the key or reaches another person's. " +
       "Credential configuration belongs to the client transport, outside tool arguments and task messages.",
   },
   {

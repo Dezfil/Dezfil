@@ -1,11 +1,11 @@
 ---
 title: "Set up the assistant"
-summary: "Turn on the in-app assistant with an Anthropic or OpenAI key, choose its models, and check that it answers."
+summary: "Give the in-app assistant an instance key from Anthropic or OpenAI, or leave it to each person's own key; choose its models, and check that it answers."
 read_when:
   - "you want to turn on the assistant for your instance"
-  - "you want to change which models people can choose"
-  - "you want to offer a model or an effort level Dezfil does not list"
+  - "you want to change which models people can choose, or offer one Dezfil does not list"
   - "you need to know what the assistant sends to the AI provider"
+  - "people on your instance add their own AI keys"
   - "the assistant pane shows an error instead of an answer"
 audience:
   - operator
@@ -15,7 +15,7 @@ order: 4
 
 The assistant is a chat pane on the map, SQL and workflow pages. People ask in plain words, and it reads their data and makes changes through Dezfil's own API.
 
-It runs on a key you bring from Anthropic or OpenAI. Until a key is set, the pane only says how to turn it on.
+It runs on a key from Anthropic or OpenAI: the instance's, or [a person's own](#peoples-own-keys). Without either, the pane asks the person for theirs.
 
 ## 1. Get a key
 
@@ -49,7 +49,7 @@ docker run -d --name dezfil -p 127.0.0.1:3000:3000 -v dezfil-data:/data \
 
 The server reads the key when it starts. If Dezfil is already running, list its variables and image as [Set a variable](configuration.md#set-a-variable) shows, run `docker rm -f dezfil`, and use them in the command, `DEZFIL_SECRET_KEY` too if you set one. The volume keeps your data. With Docker Compose, put the key in the keys file [Docker Compose](docker-compose.md#3-make-the-keys-file) makes, and run `docker compose up -d`.
 
-The key is set only in the environment: no Settings tab takes it. With both keys set, Dezfil uses Anthropic unless you add `DEZFIL_AI_PROVIDER=openai`.
+The instance key is set only in the environment: no Settings tab takes it. With both keys set, Dezfil uses Anthropic unless you add `DEZFIL_AI_PROVIDER=openai`.
 
 ## 3. Choose the models
 
@@ -78,9 +78,21 @@ The chip then offers Opus 5, Sonnet 5 and Haiku 4: the default model is always o
 
 1. Open a map and click **Assistant** in the header. The pane opens with the box **Ask the assistant…**.
 2. Type a question, such as "Which datasets can you see?", and click **Send**. You should see an answer in the pane.
-3. As an admin, open **Settings** > **System**. The **Assistant** card shows **Status** **On** and the **Provider**.
+3. As an admin, open **Settings** > **System**. The **Assistant** card shows **Instance key** **Set** and the **Provider**.
 
-**On** means a key is set. Only an answer shows the provider accepts it. Agents read the same status from `GET /api/assistant`.
+Only an answer shows the provider accepts the key. `GET /api/assistant` answers for the person asking: which key pays for them, and whether the instance has one.
+
+## People's own keys
+
+Anyone can [add their own key](../use/ai-key.md), and you turn nothing on for it. Their turns use it, and everyone else's use the instance's.
+
+No admin can read a member's key or see whether they have one.
+
+A person's key goes only to `api.anthropic.com` or `api.openai.com`, with that key alone. `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL` and the provider's other variables apply to the instance key alone.
+
+`DEZFIL_AI_MODELS_ANTHROPIC` and `DEZFIL_AI_MODELS_OPENAI` also bound what a person's key offers. `DEZFIL_AI_MODEL` applies only to the instance key's provider.
+
+Saved keys are encrypted with the instance's encryption key. **Reset password**, **New sign-in link** and the recovery script remove the account's key.
 
 ## Offer other models
 
@@ -163,17 +175,17 @@ It reads only what the person asking can see. Nothing goes to the provider until
 
 ## Troubleshooting
 
-### The pane says "No model credential is configured"
+### The pane says "Add your own API key to use the assistant."
 
-The server sees no key. In **Settings** > **System** > **Server settings**, check the **Anthropic credential** or **OpenAI credential** row. **Not set** means the variable did not reach the server: pass it with `-e` and replace the container.
+The person has no key and the server sees none. To give the instance one, in **Settings** > **System** > **Server settings**, check the **Anthropic credential** or **OpenAI credential** row. **Not set** means the variable did not reach the server: pass it with `-e` and replace the container.
 
-### The pane says "Unknown DEZFIL_AI_PROVIDER" or "DEZFIL_AI_PROVIDER is …"
+### The Assistant card says "DEZFIL_AI_PROVIDER names a provider with no key set."
 
 `DEZFIL_AI_PROVIDER` names a provider Dezfil does not support, or one whose key is not set. Correct or remove the variable, or set that provider's key, then restart.
 
-### Sending fails with "The configured Anthropic API key was rejected"
+### Sending fails with "The instance's Anthropic key was rejected. An admin must replace it."
 
-The provider refused the key. With OpenAI, the message names `OPENAI_API_KEY`. Create a new key, set it, and replace the container.
+The provider refused the instance key. With OpenAI, the message names OpenAI. Create a new key, set it, and replace the container. A person's own key says **Your Anthropic key was rejected.** instead, and they replace it themselves.
 
 ### Sending fails with "The Anthropic API request failed: Connection error."
 

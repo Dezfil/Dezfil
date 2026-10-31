@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { AssistantContext } from "@/lib/assistant/context";
 import { ErrorNote } from "../ui/ErrorNote";
 import type { LayerDataDownloadPort } from "./use-layer-data-downloads";
 import { AssistantComposer } from "./assistant/AssistantComposer";
 import { AssistantTurn } from "./assistant/AssistantTurn";
 import { TurnAnnouncements } from "./assistant/TurnAnnouncements";
-import { failureWords } from "./assistant/assistant-words";
+import { failureWords, payerWords } from "./assistant/assistant-words";
 import { PaneFailureNote } from "./assistant/PaneFailureNote";
 import { EntryChips } from "./assistant/EntryChips";
 import { composerWorking } from "./assistant/turn-phase";
@@ -16,6 +16,7 @@ import type { InsertOutcome } from "./assistant/ProposalBlock";
 import { TalkingAbout } from "./assistant/TalkingAbout";
 import { talkingAbout, type PageFacts } from "./assistant/talking-about";
 import { useAssistantTurn } from "./assistant/use-assistant-turn";
+import { KeyForm, type KeyProvider } from "./assistant/KeyForm";
 import { ModelPicker } from "./assistant/ModelPicker";
 import { pickerShown } from "./assistant/model-choice";
 import styles from "./AssistantPanel.module.css";
@@ -38,6 +39,7 @@ export function AssistantPanel({ onMutate, layerDataDownloads, context, facts, o
     busy, phase, streaming, announcements, live, error, setError, submit, resolve, recoveryId,
     recover, stop, availablePending, markInserted, submitText } = useAssistantTurn(context, onMutate);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [replacingKey, setReplacingKey] = useState(false);
   const confirmPromptId = useId();
   const words = (failure: { code: string; message: string }) => failureWords(failure, { pendingActions: availablePending.length });
   // One view per turn, keyed by its run: settlement moves the live
@@ -72,6 +74,7 @@ export function AssistantPanel({ onMutate, layerDataDownloads, context, facts, o
       <section className={styles.panel}>
         {showTitle && <h2 className={styles.title}>Assistant</h2>}
         <p className={styles.absent}>{status.reason}</p>
+        <KeyForm onSaved={() => setStatusAttempt((n) => n + 1)} />
       </section>
     );
   }
@@ -80,18 +83,21 @@ export function AssistantPanel({ onMutate, layerDataDownloads, context, facts, o
   // and the pane's model line goes, in both of the pane's forms. Where it
   // does not, both forms are exactly what ships today.
   const models = status.models ?? [];
+  const payer = payerWords(status);
+  const ownKey = status.payer?.kind === "own" ? status.payer : null;
+  const modelLine = payer ? `${status.model} · ${payer}` : status.model;
   const picker = pickerShown(models)
-    ? <ModelPicker models={models} instanceModel={status.model} disabled={working || busy} bound={live.choice} />
+    ? <ModelPicker models={models} instanceModel={status.model} disabled={working || busy} bound={live.choice} payer={payer} />
     : null;
   return (
     <section className={styles.panel} data-phase={phase}>
       {showTitle ? (
         <h2 className={styles.title}>
           Assistant
-          {!picker && <span className={styles.model}>{status.model}</span>}
+          {!picker && <span className={styles.model}>{modelLine}</span>}
         </h2>
       ) : (
-        !picker && <p className={styles.modelLine}>{status.model}</p>
+        !picker && <p className={styles.modelLine}>{modelLine}</p>
       )}
       {facts && <TalkingAbout chips={talkingAbout(facts)} />}
       <TurnAnnouncements announcements={announcements} />
@@ -121,7 +127,8 @@ export function AssistantPanel({ onMutate, layerDataDownloads, context, facts, o
         })}
 
         {error && (
-          <PaneFailureNote failure={error} pendingActions={availablePending.length} onDismiss={() => setError(null)} />
+          <PaneFailureNote failure={error} pendingActions={availablePending.length} onDismiss={() => setError(null)}
+            onReplaceKey={ownKey && !replacingKey ? () => setReplacingKey(true) : undefined} />
         )}
         {recoveryId && !busy && (
           <button className={styles.send} onClick={() => void recover()}>Check request outcome</button>
@@ -133,12 +140,17 @@ export function AssistantPanel({ onMutate, layerDataDownloads, context, facts, o
         ))}
       </div>
 
-      <EntryChips
-        chips={entryChips(facts, empty)}
-        disabled={working || busy || Boolean(recoveryId)}
-        onPick={(words) => void submitText(words)}
-      />
-      <AssistantComposer phase={phase} input={input} setInput={setInput} onSubmit={submit} onStop={() => void stop()} blocked={busy || Boolean(recoveryId)} picker={picker} />
+      {replacingKey && ownKey ? (
+        <KeyForm initialProvider={ownKey.provider as KeyProvider} onCancel={() => setReplacingKey(false)}
+          onSaved={() => { setReplacingKey(false); setError(null); setStatusAttempt((n) => n + 1); }} />
+      ) : (<>
+        <EntryChips
+          chips={entryChips(facts, empty)}
+          disabled={working || busy || Boolean(recoveryId)}
+          onPick={(words) => void submitText(words)}
+        />
+        <AssistantComposer phase={phase} input={input} setInput={setInput} onSubmit={submit} onStop={() => void stop()} blocked={busy || Boolean(recoveryId)} picker={picker} />
+      </>)}
     </section>
   );
 }

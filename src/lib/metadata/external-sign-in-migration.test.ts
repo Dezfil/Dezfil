@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { expect, it } from "vitest";
+import { EXTERNAL_SIGN_IN_MIGRATION } from "./migrations-external-sign-in";
 import { IDENTITIES_MIGRATION, rebuildIdentities } from "./migrations-identities";
 import { MIGRATIONS, open } from "./db";
 import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
@@ -50,10 +51,11 @@ it("upgrades existing accounts and credentials at zero, then keeps identities, i
   let db = new Database(file);
   try {
     db.function("allocate_sql_names", (input: unknown) => JSON.stringify(allocateSqlNames(JSON.parse(String(input)) as SqlNameIdentity[])));
-    for (const [index, sql] of MIGRATIONS.slice(0, -1).entries()) {
+    const position = MIGRATIONS.indexOf(EXTERNAL_SIGN_IN_MIGRATION);
+    for (const [index, sql] of MIGRATIONS.slice(0, position).entries()) {
       if (sql === IDENTITIES_MIGRATION) rebuildIdentities(db, sql, index + 1); else db.exec(sql);
     }
-    db.pragma(`user_version = ${MIGRATIONS.length - 1}`);
+    db.pragma(`user_version = ${position}`);
     db.exec(`INSERT INTO accounts(id,name,email,is_admin,status,created_at,updated_at,sql_name)
       VALUES('ada','Ada','ada@example.test',1,'active','time','time','ada');
       INSERT INTO auth_sessions VALUES('s','s-hash','ada',1,99,1,NULL);

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
+import { ASSISTANT_ACCOUNT_CAPACITY, ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { AssistantRecord } from "./AssistantRecord";
 import { PaneFailureNote } from "./PaneFailureNote";
 import { failureWords } from "./assistant-words";
@@ -52,7 +52,28 @@ describe("a SQL error's own text survives", () => {
   });
 });
 
+describe("the failure note's Replace key", () => {
+  const note = (code: string, onReplaceKey?: () => void) => renderToStaticMarkup(<PaneFailureNote failure={{ code, message: "Your OpenAI key was rejected." }} pendingActions={0} onDismiss={() => {}} onReplaceKey={onReplaceKey} />);
+  it("stands on a rejected key that is the person's own, and nowhere else", () => {
+    expect(note("assistant_auth", () => {})).toContain("Replace key");
+    expect(note("assistant_auth")).not.toContain("Replace key");
+    expect(note("assistant_provider", () => {})).not.toContain("Replace key");
+  });
+});
+
 describe("capacity", () => {
+  it("names the person's own share when that is what is full, and the instance's otherwise", () => {
+    const own = failureWords({ code: "assistant_capacity", message: ASSISTANT_ACCOUNT_CAPACITY }, { pendingActions: 0 });
+    expect(own).toBe("You have four requests open, the most one person may. Wait for one to finish, then send again.");
+    expect(failureWords({ code: "assistant_capacity", message: ASSISTANT_ACCOUNT_CAPACITY }, { pendingActions: 1 })).toBe("You have four requests open, the most one person may. Recover a pending action below, or abandon it, to free one.");
+    expect(failureWords({ code: "assistant_capacity", message: ERROR_CATALOGUE.assistant_capacity }, { pendingActions: 0 })).toContain("eight requests are open on this instance");
+  });
+  it("words the reservation limit for a person, with no method or path", () => {
+    const words = failureWords({ code: "assistant_reservation_limit", message: ERROR_CATALOGUE.assistant_reservation_limit }, { pendingActions: 0 });
+    expect(ERROR_CATALOGUE.assistant_reservation_limit).toMatch(TRANSPORT);
+    expect(words).not.toMatch(TRANSPORT);
+    expect(words).toBe("Two of your messages have not started yet. Wait a few minutes, then send again.");
+  });
   it("with a pending action offers its recovery; with none says something true and offers nothing", () => {
     const withPending = failureWords({ code: "assistant_capacity", message: ERROR_CATALOGUE.assistant_capacity }, { pendingActions: 2 });
     const without = failureWords({ code: "assistant_capacity", message: ERROR_CATALOGUE.assistant_capacity }, { pendingActions: 0 });
@@ -97,7 +118,7 @@ describe("the catalogue's texts are unchanged", () => {
       assistant_reservation_required: "Reserve a run with POST /api/assistant/runs, then send its id as runId.",
       assistant_run_unavailable: "This run identity is unavailable and cannot execute.",
       assistant_run_conflict: "This run identity is already bound to different input.",
-      assistant_capacity: "Eight assistant runs occupy capacity. Read GET /api/assistant/pending; release an unused reservation or abandon a pending turn with DELETE /api/assistant/runs/{id}.",
+      assistant_capacity: "Eight assistant runs are running or waiting for confirmation. Your reservation stays for a retry. Read GET /api/assistant/pending; abandon a pending turn with DELETE /api/assistant/runs/{id}, or wait for one to finish.",
       assistant_run_state: "This operation is not available in the current run state.",
       assistant_submission_too_large: "The assistant submission exceeds 128 KiB.",
       assistant_recovery_limit: "Further work stopped before the live recovery bound could be exceeded.",
@@ -107,8 +128,8 @@ describe("the catalogue's texts are unchanged", () => {
       assistant_context_invalid: "The submitted page context is malformed or refers to an incompatible object.",
       assistant_context_too_large: "Page context exceeds 64 KiB of UTF-8 JSON.",
       assistant_context_unavailable: "The page context could not be read from this instance.",
-      assistant_disabled: "The assistant is not enabled; no model credential is configured.",
-      assistant_auth: "The configured model credential was rejected by the provider.",
+      assistant_disabled: "The assistant has no key to answer you with: you have none of your own and the instance has none.",
+      assistant_auth: "A model key was rejected by its provider: your own, or the instance's. The message says which.",
       assistant_provider: "The model provider request failed (outage, quota, or network).",
       pending_unknown: "The referenced pending action is unknown; it may have expired with the server's working state.",
       pending_resolved: "The referenced pending action was already resolved; it will not run again.",

@@ -105,7 +105,7 @@ describe("the captured offer per page", () => {
       for (const name of captured) if (name !== DISCOVERY_TOOL) expect(admitted.has(name), `${name} on ${page}`).toBe(true);
     }
     const { provider } = await turn([{ text: "Captured", toolCalls: [] }]);
-    expect(names(provider.recording.exchanges[0].options.tools)).toEqual(names(buildTools()));
+    expect(names(provider.recording.exchanges[0].options.tools)).toEqual(names(admittedTools("full")));
     // The configured full mode: every admitted operation offered, discovery not needed and not
     // offered.
     vi.stubEnv("DEZFIL_ASSISTANT_OFFER", "full");

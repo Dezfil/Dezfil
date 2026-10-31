@@ -25,3 +25,12 @@ export function apiFailureSentence(
     ? `The ${provider} API request failed: ${message}`
     : `The ${provider} API request failed (${named}): ${message}`;
 }
+
+/** A rejected key speaks to whoever can replace it: the person whose key it is,
+ * or an admin for the instance's. The operator's variable stays on the System
+ * tab, and what the provider said stays behind Technical detail. */
+export function rejectedKeySentence(provider: string, payer: "own" | "instance"): string {
+  return payer === "own"
+    ? `Your ${provider} key was rejected.`
+    : `The instance's ${provider} key was rejected. An admin must replace it.`;
+}

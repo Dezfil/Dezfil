@@ -29,9 +29,9 @@ describe("pane consumes declared metadata", () => {
     // and so are clearing the services' caches, testing a service, testing a part,
     // reading the data folder's use, adding, offering and removing a style in
     // the basemap library, downloading and copying a template, removing
-    // the downloaded templates, removing another person's picture and ending
-    // every account's credentials.
-    expect(gates).toHaveLength(40);
+    // the downloaded templates, removing another person's picture, ending
+    // every account's credentials and removing one's own AI key over MCP.
+    expect(gates).toHaveLength(41);
     for (const tool of gates) {
       const confirmation = { target: tool.confirmation!.target.replace("{target}", "Original (id)"), consequence: tool.confirmation!.consequence };
       const html = renderToStaticMarkup(<AssistantConfirmation pending={{ id: "pending", runId: "run", tool: tool.name, args: {}, confirmation }} promptId="prompt" busy={false} resolve={() => {}} />);

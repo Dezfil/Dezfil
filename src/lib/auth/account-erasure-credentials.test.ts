@@ -12,7 +12,7 @@ import { proveErasure, type ErasureProbe } from "../../../test-support/account-e
 
 let db: Database;
 const key = (email: string) => `account:${secretHash(normalizeEmail(email))}`;
-const tables = ["account_preferences", "auth_sessions", "auth_tokens", "auth_links", "auth_login_limits"];
+const tables = ["account_preferences", "assistant_keys", "auth_sessions", "auth_tokens", "auth_links", "auth_login_limits"];
 const rows = (table: string) => db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all() as Record<string, unknown>[];
 const snapshot = () => Object.fromEntries([...tables, "accounts"].map(t => [t, rows(t)]));
 beforeEach(() => {
@@ -22,6 +22,7 @@ beforeEach(() => {
       status: id === "invited" ? "invited" : id === "inactive" ? "deactivated" : "active", now: "time" }, db);
     db.prepare("UPDATE accounts SET last_sign_in_at = 'sign-in' WHERE id = ?").run(id);
     db.prepare("INSERT INTO account_preferences VALUES (?, ?, 'time')").run(id, `${id}-preferences`);
+    db.prepare("INSERT INTO assistant_keys VALUES (?, 'openai', ?, 'f00d', 1)").run(id, `${id}-envelope`);
     for (const state of ["live", "expired", "revoked", "consumed"]) {
       const tag = `${id}-${state}`;
       db.prepare("INSERT INTO auth_sessions (id,secret_hash,account_id,created_at,expires_at,last_used_at,revoked_at) VALUES (?, ?, ?, 1, ?, 1, ?)").run(tag, `${tag}-session`, id, state === "expired" ? 2 : 99999999, state === "revoked" ? 3 : null);

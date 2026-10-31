@@ -300,8 +300,10 @@ A layer that cannot draw still answers 200 from `GET /api/layers/{id}/render`. I
 | What Dezfil tells the model about the page | 96 KiB | Details are left out, then 413 `assistant_context_too_large` |
 | Model and tool steps in one request | **Assistant steps** | The request ends with the event `{"type":"done","reason":"budget"}` |
 | Requests open on the instance | 8 | 409 `assistant_capacity` |
+| Requests open for one account | 4 | 409 `assistant_capacity` |
+| Unsent reservations of one account | 2 | 409 `assistant_reservation_limit` |
 | One map check, waiting included | **Map check time limit** | The check answers `render_timeout` |
-| A request's unused place | 5 minutes | The place is freed |
+| A reservation's life, unsent | 5 minutes | It expires |
 | A download that a tool answers, over MCP or to the assistant | **Tool attachment size** | A failed tool result with the code `attachment_too_large` |
 | One MCP request, an uploaded file inside it | 16,777,216 bytes (16 MiB) | 413 `request_body_too_large` |
 | A file uploaded through MCP | About 12 MiB: three bytes for every four of the request left after its other parts. Also **Largest upload**. | 413 `request_body_too_large`, or `upload_too_large` over **Largest upload** |
@@ -311,13 +313,11 @@ A layer that cannot draw still answers 200 from `GET /api/layers/{id}/render`. I
 
 In the app, a message over its limit shows **The message and its context are too large to send. Shorten the message.** On the **SQL** page, your editor text and a summary of your last run travel with every message, so a long draft counts too.
 
-A request holds one of the eight places from its reservation until it ends. One that waits for your confirmation keeps its place.
+A reservation takes no place and stays after that refusal. A request holds a place from its message until it ends, waiting for your confirmation included.
 
-When all eight are taken, the pane says **The assistant is at capacity: eight requests are open on this instance.** `GET /api/assistant/pending` lists your waiting requests, and `DELETE /api/assistant/runs/{id}` frees one.
+When all eight are taken, the pane says **The assistant is at capacity: eight requests are open on this instance.** Four of your own read **You have four requests open, the most one person may.** `GET /api/assistant/pending` lists your waiting requests, and `DELETE /api/assistant/runs/{id}` frees one.
 
 A detail Dezfil leaves out of what it tells the model comes with the address the model reads it from. When even the names do not fit, the message is refused.
-
-Through MCP, a file travels inside the request as base64, which makes it a third larger.
 
 To upload a bigger file, use **Add data** in the app or `POST /api/tables` over HTTP.
 

@@ -1,5 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { generateKeyPairSync } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import path from "node:path";
 import { metadataDb, closeMetadataDb } from "@/lib/metadata/db";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { makeStart, readStart, requestStart, startCookieName, startExternalSignIn, START_LIFETIME_MS } from "./start";
@@ -35,6 +37,9 @@ it("refuses cross-origin starts and ambiguous cookies", () => {
   const name = startCookieName(); input.headers.set("cookie", `${name}=one; ${name}=two`); expect(requestStart(input)).toBeNull();
 });
 it("ten thousand concurrent abandoned starts across a restart retain no rows", async () => {
+  // Its own store: it compares every table, and other test files write to the shared one meanwhile.
+  const shared = process.env.DEZFIL_DATA_DIR!, own = mkdtempSync(path.join(shared, "abandoned-starts-"));
+  closeMetadataDb(); process.env.DEZFIL_DATA_DIR = own;
   configured(); const db = metadataDb();
   const snapshot = () => (db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as { name: string }[])
     .map(({ name }) => db.prepare(`SELECT * FROM "${name}"`).all());
@@ -45,5 +50,5 @@ it("ten thousand concurrent abandoned starts across a restart retain no rows", a
       expect(responses.every(response => response.status === 303)).toBe(true); restart();
     }
     expect(snapshot()).toEqual(before);
-  } finally { closeMetadataDb(); }
+  } finally { closeMetadataDb(); process.env.DEZFIL_DATA_DIR = shared; rmSync(own, { recursive: true, force: true }); }
 });

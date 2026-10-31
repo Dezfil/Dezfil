@@ -21,7 +21,7 @@ export function eraseAccountCredentials(accountId: string, db: Database): void {
       AND bucket NOT IN (SELECT value FROM json_each(?))`).run(JSON.stringify(retained));
     // The account's own current-password allowance.
     db.prepare("DELETE FROM auth_login_limits WHERE bucket = ?").run(`check:${accountId}`);
-    for (const table of ["auth_sessions", "auth_tokens", "auth_links", "account_preferences"]) {
+    for (const table of ["auth_sessions", "auth_tokens", "auth_links", "account_preferences", "assistant_keys"]) {
       db.prepare(`DELETE FROM ${table} WHERE account_id = ?`).run(accountId);
     }
     // Profile and email reservation survive until successful finalization.

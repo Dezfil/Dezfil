@@ -29,7 +29,7 @@ function sources(overrides: Partial<IndexSources> = {}): IndexSources {
       geocoderUrl: { value: { set: true, origin: "https://geocoder.example" }, source: "environment", locked: true },
     }),
     entry: { instanceName: "Atlas North", signInMessage: "", lostPasswordContact: "the GIS team", landingPage: "projects" },
-    health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
+    health: "ready",
     palettes: [{ name: "coastal-greens", label: "Coastal greens", stops: [{ color: "#e5f5e0", position: 0 }, { color: "#006d2c", position: 1 }] }],
     ...overrides,
   };
@@ -404,7 +404,7 @@ describe("what a member's search holds", () => {
   it("holds only the member's tabs: never Maps, Workflows & SQL, Publishing, Limits, System or Users", () => {
     const member = index(false, { instance: null });
     const tabs = new Set(member.map(entry => entry.tab ?? entry.pointer));
-    expect([...tabs].sort()).toEqual(["account", "appearance", "general", "theme", "tokens"]);
+    expect([...tabs].sort()).toEqual(["account", "appearance", "assistant", "general", "theme", "tokens"]);
     for (const query of QUERIES) {
       expect(paths(searchSettings(member, query)).filter(path => ADMIN_ONLY.test(path)), query).toEqual([]);
     }
@@ -413,7 +413,7 @@ describe("what a member's search holds", () => {
 
   it("holds none of the admins' tabs even when handed the configuration read", () => {
     const handed = index(false);
-    expect([...new Set(handed.map(entry => entry.tab ?? entry.pointer))].sort()).toEqual(["account", "appearance", "general", "theme", "tokens"]);
+    expect([...new Set(handed.map(entry => entry.tab ?? entry.pointer))].sort()).toEqual(["account", "appearance", "assistant", "general", "theme", "tokens"]);
     for (const query of QUERIES) expect(paths(searchSettings(handed, query)).filter(path => ADMIN_ONLY.test(path)), query).toEqual([]);
   });
 });
@@ -520,5 +520,13 @@ describe("the MCP server card in the search", () => {
       expect(searchSettings(index(admin), "check connection").map(hit => [hitPath(hit), hit.target]))
         .toContainEqual(["You / API & MCP · Check connection", { tab: "tokens", anchor: "mcp-check" }]);
     }
+  });
+});
+
+describe("the key's card in the search", () => {
+  it("is found on a member's Assistant tab by its row, and never its field", () => {
+    const hits = searchSettings(index(false, { instance: null }), "anthropic");
+    expect(hits.map(hitPath)).toContain("You / Assistant · Key");
+    expect(index(false, { instance: null }).filter(entry => entry.label === "API key")).toEqual([]);
   });
 });

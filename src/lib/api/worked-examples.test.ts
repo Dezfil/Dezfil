@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { assistantAvailability } from "@/lib/assistant/config";
+import { ADD_YOUR_KEY } from "@/lib/assistant/keys/resolve";
 import { pageCalls } from "@/lib/test-support/page-calls";
 import { buildOpenApiDocument } from "./openapi";
 import { WORKED_EXAMPLES, withExamples } from "./openapi-examples";
@@ -214,9 +214,9 @@ describe("the worked examples in the description", () => {
     }
   });
 
-  it("the assistant's not-enabled example is what an instance without a provider key answers", () => {
+  it("the assistant's not-enabled example is what someone without a key answers on an instance without one", () => {
     const notEnabled = lookup(document, "GET /api/assistant")!.responses["200"].content!["application/json"].examples!.notEnabled.value;
-    expect(notEnabled).toEqual(assistantAvailability({}));
+    expect(notEnabled).toEqual({ enabled: false, reason: ADD_YOUR_KEY, instanceKey: false });
   });
 
   it("names only operations, parameters, statuses and media types the description declares", () => {

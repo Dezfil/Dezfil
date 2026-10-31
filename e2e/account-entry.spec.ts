@@ -271,7 +271,7 @@ test.describe("account entry", () => {
       await row.getByRole("button", { name: "Remove admin", exact: true }).click();
       await expect(rowButton).toContainText("Member");
       await row.getByRole("button", { name: "Reset password", exact: true }).click();
-      await expect(row.getByText("The current password and earlier links will stop working. Browser sessions will end; API tokens stay valid.")).toBeVisible();
+      await expect(row.getByText("The current password, earlier links and browser sessions stop working, and any AI key of theirs is removed. When the link is used, API tokens and assistant work end too.")).toBeVisible();
       await row.getByRole("button", { name: "Reset password", exact: true }).click();
       const resetLink = await row.getByLabel("Sign-in link").inputValue();
       expect((await recipient.request.get("/api/account")).status()).toBe(401);

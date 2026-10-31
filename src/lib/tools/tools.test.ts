@@ -294,6 +294,7 @@ describe("tool parity", () => {
       // Changes nothing and stays on this server, but it walks the whole
       // data folder, asked for as every instance-wide action is.
       "read_storage",
+      "remove_assistant_key",
       // Who reaches a project is an exposure change in both directions.
       "remove_basemap_style",
       "remove_project_person",

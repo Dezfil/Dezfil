@@ -12,7 +12,7 @@
  */
 
 export type SettingsGroup = "you" | "instance";
-export type SettingsTabId = "account" | "tokens" | "appearance" | "general" | "maps" | "libraries" | "workflows" | "publishing" | "data" | "limits" | "security" | "system";
+export type SettingsTabId = "account" | "tokens" | "assistant" | "appearance" | "general" | "maps" | "libraries" | "workflows" | "publishing" | "data" | "limits" | "security" | "system";
 
 export interface SettingsTab {
   readonly id: SettingsTabId;
@@ -24,6 +24,7 @@ export interface SettingsTab {
 export const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: "account", label: "Account", group: "you", adminOnly: false },
   { id: "tokens", label: "API & MCP", group: "you", adminOnly: false },
+  { id: "assistant", label: "Assistant", group: "you", adminOnly: false },
   { id: "appearance", label: "Appearance", group: "you", adminOnly: false },
   { id: "general", label: "General", group: "instance", adminOnly: false },
   { id: "maps", label: "Maps", group: "instance", adminOnly: true },

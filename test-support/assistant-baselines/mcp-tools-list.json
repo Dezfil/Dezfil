@@ -1,6 +1,6 @@
 {
-  "count": 162,
-  "overall": "6296fa10e286f0aa29e889acb7242a87fdb2607636779b9bf2da69b6c3494264",
+  "count": 165,
+  "overall": "824283dabf3d0869790a0bbb3e6d6a521cb9231ebd60880501e6c0dfc618d52b",
   "tools": {
     "sign_everyone_out": "4d0df86dc39f3ff5326ad5c26c546724e023fde7e2c10101bc6509ec252e7123",
     "get_account": "bdb509f7c0b7dd82b52b9cdd2aa6604f0c178f38eb22d8277fbab536ce86eb52",
@@ -9,6 +9,9 @@
     "list_api_tokens": "bcc162b1b57e16ad64cabb3749f165320f5a0019bff669b468c06038e83102f0",
     "create_api_token": "57adebe2a049025759c87115312ce3523da541872ea18d3aeee020609f4fb1f7",
     "revoke_api_token": "bd3807444cf83577d89565a2bf4a0e8b8d19a08d43398ce96f90eaa3d1c41718",
+    "get_assistant_key": "1b26afe8e56fb19141b38db977ebab457e95921917fff361d59b11e02ac54ffd",
+    "set_assistant_key": "49a63692f9cff92e1ef1a4d89de7f00752bda764947911619a9225fad933a3a1",
+    "remove_assistant_key": "07c3929e0d8a319b2e775ee10bfd8c782346d5c085fe893e8f54691189a107a5",
     "preview_user_deletion": "c1b57194fc09181ba421fbd4425b81ec669e8393f37425e7877a7c469f329eba",
     "get_user_deletion": "63b7b6d081b13dfad14f77324368422cc914a20fb5f72b76d07db9fb0d31af80",
     "finish_user_deletion": "beaf8e54541e922939dd04c2bd11886510c26a3c6fefbd661b7d26ff1937099e",
@@ -16,7 +19,7 @@
     "invite_user": "6e489126550025fd310b2e856f5a2757b78d294d5e0661c76a1919074a0c0b85",
     "update_user_access": "2df21afccb6e0d65d9289c6fd2dd608450911295cebdf0b78f9d8ea1ea50a3c4",
     "delete_user": "2e7c773d1adbf131370592a03c08c827f6f074ae70bd6a6e3e25826c694596aa",
-    "issue_user_sign_in_link": "85d5e64f97bb60ad9d54aa310a1ef414389d2ae6c61e01662f1d4067cdc5bd07",
+    "issue_user_sign_in_link": "01b277dee2e601d6169d90e25d1466077b68f2f51e60b96a5e154470ca4b239b",
     "get_instance_settings": "d703e4f2972886ea098031d737b13156624c64571fec95189d2da37fb63bc06b",
     "update_instance_settings": "fe0e6b62360f8c690dcaaaa1333d9700c7e3ed9a438ccf60d9aca5096bcc0182",
     "clear_service_caches": "b21e79095a28774eb6eb24ee95a0d2674a9bcf806897a3195e98318605c08b25",

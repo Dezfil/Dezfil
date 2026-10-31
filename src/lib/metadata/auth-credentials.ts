@@ -95,6 +95,10 @@ export function linkByHash(hash: string, db: Database = metadataDb()): LinkRecor
   return db.prepare("SELECT * FROM auth_links WHERE secret_hash = ?").get(hash) as LinkRecord | undefined ?? null;
 }
 
+export function revokeTokens(accountId: string, now: number, db: Database = metadataDb()): void {
+  db.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL").run(now, accountId);
+}
+
 export function revokeLinks(accountId: string, now: number, db: Database = metadataDb()): void {
   db.prepare(`UPDATE auth_links SET revoked_at = ?
     WHERE account_id = ? AND revoked_at IS NULL AND consumed_at IS NULL`).run(now, accountId);

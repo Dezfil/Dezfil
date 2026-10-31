@@ -1,6 +1,7 @@
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, expect, it } from "vitest";
 import { buildTools } from "@/lib/tools/tools";
+import { admittedTools } from "./policy";
 import { runAssistant, resumeAssistant, type AssistantEvent } from "./loop";
 import { PendingActionStore } from "./pending";
 import { stubProvider } from "./providers/stub";
@@ -295,13 +296,14 @@ describe("runAssistant", () => {
     expect(JSON.parse(outcome.body).error.code).toBe("not_found");
   });
 
-  it("passes the grounding system prompt and the whole tool set to the model", async () => {
+  it("passes the grounding system prompt and the whole admitted tool set to the model", async () => {
     const h = harness([{ text: "hi", toolCalls: [] }]);
     await h.run("hello");
     const options = h.recording.exchanges[0].options;
     expect(options.system).toContain("Dezfil assistant");
     expect(options.system).toContain("read-only");
-    expect(options.tools.length).toBe(buildTools().length);
+    expect(options.tools.length).toBe(admittedTools("full").length);
+    expect(options.tools.length).toBeLessThan(buildTools().length);
   });
 
   it("reports a rejected credential as an assistant_auth error", async () => {

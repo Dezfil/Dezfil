@@ -155,6 +155,28 @@ export const WORKED_EXAMPLES: WorkedExamples = {
       response: answer("200", { account: ACCOUNT }),
     },
   },
+  "GET /api/account/assistant-key": {
+    none: {
+      summary: "Read that you have no AI key of your own",
+      description: "Needs a token. The key itself is never returned, here or by any operation.",
+      response: answer("200", { key: null, unreadable: false }),
+    },
+  },
+  "PUT /api/account/assistant-key": {
+    anthropic: {
+      summary: "Save your own Anthropic key",
+      description: "Needs a token. Saving makes no provider call: the first turn is the check.",
+      request: json({ provider: "anthropic", key: "example-not-a-real-key-7f3a" }),
+      response: answer("200", { key: { provider: "anthropic", lastFour: "7f3a", savedAt: "2026-10-31T12:00:00.000Z" }, unreadable: false }),
+    },
+  },
+  "DELETE /api/account/assistant-key": {
+    removed: {
+      summary: "Remove your own key",
+      description: "Needs a token. Removing a second time answers removed: false and changes nothing.",
+      response: answer("200", { removed: true }),
+    },
+  },
   "GET /api/maps": {
     quickstart: {
       summary: "List the maps of a new account",
@@ -371,12 +393,12 @@ export const WORKED_EXAMPLES: WorkedExamples = {
   "GET /api/assistant": {
     enabled: {
       summary: "Read the assistant's status on an instance with a key",
-      description: "Needs a token. The instance has an Anthropic key and the shipped model list.",
+      description: "Needs a token. The instance has an Anthropic key and the shipped model list, and the caller has no key of their own.",
       response: answer("200", ASSISTANT_ENABLED),
     },
     notEnabled: {
       summary: "Read the assistant's status on an instance without a key",
-      description: "Needs a token. The instance has no provider key, so the assistant is off.",
+      description: "Needs a token. Neither the instance nor the caller has a provider key, so the assistant is off for them.",
       response: answer("200", ASSISTANT_OFF),
     },
   },

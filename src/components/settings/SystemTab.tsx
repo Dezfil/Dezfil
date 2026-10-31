@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { PARTS } from "@/lib/system/part-test-answer";
 import type { PartStates } from "@/lib/system/part-states";
-import { accountRequest, failureMessage } from "./api";
+import { accountRequest } from "./api";
 import { INSTANCE_SETTINGS, useInstanceRead, type InstanceRead } from "./instance-read";
 import { Rows, SettingRow, ValueText } from "./SettingRows";
 import { Note, SettingsCard } from "./SettingsCard";
@@ -12,12 +12,12 @@ import { useDrawn } from "./settings-land";
 import { PartRow, State } from "./StatusRows";
 import { StorageCard } from "./StorageCard";
 import type { Health } from "./status-table";
-import { EXTERNAL_SIGN_IN_CARD, externalSignInRows, providerName, runningFor, serverSettingsRows, type AssistantStatus, type SettingSource, type ShownValue } from "./system-table";
+import { EXTERNAL_SIGN_IN_CARD, externalSignInRows, instanceAssistant, providerName, runningFor, serverSettingsRows, type SettingSource, type ShownValue } from "./system-table";
 import cardStyles from "./SettingsCard.module.css";
 import styles from "./SystemTab.module.css";
 
 /** System: the version and each part's state with its Test, what the data
- * folder holds by kind, the assistant's status, sign-in through an outside
+ * folder holds by kind, the instance's key, sign-in through an outside
  * service as the read reports it, and every setting a server variable decides with the value in effect and where it came from.
  * Nothing here changes a setting. */
 export function SystemTab() {
@@ -30,7 +30,7 @@ export function SystemTab() {
   return <>
     <StatusCard read={read} health={health} />
     <StorageCard />
-    <AssistantCard />
+    <AssistantCard read={read} />
     {read.externalSignIn && <ExternalSignInCard read={read} />}
     <ServerSettingsCard read={read} />
   </>;
@@ -71,31 +71,19 @@ function StatusCard({ read, health }: { read: InstanceRead; health: Health }) {
   </SettingsCard>;
 }
 
-/** The assistant as its status read reports it: on with its provider, or
- * off with the reason. Nothing here changes it. */
-function AssistantCard() {
-  const [status, setStatus] = useState<AssistantStatus | null>(null);
-  const [error, setError] = useState<string | null>(null), [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    accountRequest<AssistantStatus>("/api/assistant").then(body => {
-      if (!cancelled) { setStatus(body); setError(null); }
-    }).catch(failure => { if (!cancelled) setError(failureMessage(failure)); });
-    return () => { cancelled = true; };
-  }, [attempt]);
-  useDrawn(!!status);
+/** The instance key as the configuration read reports it. Nothing here changes it. */
+function AssistantCard({ read }: { read: InstanceRead }) {
+  const assistant = instanceAssistant(read);
   return <SettingsCard id="system-assistant" title="Assistant" headingId="system-assistant-heading">
-    {error && <ErrorNote message={error} onRetry={() => { setError(null); setAttempt(value => value + 1); }} />}
-    {!status && !error && <p role="status" className={cardStyles.loading}>Loading…</p>}
-    {status && <Rows>
-      <SettingRow id="sys-assistant-status" label="Status">
-        <State state={status.enabled ? "on" : "off"}>{status.enabled ? "On" : "Off"}</State>
-        {!status.enabled && <span className={styles.quiet}>{status.reason}</span>}
+    <Rows>
+      <SettingRow id="sys-assistant-status" label="Instance key">
+        <State state={assistant.set ? "on" : "off"}>{assistant.set ? "Set" : "Not set"}</State>
+        {!assistant.set && <span className={styles.quiet}>{assistant.reason}</span>}
       </SettingRow>
       <SettingRow id="sys-assistant-provider" label="Provider">
-        {status.enabled ? <span className={styles.chip}>{providerName(status.provider)}</span> : <ValueText muted>None</ValueText>}
+        {assistant.set ? <span className={styles.chip}>{providerName(assistant.provider)}</span> : <ValueText muted>None</ValueText>}
       </SettingRow>
-    </Rows>}
+    </Rows>
   </SettingsCard>;
 }
 

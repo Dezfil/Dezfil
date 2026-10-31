@@ -115,9 +115,22 @@ export const ASSISTANT_SCHEMAS = {
           additionalProperties: false,
           properties: {
             enabled: { type: "boolean" },
-            reason: { type: "string", description: "Present when disabled." },
-            provider: { type: "string", description: "Present when enabled." },
-            model: { type: "string", description: "Present when enabled." },
+            reason: { type: "string", description: "Present when disabled: what the caller can do about it." },
+            provider: { type: "string", description: "Present when enabled: the provider of the key that pays for the caller." },
+            model: { type: "string", description: "Present when enabled: that provider's default model. The instance's default-model override applies only to the provider of the instance's own key." },
+            payer: {
+              type: "object", additionalProperties: false,
+              description: "Present when enabled: which key pays for the caller. The caller's own, with its provider, last four characters and saving time, or the instance's, with its provider.",
+              properties: {
+                kind: { type: "string", enum: ["own", "instance"] },
+                provider: { type: "string" },
+                lastFour: { type: "string", description: "On the caller's own key." },
+                savedAt: { type: "string", description: "On the caller's own key." },
+              },
+              required: ["kind", "provider"],
+            },
+            instanceKey: { type: "boolean", description: "Whether the instance has a key of its own. Where it has none, only the caller's own key can pay." },
+            unreadableKey: { type: "boolean", enum: [true], description: "Present when the caller's saved key can no longer be read and the instance's key pays meanwhile. Add it again." },
             catalogue: { $ref: "#/components/schemas/AssistantCatalogueState", description: "Present when enabled; absent when disabled." },
             stepBudget: { type: "integer", description: "Present when enabled." },
             autoCheck: { type: "boolean", description: "Present when enabled: whether the assistant checks the map by itself after a turn that changed it. The instance owner's setting, DEZFIL_ASSISTANT_AUTO_CHECK, on by default; 0, false or off turns it off. An explicit check is available whatever this says." },
@@ -125,7 +138,7 @@ export const ASSISTANT_SCHEMAS = {
               type: "array", items: { $ref: "#/components/schemas/AssistantModelChoice" },
               description:
                 "Present when enabled: every model a request may choose on this instance, the " +
-                "resolved provider's list alone, with the default among them exactly once. The instance owner " +
+                "list of the provider in use alone, a person's own key included, with the default among them exactly once. The instance owner " +
                 "narrows and orders it with DEZFIL_AI_MODELS_ANTHROPIC or DEZFIL_AI_MODELS_OPENAI. " +
                 "Unset offers the effective catalogue in file order. A set empty or separators-only list offers " +
                 "the default alone. The default stays where listed or is prepended when missing. Unknown " +
@@ -238,6 +251,7 @@ export const ASSISTANT_SCHEMAS = {
               ],
             },
             text: { type: "string" },
+            detail: { type: "string", description: "On error: the provider's own words behind a rejected key's sentence." },
             messageId: { type: "string" },
             model: { type: "string", description: "Actual provider model on a completed model message." },
             effects: { $ref: "#/components/schemas/AssistantEffects" },

@@ -34,7 +34,7 @@ import styles from "./ModelPicker.module.css";
  * bound pair is a settled fact: the request has already gone. At rest the
  * chip is the next message's selection again.
  */
-export function ModelPicker({ models, instanceModel, disabled, bound }: {
+export function ModelPicker({ models, instanceModel, disabled, bound, payer }: {
   models: ModelKnowledge[];
   /** The instance's own default, which is what nothing remembered means. */
   instanceModel: string;
@@ -42,6 +42,8 @@ export function ModelPicker({ models, instanceModel, disabled, bound }: {
   /** The pair the run now on display bound, where one is; it may name an
    * identity this instance no longer offers, and is read as itself. */
   bound?: ModelChoice;
+  /** Which key pays, where there are two it could be. */
+  payer?: string | null;
 }) {
   const { choice, pickModel, pickEffort } = useModelChoice(models, instanceModel);
   const [open, setOpen] = useState(false);
@@ -119,6 +121,7 @@ export function ModelPicker({ models, instanceModel, disabled, bound }: {
       >
         <b>{words.name}</b>
         {words.effort && <span>· {words.effort}</span>}
+        {payer && <span>· {payer}</span>}
         <ChevronIcon />
       </button>
       {shown && (

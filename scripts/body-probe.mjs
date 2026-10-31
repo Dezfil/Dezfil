@@ -32,7 +32,7 @@ export async function bodyProbe(base, { serverLog, externalBase = base, exchange
     .map(([method, operation]) => ({ template, method: method.toUpperCase(), operation })));
   assert.ok(operations.length >= 50, 'exercise the complete JSON contract');
   const state = async () => {
-    const urls = ['/api/maps', '/api/projects', '/api/tables', '/api/recipes', '/api/settings', '/api/users', '/api/account/tokens', `/api/maps/${fixture.mapId}`, `/api/maps/${fixture.mapId}/history`, `/api/recipes/${fixture.recipeId}`, `/api/recipes/${fixture.recipeId}/layout`];
+    const urls = ['/api/maps', '/api/projects', '/api/tables', '/api/recipes', '/api/settings', '/api/users', '/api/account/tokens', '/api/account/assistant-key', `/api/maps/${fixture.mapId}`, `/api/maps/${fixture.mapId}/history`, `/api/recipes/${fixture.recipeId}`, `/api/recipes/${fixture.recipeId}/layout`];
     const values = [];
     for (const url of urls) { const result = await api('GET', url); assert.equal(result.status, 200, url); values.push(result.json); }
     return JSON.parse(JSON.stringify(values, (key, value) => SERVER_DRIVEN.has(key) ? undefined : value));

@@ -11,6 +11,7 @@ import { withRequestPolicy } from "./openapi-request-policy";
 import { withExamples } from "./openapi-examples";
 import { USERS_PATHS, USERS_SCHEMAS } from "./openapi-users";
 import { ACCOUNT_PATHS, ACCOUNT_SCHEMAS } from "./openapi-account";
+import { ASSISTANT_KEY_PATHS, ASSISTANT_KEY_SCHEMAS } from "./openapi-assistant-keys";
 import { AUTH_PATHS, AUTH_SCHEMAS, AUTH_SECURITY_SCHEMES } from "./openapi-auth";
 import { PROFILE_PICTURE_PATHS, PROFILE_PICTURE_SCHEMAS } from "./openapi-profile-pictures";
 import { settingsContract } from "./openapi-settings";
@@ -157,6 +158,7 @@ export function buildOpenApiDocument() {
       ...AUTH_PATHS,
       ...EXTERNAL_SIGN_IN_PATHS,
       ...ACCOUNT_PATHS,
+      ...ASSISTANT_KEY_PATHS,
       ...USERS_PATHS,
       ...INSTANCE_SETTINGS_PATHS,
       ...INSTANCE_SERVICES_PATHS,
@@ -875,6 +877,7 @@ export function buildOpenApiDocument() {
         ...PROFILE_PICTURE_SCHEMAS,
         ...WRITTEN_IN_SCHEMAS,
         ...ACCOUNT_SCHEMAS,
+        ...ASSISTANT_KEY_SCHEMAS,
         ...USERS_SCHEMAS,
         ...INSTANCE_SETTINGS_SCHEMAS,
         ...INSTANCE_SERVICES_SCHEMAS,

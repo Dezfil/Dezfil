@@ -840,7 +840,7 @@
     "/api/auth/redeem": {
       "post": {
         "summary": "Redeem a sign-in link",
-        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. An ordinary admin-issued link expires after the instance's link lifetime it was issued with, security.linkDays, seven days by default; local filesystem recovery issues a fifteen-minute link. Both are consumed once. Invalid, expired, replaced and reused links return invalid_link without changing the password or session. Success replaces the browser's cookie with the recipient's session, even when another account was signed in. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing. In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged.",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. An ordinary admin-issued link expires after the instance's link lifetime it was issued with, security.linkDays, seven days by default; local filesystem recovery issues a fifteen-minute link. Both are consumed once. Invalid, expired, replaced and reused links return invalid_link without changing the password or session. Success replaces the browser's cookie with the recipient's session, even when another account was signed in. It also revokes the account's API tokens and every credential delegated from them, and ends its assistant work begun before the redemption, running and parked; a later resolution of such a parked run returns pending_superseded. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing. In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged.",
         "tags": [
           "Accounts"
         ],
@@ -3879,6 +3879,625 @@
         ]
       }
     },
+    "/api/account/assistant-key": {
+      "get": {
+        "summary": "Read your AI key's status",
+        "description": "Your own key and nobody else's: the account comes from the credential alone, and no operation reads or changes another person's key, an admin's included. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. An MCP client or a script may call this; the in-app assistant is neither offered it nor admitted to it, on any page. Says which provider your key is for, its last four characters and when it was saved. `key` is null when you have none. `unreadable` is true when a saved key can no longer be opened, for example after the instance's encryption key changed: it counts as none and is added again. The key itself is never returned.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "get_assistant_key",
+        "x-effects": {
+          "readOnly": true,
+          "writes": [],
+          "keptFromAssistant": true
+        },
+        "x-mcp": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Read your AI key's status"
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantKeyStatus"
+                },
+                "examples": {
+                  "none": {
+                    "summary": "Read that you have no AI key of your own",
+                    "description": "Needs a token. The key itself is never returned, here or by any operation.",
+                    "value": {
+                      "key": null,
+                      "unreadable": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set or replace your AI key",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Your own key and nobody else's: the account comes from the credential alone, and no operation reads or changes another person's key, an admin's included. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. An MCP client or a script may call this; the in-app assistant is neither offered it nor admitted to it, on any page. Saves your own Anthropic or OpenAI key, encrypted, in place of any you had; the assistant then answers you on it, sending it only to that provider's public address. The key is taken trimmed and needs 16 to 512 characters with no whitespace or control characters inside; anything else returns invalid_request, which never repeats what was sent, and the previous key stays. Saving makes no provider call: the first turn is the check. Replacing a key ends your turns begun before it, running and parked, as a cancel does; a later resolution of a parked one returns assistant_key_changed. Adding a first key ends nothing.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "set_assistant_key",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            }
+          ],
+          "keptFromAssistant": true
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "repeatability": "Identical calls may update retained working state."
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Saved your AI key"
+        },
+        "requestBody": {
+          "x-byte-limit": 65536,
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "anthropic",
+                      "openai"
+                    ],
+                    "description": "The provider the key belongs to."
+                  },
+                  "key": {
+                    "type": "string",
+                    "writeOnly": true,
+                    "description": "The key. Write-only: no answer returns it."
+                  }
+                },
+                "required": [
+                  "provider",
+                  "key"
+                ]
+              },
+              "examples": {
+                "anthropic": {
+                  "summary": "Save your own Anthropic key",
+                  "description": "Needs a token. Saving makes no provider call: the first turn is the check.",
+                  "value": {
+                    "provider": "anthropic",
+                    "key": "example-not-a-real-key-7f3a"
+                  }
+                }
+              }
+            }
+          },
+          "x-byte-error": "request_body_too_large"
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantKeyStatus"
+                },
+                "examples": {
+                  "anthropic": {
+                    "summary": "Save your own Anthropic key",
+                    "description": "Needs a token. Saving makes no provider call: the first turn is the check.",
+                    "value": {
+                      "key": {
+                        "provider": "anthropic",
+                        "lastFour": "7f3a",
+                        "savedAt": "2026-10-31T12:00:00.000Z"
+                      },
+                      "unreadable": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Remove your AI key",
+        "description": "Your own key and nobody else's: the account comes from the credential alone, and no operation reads or changes another person's key, an admin's included. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. An MCP client or a script may call this; the in-app assistant is neither offered it nor admitted to it, on any page. Removes your own key and ends your turns begun before it, running and parked, as a cancel does; a later resolution of a parked one returns assistant_key_changed. The assistant then answers you on the instance's key if it has one, and otherwise refuses until you add another. `removed` is false when there was none, so removing twice is harmless.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "remove_assistant_key",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            }
+          ],
+          "keptFromAssistant": true
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-confirmation": {
+          "target": "Remove your AI key?",
+          "consequence": "Turns in progress stop. The assistant then uses the instance's key for you if it has one, and otherwise stops answering you until you add another.",
+          "subject": {
+            "path": "/api/account",
+            "argument": "",
+            "name": "account.name"
+          }
+        },
+        "x-display": {
+          "verb": "Removed your AI key"
+        },
+        "x-confirm": true,
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantKeyRemoved"
+                },
+                "examples": {
+                  "removed": {
+                    "summary": "Remove your own key",
+                    "description": "Needs a token. Removing a second time answers removed: false and changes nothing.",
+                    "value": {
+                      "removed": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "head": {
+        "summary": "Read response headers",
+        "description": "Automatic HEAD uses GET with no response body.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message."
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method. HEAD has no response body.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
     "/api/users/{id}/deletion-preview": {
       "get": {
         "summary": "Preview user deletion",
@@ -5939,7 +6558,7 @@
     "/api/users/{id}/sign-in-link": {
       "post": {
         "summary": "Issue a new sign-in link",
-        "description": " In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged.Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns a one-time signInUrl expiring after the instance's link lifetime, security.linkDays, seven days by default; the link keeps the lifetime it was issued with. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
+        "description": " In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged.Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns a one-time signInUrl expiring after the instance's link lifetime, security.linkDays, seven days by default; the link keeps the lifetime it was issued with. Replaces every earlier unused link, invalidates the current password, ends browser sessions and removes the account's own AI key, if any, without saying whether there was one. API tokens stay valid until the link is redeemed: redeeming it revokes them and ends the account's assistant work begun before it, running and parked, a change from earlier versions, where tokens outlived the redemption. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
         "tags": [
           "Accounts"
         ],
@@ -5964,7 +6583,7 @@
         },
         "x-confirmation": {
           "target": "Issue a new sign-in link for {target}?",
-          "consequence": "The current password and earlier links will stop working. Browser sessions will end; API tokens stay valid.",
+          "consequence": "The current password, earlier links and browser sessions stop working, and any AI key of theirs is removed. When the link is used, API tokens and assistant work end too.",
           "subject": {
             "path": "/api/users",
             "argument": "id",
@@ -56716,7 +57335,7 @@
     "/api/assistant/runs": {
       "post": {
         "summary": "Reserve an assistant run",
-        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Obtain a server-issued run identity bound to the authenticated account before sending a new message. Performs no model or product operation. Eight reserved, running or awaiting-confirmation runs share capacity; unused reservations expire after five minutes. Capacity refusal preserves occupied slots and points to GET /api/assistant/pending and DELETE /api/assistant/runs/{id} for recovery or release.",
+        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Obtain a server-issued run identity bound to the authenticated account before sending a new message. Performs no model or product operation. A reservation needs a usable key, the caller's own or the instance's: without one it answers 404 assistant_disabled. It takes no capacity and expires unused after five minutes; an account holds at most two, and a third answers 409 assistant_reservation_limit. The eight slots, four per account, are taken when a submission binds a run, so assistant_capacity comes from the message operation, not from here.",
         "tags": [
           "Agents"
         ],
@@ -56761,6 +57380,16 @@
               }
             }
           },
+          "404": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "405": {
             "description": "method_not_allowed: the method is unsupported for this path.",
             "content": {
@@ -56776,6 +57405,16 @@
                 "schema": {
                   "type": "string",
                   "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -57009,7 +57648,7 @@
       },
       "delete": {
         "summary": "Release an assistant reservation or abandon a pending turn",
-        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Release an unused reservation (state becomes unavailable) or abandon an awaiting-confirmation turn (interrupted, pending action superseded). Neither starts model or tool work. Other states refuse with 409 assistant_run_state. Frees admission capacity; the old identity never starts new work.",
+        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Release an unused reservation (state becomes unavailable) or abandon an awaiting-confirmation turn (interrupted, pending action superseded). Neither starts model or tool work. Other states refuse with 409 assistant_run_state. Abandoning frees the run's slot and releasing frees the reservation's place in the account's two; the old identity never starts new work.",
         "tags": [
           "Agents"
         ],
@@ -57788,7 +58427,7 @@
     "/api/assistant": {
       "get": {
         "summary": "Assistant status",
-        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Whether the in-product assistant is enabled. When enabled, reports the resolved provider, model, step budget and whether the map is checked automatically after a turn that changed it, and every model a request may choose on this instance with that model's own effort levels. When not, reports the reason and how to enable it. The model credential is never included. Enablement is a deployment setting (an Anthropic or OpenAI API key); with none, this is a complete non-assistant instance and the surface is absent.",
+        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Whether the in-product assistant answers the caller. Enabled when they have a usable key: their own, or the instance's. It then reports the provider in use, its default model, the step budget and whether the map is checked automatically after a turn that changed it, every model a request may choose with that model's own effort levels, and which key pays. Otherwise it reports the reason, in the caller's words. The two answers differ per account. No key's text is ever included: a person's own appears as its last four characters and the time it was saved, to that person alone.",
         "tags": [
           "Agents"
         ],
@@ -57808,7 +58447,7 @@
                 "examples": {
                   "enabled": {
                     "summary": "Read the assistant's status on an instance with a key",
-                    "description": "Needs a token. The instance has an Anthropic key and the shipped model list.",
+                    "description": "Needs a token. The instance has an Anthropic key and the shipped model list, and the caller has no key of their own.",
                     "value": {
                       "enabled": true,
                       "provider": "anthropic",
@@ -57920,15 +58559,21 @@
                         "instance": "absent"
                       },
                       "stepBudget": 20,
-                      "autoCheck": true
+                      "autoCheck": true,
+                      "payer": {
+                        "kind": "instance",
+                        "provider": "anthropic"
+                      },
+                      "instanceKey": true
                     }
                   },
                   "notEnabled": {
                     "summary": "Read the assistant's status on an instance without a key",
-                    "description": "Needs a token. The instance has no provider key, so the assistant is off.",
+                    "description": "Needs a token. Neither the instance nor the caller has a provider key, so the assistant is off for them.",
                     "value": {
                       "enabled": false,
-                      "reason": "No model credential is configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY (optionally DEZFIL_AI_PROVIDER and DEZFIL_AI_MODEL) and restart to enable the assistant."
+                      "reason": "Add your own API key to use the assistant.",
+                      "instanceKey": false
                     }
                   }
                 }
@@ -58474,7 +59119,7 @@
     "/api/assistant/messages": {
       "post": {
         "summary": "Send a message to the assistant",
-        "description": "At most 131,072 wire bytes; a larger body is refused with `assistant_submission_too_large` before JSON parsing. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Reservations and pending actions are bound to their account. Every continuation reauthenticates that same account and uses its current permissions. A foreign run is unavailable; a foreign pending action is unknown. Grounding, subject reads, execution and automatic checks use the caller’s bearer-equivalent identity on every internal request. No credential is retained with a pending action. Every new message requires a runId from POST /api/assistant/runs. Unreserved requests refuse with 400 assistant_reservation_required before work. Unknown or evicted identities refuse with 404 assistant_run_unavailable. The first accepted submission binds its message, history, context and supersession. Identical concurrent or later submissions return an application/json AssistantRun snapshot without another exchange; changed input refuses with 409 assistant_run_conflict. Plain-English request; the assistant works through the same documented API these docs describe and streams its actions back as newline-delimited JSON events (application/x-ndjson): assistant text, tool calls and their results, confirmation prompts for destructive or publishing actions, and a terminal done/error. A confirm_required event pauses the run and carries a server-issued pending-action id; resolve it by posting a resolution referencing that id. Approval executes exactly the presented action once and the run continues where it paused, a decline skips it and the assistant finishes its turn. A pending action resolves at most once (409 pending_resolved on a repeat); a new message may name a pending action it supersedes (the implicit decline), after which resolution answers 409 pending_superseded. A hidden or unknown pending id cannot be resolved; naming one only to supersede it is a harmless no-op. Pending actions are working state, and bounded: after a container replacement resolution answers 404 pending_unknown and nothing re-runs; only a small number of reserved, running or parked runs share eight admission slots. A full instance refuses new reservations with assistant_capacity; live and pending runs are never silently evicted. Only unused reservations expire after five minutes. Pending turns have no wall-clock expiry and are recoverable through GET /api/assistant/pending. Release a reservation or abandon a pending turn with DELETE /api/assistant/runs/{id}. The resolved trace behind the 409 answers is bounded, so a sufficiently old repeat answers pending_unknown instead. The step budget spans the whole turn, pauses included. Submissions above 128 KiB refuse with assistant_submission_too_large before work. Terminal recovery keeps 256 receipts of at most 64 KiB; live recovery is at most 1 MiB per run and stops with assistant_recovery_limit before protected action data would exceed it. Returns 404 with assistant_disabled when no model credential is configured. The page action policy binds at the first accepted submission from the context's page and holds through the run's confirmation continuations: a builder context, and no context, admit every generated tool with its confirmation gates; a sql context and a workflow context admit only the operations that declare themselves read-only by their effects, the read-only query and the schema reads among them, and no operation that declares a write on any argument, conditional (plan or run) operations included; of the read-only ones they refuse any that reaches outside this server or asks for confirmation, a service's or a part's Test among them. The model is offered only what its run admits. A call outside the set, however it arrives, is refused before any product operation: its tool_result carries the documented error assistant_action_not_admitted and the run's receipt records the action as refused. A message may carry an optional choice of model and effort; GET /api/assistant reports what this instance offers. It binds with the rest of the submission at the first accepted one and holds through every continuation of the run; a choice on a resolution is ignored. A malformed choice, a model this instance does not offer, an effort the selected model does not offer and a named level for a model that has no levels of its own refuse with 400 assistant_choice_invalid, assistant_model_not_offered, assistant_effort_not_offered and assistant_effort_not_supported respectively, each before the run binds and before any provider call or product operation, leaving the reservation unbound and reusable. The run's receipt reports the pair it bound and, separately, the identities its completed provider responses named.",
+        "description": "At most 131,072 wire bytes; a larger body is refused with `assistant_submission_too_large` before JSON parsing. Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Reservations and pending actions are bound to their account. Every continuation reauthenticates that same account and uses its current permissions. A foreign run is unavailable; a foreign pending action is unknown. Grounding, subject reads, execution and automatic checks use the caller’s bearer-equivalent identity on every internal request. No credential is retained with a pending action. Every new message requires a runId from POST /api/assistant/runs. Unreserved requests refuse with 400 assistant_reservation_required before work. Unknown or evicted identities refuse with 404 assistant_run_unavailable. The first accepted submission binds its message, history, context and supersession. Identical concurrent or later submissions return an application/json AssistantRun snapshot without another exchange; changed input refuses with 409 assistant_run_conflict. Plain-English request; the assistant works through the same documented API these docs describe and streams its actions back as newline-delimited JSON events (application/x-ndjson): assistant text, tool calls and their results, confirmation prompts for destructive or publishing actions, and a terminal done/error. A confirm_required event pauses the run and carries a server-issued pending-action id; resolve it by posting a resolution referencing that id. Approval executes exactly the presented action once and the run continues where it paused, a decline skips it and the assistant finishes its turn. A pending action resolves at most once (409 pending_resolved on a repeat); a new message may name a pending action it supersedes (the implicit decline), after which resolution answers 409 pending_superseded. A hidden or unknown pending id cannot be resolved; naming one only to supersede it is a harmless no-op. Pending actions are working state, and bounded: after a container replacement resolution answers 404 pending_unknown and nothing re-runs; only a small number of running or parked runs share eight slots, of which one account holds at most four, and a run takes its slot when a submission binds it. With every slot busy, or the account's four taken, a submission answers assistant_capacity and its reservation stays for a retry; live and pending runs are never silently evicted. A resolution resumes a run on the slot it kept. Unused reservations take no slot and expire after five minutes. Pending turns have no wall-clock expiry and are recoverable through GET /api/assistant/pending. Release a reservation or abandon a pending turn with DELETE /api/assistant/runs/{id}. The resolved trace behind the 409 answers is bounded, so a sufficiently old repeat answers pending_unknown instead. The step budget spans the whole turn, pauses included. Submissions above 128 KiB refuse with assistant_submission_too_large before work. Terminal recovery keeps 256 receipts of at most 64 KiB; live recovery is at most 1 MiB per run and stops with assistant_recovery_limit before protected action data would exceed it. Returns 404 with assistant_disabled when neither the caller nor the instance has a usable key. A turn is bound to the key it began on: after that key is replaced or removed its parked run is gone, and resolving it answers 409 assistant_key_changed. The page action policy binds at the first accepted submission from the context's page and holds through the run's confirmation continuations: a builder context, and no context, admit every generated tool with its confirmation gates; a sql context and a workflow context admit only the operations that declare themselves read-only by their effects, the read-only query and the schema reads among them, and no operation that declares a write on any argument, conditional (plan or run) operations included; of the read-only ones they refuse any that reaches outside this server or asks for confirmation, a service's or a part's Test among them. The model is offered only what its run admits. A call outside the set, however it arrives, is refused before any product operation: its tool_result carries the documented error assistant_action_not_admitted and the run's receipt records the action as refused. A message may carry an optional choice of model and effort; GET /api/assistant reports what this instance offers. It binds with the rest of the submission at the first accepted one and holds through every continuation of the run; a choice on a resolution is ignored. A malformed choice, a model this instance does not offer, an effort the selected model does not offer and a named level for a model that has no levels of its own refuse with 400 assistant_choice_invalid, assistant_model_not_offered, assistant_effort_not_offered and assistant_effort_not_supported respectively, each before the run binds and before any provider call or product operation, leaving the reservation unbound and reusable. The run's receipt reports the pair it bound and, separately, the identities its completed provider responses named.",
         "tags": [
           "Agents"
         ],
@@ -61571,6 +62216,70 @@
         },
         "required": [
           "revoked"
+        ]
+      },
+      "AssistantKeyStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "anthropic",
+                      "openai"
+                    ]
+                  },
+                  "lastFour": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 4,
+                    "description": "The key's last four characters."
+                  },
+                  "savedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When it was saved."
+                  }
+                },
+                "required": [
+                  "provider",
+                  "lastFour",
+                  "savedAt"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Your saved key's facts, or null when you have none."
+          },
+          "unreadable": {
+            "type": "boolean",
+            "description": "A saved key can no longer be opened, counts as none and is added again."
+          }
+        },
+        "required": [
+          "key",
+          "unreadable"
+        ]
+      },
+      "AssistantKeyRemoved": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "removed": {
+            "type": "boolean",
+            "description": "False when there was none."
+          }
+        },
+        "required": [
+          "removed"
         ]
       },
       "AccountDeletionStatus": {
@@ -80401,6 +81110,7 @@
                   "assistant_run_unavailable",
                   "assistant_run_conflict",
                   "assistant_capacity",
+                  "assistant_reservation_limit",
                   "assistant_run_state",
                   "assistant_submission_too_large",
                   "assistant_recovery_limit",
@@ -80416,6 +81126,7 @@
                   "assistant_context_too_large",
                   "assistant_context_unavailable",
                   "assistant_disabled",
+                  "assistant_key_changed",
                   "assistant_auth",
                   "assistant_provider",
                   "pending_unknown",
@@ -88268,15 +88979,55 @@
           },
           "reason": {
             "type": "string",
-            "description": "Present when disabled."
+            "description": "Present when disabled: what the caller can do about it."
           },
           "provider": {
             "type": "string",
-            "description": "Present when enabled."
+            "description": "Present when enabled: the provider of the key that pays for the caller."
           },
           "model": {
             "type": "string",
-            "description": "Present when enabled."
+            "description": "Present when enabled: that provider's default model. The instance's default-model override applies only to the provider of the instance's own key."
+          },
+          "payer": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Present when enabled: which key pays for the caller. The caller's own, with its provider, last four characters and saving time, or the instance's, with its provider.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "own",
+                  "instance"
+                ]
+              },
+              "provider": {
+                "type": "string"
+              },
+              "lastFour": {
+                "type": "string",
+                "description": "On the caller's own key."
+              },
+              "savedAt": {
+                "type": "string",
+                "description": "On the caller's own key."
+              }
+            },
+            "required": [
+              "kind",
+              "provider"
+            ]
+          },
+          "instanceKey": {
+            "type": "boolean",
+            "description": "Whether the instance has a key of its own. Where it has none, only the caller's own key can pay."
+          },
+          "unreadableKey": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "Present when the caller's saved key can no longer be read and the instance's key pays meanwhile. Add it again."
           },
           "catalogue": {
             "$ref": "#/components/schemas/AssistantCatalogueState",
@@ -88295,7 +89046,7 @@
             "items": {
               "$ref": "#/components/schemas/AssistantModelChoice"
             },
-            "description": "Present when enabled: every model a request may choose on this instance, the resolved provider's list alone, with the default among them exactly once. The instance owner narrows and orders it with DEZFIL_AI_MODELS_ANTHROPIC or DEZFIL_AI_MODELS_OPENAI. Unset offers the effective catalogue in file order. A set empty or separators-only list offers the default alone. The default stays where listed or is prepended when missing. Unknown identities read as themselves with default effort alone. Listing an identity grants permission to request it; whether the provider has it is the provider's own answer."
+            "description": "Present when enabled: every model a request may choose on this instance, the list of the provider in use alone, a person's own key included, with the default among them exactly once. The instance owner narrows and orders it with DEZFIL_AI_MODELS_ANTHROPIC or DEZFIL_AI_MODELS_OPENAI. Unset offers the effective catalogue in file order. A set empty or separators-only list offers the default alone. The default stays where listed or is prepended when missing. Unknown identities read as themselves with default effort alone. Listing an identity grants permission to request it; whether the provider has it is the provider's own answer."
           }
         },
         "required": [
@@ -88419,6 +89170,10 @@
           },
           "text": {
             "type": "string"
+          },
+          "detail": {
+            "type": "string",
+            "description": "On error: the provider's own words behind a rejected key's sentence."
           },
           "messageId": {
             "type": "string"
@@ -88614,6 +89369,7 @@
               "assistant_run_unavailable",
               "assistant_run_conflict",
               "assistant_capacity",
+              "assistant_reservation_limit",
               "assistant_run_state",
               "assistant_submission_too_large",
               "assistant_recovery_limit",
@@ -88629,6 +89385,7 @@
               "assistant_context_too_large",
               "assistant_context_unavailable",
               "assistant_disabled",
+              "assistant_key_changed",
               "assistant_auth",
               "assistant_provider",
               "pending_unknown",
@@ -88787,7 +89544,8 @@
     "assistant_reservation_required": "Reserve a run with POST /api/assistant/runs, then send its id as runId.",
     "assistant_run_unavailable": "This run identity is unavailable and cannot execute.",
     "assistant_run_conflict": "This run identity is already bound to different input.",
-    "assistant_capacity": "Eight assistant runs occupy capacity. Read GET /api/assistant/pending; release an unused reservation or abandon a pending turn with DELETE /api/assistant/runs/{id}.",
+    "assistant_capacity": "Eight assistant runs are running or waiting for confirmation. Your reservation stays for a retry. Read GET /api/assistant/pending; abandon a pending turn with DELETE /api/assistant/runs/{id}, or wait for one to finish.",
+    "assistant_reservation_limit": "This account holds two unsubmitted reservations, the most it may. Send a message on one, release one with DELETE /api/assistant/runs/{id}, or wait: they expire after five minutes.",
     "assistant_run_state": "This operation is not available in the current run state.",
     "assistant_submission_too_large": "The assistant submission exceeds 128 KiB.",
     "assistant_recovery_limit": "Further work stopped before the live recovery bound could be exceeded.",
@@ -88802,8 +89560,9 @@
     "assistant_context_invalid": "The submitted page context is malformed or refers to an incompatible object.",
     "assistant_context_too_large": "Page context exceeds 64 KiB of UTF-8 JSON.",
     "assistant_context_unavailable": "The page context could not be read from this instance.",
-    "assistant_disabled": "The assistant is not enabled; no model credential is configured.",
-    "assistant_auth": "The configured model credential was rejected by the provider.",
+    "assistant_disabled": "The assistant has no key to answer you with: you have none of your own and the instance has none.",
+    "assistant_key_changed": "Your API key changed since this turn began. Send a new message.",
+    "assistant_auth": "A model key was rejected by its provider: your own, or the instance's. The message says which.",
     "assistant_provider": "The model provider request failed (outage, quota, or network).",
     "pending_unknown": "The referenced pending action is unknown; it may have expired with the server's working state.",
     "pending_resolved": "The referenced pending action was already resolved; it will not run again.",

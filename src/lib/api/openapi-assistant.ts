@@ -10,15 +10,15 @@ export const ASSISTANT_PATHS = {
         get: op({
           summary: "Assistant status",
           description:
-            "Whether the in-product assistant is enabled. When enabled, " +
-            "reports the resolved provider, model, step budget and whether the " +
+            "Whether the in-product assistant answers the caller. Enabled when they have a " +
+            "usable key: their own, or the instance's. It then reports the provider in use, " +
+            "its default model, the step budget and whether the " +
             "map is checked automatically after a turn that changed it, " +
-            "and every model a request may choose on this instance with that " +
-            "model's own effort levels. When not, " +
-            "reports the reason and how to enable it. The model credential is " +
-            "never included. Enablement is a deployment setting (an Anthropic " +
-            "or OpenAI API key); with none, this is a complete non-assistant " +
-            "instance and the surface is absent.",
+            "every model a request may choose with that " +
+            "model's own effort levels, and which key pays. Otherwise it " +
+            "reports the reason, in the caller's words. The two answers differ per account. No key's " +
+            "text is ever included: a person's own appears as its last four characters and the " +
+            "time it was saved, to that person alone.",
           tag: "Agents",
           tool: false,
           effects: READ_ONLY,
@@ -63,10 +63,13 @@ export const ASSISTANT_PATHS = {
             "pending_superseded. A hidden or unknown pending id cannot be resolved; naming one only to supersede it is a harmless no-op. Pending actions are working state, and " +
             "bounded: after a container replacement resolution answers 404 " +
             "pending_unknown and nothing re-runs; only a small number of " +
-            "reserved, running or parked runs share eight admission slots. " +
-            "A full instance refuses new reservations with assistant_capacity; " +
-            "live and pending runs are never silently evicted. Only unused " +
-            "reservations expire after five minutes. Pending turns have no " +
+            "running or parked runs share eight slots, of which one account " +
+            "holds at most four, and a run takes its slot when a submission " +
+            "binds it. With every slot busy, or the account's four taken, a " +
+            "submission answers assistant_capacity and its reservation stays " +
+            "for a retry; live and pending runs are never silently evicted. " +
+            "A resolution resumes a run on the slot it kept. " +
+            "Unused reservations take no slot and expire after five minutes. Pending turns have no " +
             "wall-clock expiry and are recoverable through GET /api/assistant/pending. " +
             "Release a reservation or abandon a pending turn with DELETE " +
             "/api/assistant/runs/{id}. The resolved trace " +
@@ -77,7 +80,8 @@ export const ASSISTANT_PATHS = {
             "256 receipts of at most 64 KiB; live recovery is at most 1 MiB per " +
             "run and stops with assistant_recovery_limit before protected " +
             "action data would exceed it. Returns 404 with " +
-            "assistant_disabled when no model credential is configured. " +
+            "assistant_disabled when neither the caller nor the instance has a usable key. " +
+            "A turn is bound to the key it began on: after that key is replaced or removed its parked run is gone, and resolving it answers 409 assistant_key_changed. " +
             "The page action policy binds at the first accepted " +
             "submission from the context's page and holds through the run's " +
             "confirmation continuations: a builder context, and no context, " +

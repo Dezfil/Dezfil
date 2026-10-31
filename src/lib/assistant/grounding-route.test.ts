@@ -157,6 +157,8 @@ describe("grounding through real message and resource routes", () => {
       expect([400, 413]).toContain(response.status);
       expect((await response.json()).error.code).toMatch(/^assistant_context_/);
       expect(factory.calls).toBe(before);
+      // A context refused before binding leaves its reservation, and an account holds two.
+      assistantRuns.resetForTests();
     }
     expect(contexts.some((url) => url.includes("/query"))).toBe(false);
   });

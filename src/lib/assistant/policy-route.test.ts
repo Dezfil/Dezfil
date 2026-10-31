@@ -8,6 +8,7 @@ import { ingestFile } from "@/lib/ingest/ingest";
 import { createMap } from "@/lib/map-service";
 import { createRecipe, addStep } from "@/lib/metadata/recipes";
 import { buildTools } from "@/lib/tools/tools";
+import { admittedTools } from "./policy";
 import type { AssistantContext } from "./context";
 import { DISCOVERY_TOOL } from "./discovery";
 import { defaultOffer } from "./offer";
@@ -93,7 +94,7 @@ const toolNames = (names: { name: string }[]) => names.map((t) => t.name).sort()
 /** The set the spec admits under /sql and workflow contexts: operations
  * declared read-only by their effects, conditional ones excluded (D4), and
  * those that reach outside this server or ask for confirmation excluded. */
-const readOnlySet = () => toolNames(buildTools().filter((t) => t.effects.readOnly && !t.effects.planningArgument && !t.effects.reachesOutside &&
+const readOnlySet = () => toolNames(buildTools().filter((t) => t.effects.readOnly && !t.effects.keptFromAssistant && !t.effects.planningArgument && !t.effects.reachesOutside &&
   !t.confirm && t.confirmWhen === undefined));
 
 describe("the page action policy through the real message route", () => {
@@ -106,7 +107,7 @@ describe("the page action policy through the real message route", () => {
     // both: the read-only set on /sql and the canvas, every generated tool
     // on the builder.
     const { sql, workflow, builder } = await seed();
-    const all = toolNames(buildTools());
+    const all = toolNames(admittedTools("full"));
     const restricted = readOnlySet();
     expect(restricted).toContain("run_sql");
     expect(restricted).toContain("read_table_catalogue");

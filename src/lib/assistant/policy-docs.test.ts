@@ -28,8 +28,10 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * Server map pictures add one refresh operation; the retired upload stays excluded.
  * Renderer availability and refresh's waiting-only response update output captures without changing the count.
  * Profile pictures add the read of a person's picture, setting and removing
- * one's own, and an admin's removal of another's. */
-const GENERATED_TOOLS = 162;
+ * one's own, and an admin's removal of another's. A person's own AI key adds
+ * its read, its save and its removal, which MCP has and the in-app assistant
+ * does not. */
+const GENERATED_TOOLS = 165;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

@@ -109,7 +109,7 @@ export type AssistantEvent =
       text?: string;
       reason?: ObservationReason;
     }
-  | { type: "error"; code: string; message: string }
+  | { type: "error"; code: string; message: string; detail?: string }
   | { type: "done"; reason: "end" | "budget" | "interrupted" };
 
 export interface RunInput {
@@ -347,8 +347,11 @@ async function* processCalls(
     // arrived.
     if (!ctx.admitted.has(call.name)) {
       const body = { error: { code: POLICY_REFUSAL_CODE, message: ERROR_CATALOGUE.assistant_action_not_admitted } };
-      if (ctx.runId) assistantRuns.admit(ctx.scope, ctx.runId, call);
-      yield { type: "tool_result", id: call.id, tool: call.name, ok: false, body, args: recordedArguments(call.args), effects: actionEffects(tool, call.args), outcome: "refused", ...words(tool, call.args) };
+      // What a model tried to send to an operation kept from it may be the
+      // person's secret, and no record of the call holds it.
+      const refused = tool.effects.keptFromAssistant ? { ...call, args: {} } : call;
+      if (ctx.runId) assistantRuns.admit(ctx.scope, ctx.runId, refused);
+      yield { type: "tool_result", id: call.id, tool: call.name, ok: false, body, args: recordedArguments(refused.args), effects: actionEffects(tool, refused.args), outcome: "refused", ...words(tool, refused.args) };
       batch.outcomes.push({ toolCallId: call.id, body: JSON.stringify(body), isError: true });
       batch.index += 1;
       continue;
@@ -440,6 +443,7 @@ function errorEvent(error: unknown): AssistantEvent {
       type: "error",
       code: error.kind === "auth" ? "assistant_auth" : "assistant_provider",
       message: error.message,
+      ...(error.detail ? { detail: error.detail } : {}),
     };
   }
   // An unexpected failure crosses no internals: the event carries the

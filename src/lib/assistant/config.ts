@@ -55,6 +55,22 @@ export function allowedModels(
   return [...new Set(models)];
 }
 
+/**
+ * What a person's own key offers: the instance's model list for that
+ * provider, which narrows a personal key too, and that provider's default.
+ * The instance's default-model override speaks only for the provider of the
+ * instance's own key, and is one of its offers wherever it applies.
+ */
+export function ownKeyAvailability(
+  provider: string,
+  env: Record<string, string | undefined> = process.env,
+  catalogue: ModelCatalogue = shipped,
+): Extract<AssistantAvailability, { enabled: true }> {
+  const instance = assistantAvailability(env, catalogue);
+  const model = instance.enabled && instance.provider === provider ? instance.model : DEFAULT_MODELS[provider];
+  return { enabled: true, provider, model, models: allowedModels(env, provider, model, catalogue) };
+}
+
 export function assistantAvailability(
   env: Record<string, string | undefined> = process.env,
   catalogue: ModelCatalogue = shipped,

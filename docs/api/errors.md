@@ -134,6 +134,16 @@ Agents can read the same list from the [API description](openapi.json):
 | `query_memory_exceeded` | 400 | The query needed more memory than the engine allows SQL. | Narrow the query, or ask the operator to raise `DEZFIL_QUERY_MEMORY_MB`. |
 | `query_result_too_large` | 422 | The answer, or one value in it, is over a byte limit, so no rows come back. A query answers this, and so do a dataset's page, a geometry or PostGIS preview, a layer's filter values and a category fill. | Narrow the query, or keep every row: [Answers too large to return](#answers-too-large-to-return) says what to do at each read. |
 
+### The assistant
+
+| Code | Status | What happened | What to do |
+|---|---|---|---|
+| `assistant_disabled` | 404 | You have no usable key and the instance has none. | Save yours with `PUT /api/account/assistant-key`. |
+| `assistant_auth` | 401 or an event | The provider refused the key that paid. | The message says whose. Replace your own, or tell an admin. |
+| `assistant_key_changed` | 409 | Your key was replaced or removed after this turn began, so the turn ended. | Send a new message. |
+| `assistant_reservation_limit` | 409 | You hold two reservations you have not sent. | Send on one, or release one with `DELETE /api/assistant/runs/{id}`. They expire after five minutes. |
+| `assistant_capacity` | 409 | All eight runs are taken, or your four are. Your reservation stays. | Abandon a waiting turn, or retry once one finishes. |
+
 ### Busy or failing server
 
 | Code | Status | What happened | What to do |
