@@ -19,10 +19,19 @@ export interface Person {
 
 /** The workspace's page for an address it cannot show. Another account's
  * map or workflow gets the same page as one that does not exist. */
-export async function expectNotFoundPage(page: Page): Promise<void> {
-  await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();
-  await expect(page.getByText("Nothing is at this address.", { exact: true })).toBeVisible();
+export async function expectNotFoundPage(page: Page, kind: keyof typeof NOT_FOUND): Promise<void> {
+  const [title, back, href] = NOT_FOUND[kind];
+  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: back, exact: true })).toHaveAttribute("href", href);
 }
+
+const NOT_FOUND = {
+  map: ["Map not found", "Go to Maps", "/maps"],
+  workflow: ["Workflow not found", "Go to Workflows", "/workflows"],
+  dataset: ["Dataset not found", "Go to Data", "/data"],
+  project: ["Project not found", "Go to Projects", "/projects"],
+  template: ["Template not found", "Go to Templates", "/templates"],
+} as const;
 
 /** A tag for this spec's run: its people, projects and datasets carry it. */
 export const runTag = () => randomUUID().replaceAll("-", "").slice(0, 6);

@@ -121,9 +121,9 @@ test("a Viewer reads the shared map and workflow and can change nothing", async 
 
     await test.step("a non-member opening the map or the workflow finds nothing", async () => {
       const page = await nia.context.newPage();
-      for (const url of [`/maps/${map.id}`, `/workflows/${recipe}`]) {
+      for (const [url, kind] of [[`/maps/${map.id}`, "map"], [`/workflows/${recipe}`, "workflow"]] as const) {
         await page.goto(url);
-        await expectNotFoundPage(page);
+        await expectNotFoundPage(page, kind);
         await expect(page.getByText(mapName, { exact: true })).toHaveCount(0);
       }
     });

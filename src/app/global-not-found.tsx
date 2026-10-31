@@ -1,3 +1,6 @@
+import { headers } from "next/headers";
+import { ItemNotFound } from "@/components/ItemNotFound";
+import { ABSENT_KIND_HEADER, readAbsentKind } from "@/lib/absent-kind";
 import WorkspaceLayout from "./(workspace)/layout";
 import WorkspaceNotFound from "./(workspace)/not-found";
 import { DOCUMENT_METADATA } from "./document";
@@ -14,15 +17,16 @@ export const metadata = DOCUMENT_METADATA;
  * that decides the status, and the address answered 200. For the same
  * reason the gate serves a page that shows one map, workflow, project,
  * dataset or template the person reaches nothing at as an address no page
- * answers, so it ends here too. The published and render roots keep
+ * answers, so it ends here too, and says which kind it was. The published and render roots keep
  * catch-alls of their own, which hold nothing back, so their addresses get
  * their own not-found pages with the same 404. An anonymous request never
  * reaches this: the gate answers it first.
  */
-export default function GlobalNotFound() {
+export default async function GlobalNotFound() {
+  const kind = readAbsentKind((await headers()).get(ABSENT_KIND_HEADER));
   return (
     <WorkspaceLayout>
-      <WorkspaceNotFound />
+      {kind ? <ItemNotFound kind={kind} /> : <WorkspaceNotFound />}
     </WorkspaceLayout>
   );
 }

@@ -7,8 +7,9 @@ import { closeAll, createProject, expectNotFoundPage, invitePerson, runTag, uplo
  * template answers 404 when the signed-in person reaches nothing at its
  * address: nothing is there, or what is there is someone else's, which
  * the API answers the same way. It is the framework's own not-found, as
- * for an address no page answers: the workspace's "Page not found" inside
- * the whole document, so a stored dark theme stays dark.
+ * for an address no page answers: drawn inside
+ * the whole document, so a stored dark theme stays dark. Each kind says what
+ * was not found; an address no page answers stays on the generic page.
  */
 
 const background = (page: Page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -26,19 +27,19 @@ test("an address that reaches no map, workflow, project, dataset or template ans
     const dataset = await uploadSentinel(bo, `bo_rows_${tag}`, "Bo's");
     const project = await createProject(bo, `Bo's project ${tag}`);
     const hidden = [
-      `/maps/${(await map.json()).id}`,
-      `/workflows/${(await recipe.json()).recipe.id}`,
-      `/projects/${project}`,
-      `/tables/${dataset.id}`,
-    ];
+      [`/maps/${(await map.json()).id}`, "map"],
+      [`/workflows/${(await recipe.json()).recipe.id}`, "workflow"],
+      [`/projects/${project}`, "project"],
+      [`/tables/${dataset.id}`, "dataset"],
+    ] as const;
     // A template is every account's: only a missing one is absent.
     const missing = [
-      `/maps/missing-${tag}`,
-      `/workflows/missing-${tag}`,
-      `/projects/missing-${tag}`,
-      `/tables/missing_${tag}`,
-      `/templates/missing_${tag}`,
-    ];
+      [`/maps/missing-${tag}`, "map"],
+      [`/workflows/missing-${tag}`, "workflow"],
+      [`/projects/missing-${tag}`, "project"],
+      [`/tables/missing_${tag}`, "dataset"],
+      [`/templates/missing_${tag}`, "template"],
+    ] as const;
 
     await test.step("the person's own pages answer 200, so the 404s below are the absence and not the page", async () => {
       const ownMap = await request.post("/api/maps", { data: { name: `Own map ${tag}` } });
@@ -67,11 +68,25 @@ test("an address that reaches no map, workflow, project, dataset or template ans
     });
 
     await test.step("every hidden and missing address answers 404 with the workspace's not-found page", async () => {
-      for (const address of [...hidden, ...missing]) {
+      for (const [address, kind] of [...hidden, ...missing]) {
         const response = await page.goto(address);
         expect(response?.status(), address).toBe(404);
-        await expectNotFoundPage(page);
+        await expectNotFoundPage(page, kind);
       }
+      // The same words whether the item is hidden or missing.
+      const body = async (address: string) => {
+        await page.goto(address);
+        return page.locator("h1").locator("..").innerText();
+      };
+      for (const [[hiddenAddress], [missingAddress]] of hidden.map((h, i) => [h, missing[i]] as const)) {
+        expect(await body(hiddenAddress), hiddenAddress).toBe(await body(missingAddress));
+      }
+    });
+
+    await test.step("an address no page answers stays on the generic page", async () => {
+      expect((await page.goto(`/no-such-page-${tag}`))?.status()).toBe(404);
+      await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();
+      await expect(page.getByText("Nothing is at this address.", { exact: true })).toBeVisible();
     });
 
     await test.step("a map deleted while its card is on the Maps page, followed from there, opens the same page", async () => {
@@ -85,7 +100,7 @@ test("an address that reaches no map, workflow, project, dataset or template ans
       expect((await readThenWriteRequestSetup(request, `/api/maps/${id}`, () => ({ method: "DELETE" }))).status()).toBe(204);
       await card.click();
       await expect(page).toHaveURL(new RegExp(`/maps/${id}$`));
-      await expectNotFoundPage(page);
+      await expectNotFoundPage(page, "map");
     });
 
     await test.step("the not-found page keeps a stored dark theme, as the Maps page does", async () => {
@@ -105,7 +120,7 @@ test("an address that reaches no map, workflow, project, dataset or template ans
       const dark = await shade("dark", "/maps");
       // The stored theme decides the colour at all: else the comparison below says nothing.
       expect(dark, "the Maps page's dark and light backgrounds").not.toBe(await shade("light", "/maps"));
-      for (const address of [hidden[0], missing[0], missing[3]]) {
+      for (const address of [hidden[0][0], missing[0][0], missing[3][0]]) {
         expect(await shade("dark", address), address).toBe(dark);
       }
     });

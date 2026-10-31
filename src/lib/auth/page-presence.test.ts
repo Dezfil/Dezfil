@@ -92,6 +92,15 @@ describe("the gate's answer to a signed-in page request", () => {
     }
   });
 
+  it("tells the not-found page which kind of item was not found", async () => {
+    for (const [pathname, kind] of [["/maps/none", "map"], ["/workflows/none", "workflow"], ["/projects/none", "project"],
+      ["/tables/none", "dataset"], ["/templates/none", "template"]]) {
+      const { answer } = await served(pathname);
+      expect(rewrittenTo(answer), pathname).toBe(NO_PAGE);
+      expect(answer.headers.get("x-middleware-request-x-dezfil-absent-kind"), pathname).toBe(kind);
+    }
+  });
+
   it("passes the gate's own answer on for a page that finds its resource, any other address, and anything but a read", async () => {
     for (const [pathname, who, method] of [["/maps/M", "ada", "GET"], ["/maps/M", "vi", "HEAD"], ["/maps", "bo", "GET"], ["/api/maps/none", "ada", "GET"], ["/maps/none", "ada", "POST"]]) {
       const { gate, answer } = await served(pathname, who, method);

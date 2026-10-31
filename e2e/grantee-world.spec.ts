@@ -98,7 +98,7 @@ test("an Editor and a Viewer see the shared project as theirs to use, never to o
       await expectAbsentAlike(nia.api, `/api/maps/${map.id}`, "/api/maps/absent-map");
       const page = await nia.context.newPage();
       await page.goto(`/maps/${map.id}`);
-      await expectNotFoundPage(page);
+      await expectNotFoundPage(page, "map");
       await expect(page.getByText(mapName, { exact: true })).toHaveCount(0);
       await page.goto("/maps");
       await expect(page.getByRole("button", { name: "New map", exact: true }).first()).toBeVisible();

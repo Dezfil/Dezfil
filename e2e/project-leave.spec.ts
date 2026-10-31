@@ -83,7 +83,7 @@ for (const role of ["viewer", "editor"] as const) for (const frozen of [false, t
         if (ownMap) expect(await (await member.api.get(`/api/maps/${ownMap}`)).json()).toMatchObject({ projectId: id });
         await page.screenshot({ path: info.outputPath(`${entrance}-departed.png`) });
         expect((await page.goto(`/projects/${id}`))?.status()).toBe(404);
-        await expectNotFoundPage(page);
+        await expectNotFoundPage(page, "project");
         await expect(page.getByRole("button", { name: "More", exact: true })).toHaveCount(0);
         await page.goto("/maps");
         await page.getByRole("button", { name: "Filter by project", exact: true }).click();

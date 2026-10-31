@@ -48,7 +48,7 @@ test("two ordinary accounts and an admin keep same-name uploads and dataset page
         const missing = await context.request.get("/api/tables/absent-dataset");
         expect(hidden.status()).toBe(404); expect(await hidden.json()).toEqual(await missing.json());
         expect((await page.goto(`/tables/${name}`))?.status()).toBe(404);
-        await expectNotFoundPage(page);
+        await expectNotFoundPage(page, "dataset");
       }
     }
     expect((await contexts[0].request.delete(`/api/tables/${stem}`)).status()).toBe(204);
