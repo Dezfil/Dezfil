@@ -1,10 +1,17 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const driver = vi.hoisted(() => ({ renameHold: null as null | ReturnType<typeof Promise.withResolvers<void>>, renameStarted: null as null | ReturnType<typeof Promise.withResolvers<void>>, hold: null as null | ReturnType<typeof Promise.withResolvers<void>>, started: null as null | ReturnType<typeof Promise.withResolvers<void>>, fail: false, controlId: "", controlHold: null as null | ReturnType<typeof Promise.withResolvers<void>> }));
+const driver = vi.hoisted(() => ({ afterRename: null as null | (() => void), cleanupHold: null as null | ReturnType<typeof Promise.withResolvers<void>>, cleanupStarted: null as null | ReturnType<typeof Promise.withResolvers<void>>, hold: null as null | ReturnType<typeof Promise.withResolvers<void>>, started: null as null | ReturnType<typeof Promise.withResolvers<void>>, fail: false, controlId: "", controlHold: null as null | ReturnType<typeof Promise.withResolvers<void>> }));
+vi.mock("node:fs", async load => {
+  const fs = await load<typeof import("node:fs")>();
+  return { ...fs, renameSync: (...args: Parameters<typeof fs.renameSync>) => {
+    fs.renameSync(...args);
+    if (String(args[1]).endsWith(".pmtiles")) driver.afterRename?.();
+  } };
+});
 vi.mock("node:fs/promises", async load => {
   const fs = await load<typeof import("node:fs/promises")>();
-  return { ...fs, rename: async (...args: Parameters<typeof fs.rename>) => {
-    if (driver.renameHold) { driver.renameStarted?.resolve(); await driver.renameHold.promise; }
-    return fs.rename(...args);
+  return { ...fs, rm: async (...args: Parameters<typeof fs.rm>) => {
+    if (driver.cleanupHold && String(args[0]).endsWith(".geojsonl")) { driver.cleanupStarted?.resolve(); await driver.cleanupHold.promise; }
+    return fs.rm(...args);
   } };
 });
 vi.mock("@/lib/tiles/export", () => ({ exportGeoJsonSeq: async (_scope: unknown, _input: unknown, file: string) => {
@@ -47,7 +54,7 @@ beforeEach(async () => {
     metadataDb().prepare("INSERT INTO layers(id,map_id,name,sql,style,ordinal,created_at,updated_at) VALUES(?,?, 'Same','SELECT 1','{}',0,'time','time')").run(id, map);
   }
 });
-afterEach(async () => { driver.renameHold?.resolve(); driver.renameHold = null; driver.renameStarted = null; driver.hold?.resolve(); driver.controlHold?.resolve(); driver.controlHold = null; driver.controlId = ""; driver.hold = null; driver.started = null; driver.fail = false; await tileBuildsSettled(); resetTileBuilds(); (await import("@/lib/metadata/db")).closeMetadataDb(); closeMetadataDb(); process.env.DEZFIL_DATA_DIR = root; await rm(directory, { recursive: true, force: true }); });
+afterEach(async () => { driver.afterRename = null; driver.cleanupHold?.resolve(); driver.cleanupHold = null; driver.cleanupStarted = null; driver.hold?.resolve(); driver.controlHold?.resolve(); driver.controlHold = null; driver.controlId = ""; driver.hold = null; driver.started = null; driver.fail = false; await tileBuildsSettled(); resetTileBuilds(); (await import("@/lib/metadata/db")).closeMetadataDb(); closeMetadataDb(); process.env.DEZFIL_DATA_DIR = root; await rm(directory, { recursive: true, force: true }); });
 const input = (id: string, sql = "SELECT 1") => ({ layerId: id, sql, filters: [], geometryColumn: "geom", columns: [], projection: "", inputs: { catalogue: false, datasets: [{ id: "target-dataset", file: "tables/private.parquet" }] } });
 it("fences and settles held and queued builds across module graphs before clearing their state and scratch", async () => {
   driver.hold = Promise.withResolvers<void>(); driver.started = Promise.withResolvers<void>();
@@ -102,18 +109,27 @@ it("iterates active, queued and recorded-input memory fixtures while an independ
 it("rejects a foreign-input archive crossing acceptance during rename and holds its settlement", async () => {
   const source = path.join(directory, "input.csv"); await writeFile(source, "value\n42\n");
   const dataset = await ingestFile(testAccountScope(undefined, "target"), source, "same.csv");
-  driver.renameHold = Promise.withResolvers<void>(); driver.renameStarted = Promise.withResolvers<void>();
+  driver.cleanupHold = Promise.withResolvers<void>(); driver.cleanupStarted = Promise.withResolvers<void>();
+  const renamed = Promise.withResolvers<void>();
+  let done = false, drained: Promise<void> | undefined;
+  driver.afterRename = () => {
+    driver.afterRename = null;
+    metadataDb().exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
+    drained = drainAccountWork("target").then(() => { done = true; });
+    renamed.resolve();
+  };
   const access = privateTileAccess(testAccountScope(undefined, "control"), layers.control);
   ensureTiles(access, { ...input(layers.control), inputs: { catalogue: false, datasets: [{ id: dataset.id, file: dataset.file }] } });
-  await driver.renameStarted.promise;
-  metadataDb().exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
-  let done = false; const drained = drainAccountWork("target").then(() => { done = true; });
-  try { await new Promise(r => setImmediate(r)); expect(done).toBe(false); }
-  finally { driver.renameHold.resolve(); }
-  await drained; await tileBuildsSettled();
+  try {
+    await renamed.promise;
+    await driver.cleanupStarted.promise;
+    expect(done).toBe(false);
+    expect(getTileRecord(layers.control)?.state).not.toBe("ready");
+  } finally { driver.cleanupHold.resolve(); await tileBuildsSettled(); await drained; }
+  expect(done).toBe(true);
   expect(getTileRecord(layers.control)?.state).not.toBe("ready");
   expect(discoverFiles(directory).some(file => file.includes(layers.control))).toBe(false);
-  driver.renameHold = null;
+  driver.cleanupHold = null;
   ensureTiles(access, { ...input(layers.control), inputs: { catalogue: false, datasets: [] } });
   await tileBuildsSettled(); expect(getTileRecord(layers.control)?.state).toBe("ready");
 });

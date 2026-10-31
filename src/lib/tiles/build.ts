@@ -266,6 +266,8 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     publishTileArchive(input.layerId, archiveFile, { fingerprint: built, builtAt, inputs }, () => {
       attempt.storage.assertCanCommit();
       metadataDb().transaction(() => {
+        // The map may survive while an owner of its inputs enters deletion.
+        attempt.deletionWork.assertCommit();
         requireTileAccess(attempt.access, input.layerId);
         upsertTileRecord({ layerId: input.layerId, state: "ready", fingerprint: built,
           error: null, featureCount, builtAt });
