@@ -77,7 +77,8 @@ export async function createFirstAccount(input: { name: string; email: string; p
   }).immediate();
 }
 
-export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number, signal?: AbortSignal,
+  recordSuccess?: () => void) {
   requirePasswordSignIn();
   maintainCredentials(db, now);
   const account = getAccountByEmail(email, db);
@@ -97,7 +98,9 @@ export async function signIn(email: string, password: string, db: Database = met
     const at = now ?? Date.now();
     db.prepare("UPDATE accounts SET last_sign_in_at = ? WHERE id = ?")
       .run(new Date(at).toISOString(), account.id);
-    return issueSession(getAccount(account.id, db)!, db, at);
+    const session = issueSession(getAccount(account.id, db)!, db, at);
+    recordSuccess?.();
+    return session;
   }).immediate());
 }
 

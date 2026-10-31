@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -31,7 +32,7 @@ export async function redeemSignInLink(secret: string, password: string,
   };
   readLink(now ?? Date.now());
   const passwordHash = await hashPassword(password, { class: "protected", signal, minimum: securitySettings(db).passwordMin });
-  const redeemed = db.transaction(() => {
+  const redeemed = await withStorageRecovery(() => db.transaction(() => {
     requireAuthenticationWanted(signal);
     const at = now ?? Date.now();
     const link = readLink(at);
@@ -44,7 +45,7 @@ export async function redeemSignInLink(secret: string, password: string,
       updated_at = ?, last_sign_in_at = ? WHERE id = ?`)
       .run(passwordHash, new Date(at).toISOString(), new Date(at).toISOString(), link.account_id);
     return { accountId: link.account_id, session: issueSession(getAccount(link.account_id, db)!, db, at) };
-  }).immediate();
+  }).immediate());
   // After the commit, so a turn the fresh session begins counts as newer. A parked
   // run then answers as one that credentials ended, not as a key change.
   stopAccountAssistantWork(redeemed.accountId, "credentials");
