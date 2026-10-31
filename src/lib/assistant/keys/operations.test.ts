@@ -140,6 +140,12 @@ it("needs a credential, and a cookie write from another origin is refused at the
   expect(gateRequest(write(origin)).headers.get("x-middleware-next")).toBe("1");
 });
 
+it("documents a failure's detail on the stream's event and not on its request", () => {
+  const { AssistantEvent, AssistantRequest } = buildOpenApiDocument().components.schemas as unknown as Record<string, { properties?: Record<string, unknown>; oneOf?: { title: string; properties: Record<string, unknown> }[] }>;
+  expect(AssistantEvent.properties).toHaveProperty("detail");
+  expect(AssistantRequest.oneOf!.find(({ title }) => title === "Message")!.properties).not.toHaveProperty("detail");
+});
+
 it("publishes the three operations with their tools, removal asking first and the key write-only", () => {
   const tools = new Map(buildTools().map((tool) => [tool.name, tool]));
   expect(tools.get("get_assistant_key")).toMatchObject({ method: "get", path: URL_PATH, confirm: false, effects: { readOnly: true, keptFromAssistant: true } });
