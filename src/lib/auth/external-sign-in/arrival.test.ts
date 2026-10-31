@@ -52,6 +52,17 @@ it("refuses a signed-in browser before reading the body, renewing a session or c
   expect((await response.json()).error.account.id).toBe(member.id); expect(body).not.toHaveBeenCalled(); expect(f.snapshot()).toEqual(before);
   expect(f.db.prepare("SELECT * FROM auth_login_limits").all()).toEqual(budgets); expect(authenticateSession(signed.secret, f.db)?.account.id).toBe(member.id);
 });
+it("refuses a cross-origin signed-in browser without disclosing its account", async () => {
+  const member = account("member", "active"), signed = issueSession(member, f.db, Date.now());
+  const input = f.request(f.ticket(), signed.secret), body = vi.spyOn(input, "body", "get");
+  input.headers.set("origin", "https://elsewhere.test");
+  const before = f.snapshot(), budgets = f.db.prepare("SELECT * FROM auth_login_limits").all();
+  const response = await arriveExternalSignIn(input);
+  expect(response.status).toBe(403);
+  expect(await response.json()).toEqual({ error: { code: "forbidden", message: "This request must come from the same instance." } });
+  expect(body).not.toHaveBeenCalled(); expect(f.snapshot()).toEqual(before);
+  expect(f.db.prepare("SELECT * FROM auth_login_limits").all()).toEqual(budgets);
+});
 it("commits only failure charges and reaches the address limit on fresh starts", async () => {
   writeStoredSettings({ "security.failedPerAddress": 10 }, f.db); const before = f.snapshot();
   for (let n = 0; n < 10; n++) expect((await arrive(f.ticket({ aud: "wrong" }))).status).toBe(401);

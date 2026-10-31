@@ -35,8 +35,8 @@ export async function arriveExternalSignIn(request: Request, db: Database = meta
   try {
     if (!externalSignIn().enabled) throw new AuthError("not_found", "External sign-in is not configured.", 404);
     if (!ingress) requestIngress(request);
-    refuseSignedIn(request, db, now);
     assertRequestOrigin(request);
+    refuseSignedIn(request, db, now);
     let encoded: string;
     try { encoded = await ticketBody(request); }
     catch (error) {
