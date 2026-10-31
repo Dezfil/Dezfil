@@ -109,7 +109,7 @@ export type AssistantEvent =
       text?: string;
       reason?: ObservationReason;
     }
-  | { type: "error"; code: string; message: string }
+  | { type: "error"; code: string; message: string; detail?: string }
   | { type: "done"; reason: "end" | "budget" | "interrupted" };
 
 export interface RunInput {
@@ -440,6 +440,7 @@ function errorEvent(error: unknown): AssistantEvent {
       type: "error",
       code: error.kind === "auth" ? "assistant_auth" : "assistant_provider",
       message: error.message,
+      ...(error.detail ? { detail: error.detail } : {}),
     };
   }
   // An unexpected failure crosses no internals: the event carries the

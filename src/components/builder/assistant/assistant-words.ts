@@ -8,7 +8,7 @@
  * API's texts are never changed. The pane's own notes carry the code
  * `pane` and pass through.
  */
-export interface PaneFailure { code: string; message: string }
+export interface PaneFailure { code: string; message: string; detail?: string }
 export interface PaneSituation {
   /** How many pending actions the pane can offer to recover right now. */
   pendingActions: number;

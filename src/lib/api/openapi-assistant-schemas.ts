@@ -146,6 +146,7 @@ export const ASSISTANT_SCHEMAS = {
               properties: {
                 runId: { type: "string", description: "Identity obtained before submission from POST /api/assistant/runs." },
                 message: { type: "string" },
+            detail: { type: "string", description: "On error: the provider's own words behind a rejected key's sentence." },
                 context: { $ref: "#/components/schemas/AssistantContext" },
                 history: {
                   type: "array",

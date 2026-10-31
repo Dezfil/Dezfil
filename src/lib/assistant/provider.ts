@@ -103,6 +103,8 @@ export class ProviderError extends Error {
   constructor(
     message: string,
     public readonly kind: "auth" | "provider",
+    /** The provider's own words, behind the sentence a person reads. */
+    public readonly detail?: string,
   ) {
     super(message);
   }

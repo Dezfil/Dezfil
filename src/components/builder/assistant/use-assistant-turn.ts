@@ -128,7 +128,7 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
           replace(next);
           // The region hears each event as it is applied, whatever the render cadence.
           store.announce(...eventAnnouncements(next, event));
-          if (event.type === "error") store.set({ error: { code: event.code, message: event.message } });
+          if (event.type === "error") store.set({ error: { code: event.code, message: event.message, ...(event.detail ? { detail: event.detail } : {}) } });
         }
       }
     } catch (e) {

@@ -88318,6 +88318,10 @@
               "message": {
                 "type": "string"
               },
+              "detail": {
+                "type": "string",
+                "description": "On error: the provider's own words behind a rejected key's sentence."
+              },
               "context": {
                 "$ref": "#/components/schemas/AssistantContext"
               },
@@ -88809,7 +88813,7 @@
     "assistant_context_unavailable": "The page context could not be read from this instance.",
     "assistant_disabled": "The assistant is not enabled; no model credential is configured.",
     "assistant_key_changed": "Your API key changed since this turn began. Send a new message.",
-    "assistant_auth": "The configured model credential was rejected by the provider.",
+    "assistant_auth": "A model key was rejected by its provider: your own, or the instance's. The message says which.",
     "assistant_provider": "The model provider request failed (outage, quota, or network).",
     "pending_unknown": "The referenced pending action is unknown; it may have expired with the server's working state.",
     "pending_resolved": "The referenced pending action was already resolved; it will not run again.",

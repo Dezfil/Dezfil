@@ -90,7 +90,7 @@ export interface RunReceipt {
   id: string; state: RunState; text: string; actions: RecoveryAction[]; incomplete: boolean;
   pending?: PendingReceipt;
   confirmations?: ConfirmationRecord[];
-  error?: { code: string; message: string };
+  error?: { code: string; message: string; detail?: string };
   /** The model choice this run was bound to and what its provider answers
    * reported. */
   provenance?: RunProvenance;
@@ -278,7 +278,7 @@ export class AssistantRunStore {
     }
     if (event.type === "confirm_required") { receipt.state = "awaiting_confirmation"; receipt.pending = { id: event.id, runId: id, tool: event.tool, args: event.args, effects: event.effects, confirmation: event.confirmation, ...(event.callId ? { callId: event.callId } : {}) }; }
     if (event.type === "done" && event.reason === "interrupted" && receipt.state === "running") receipt.state = "interrupted";
-    if (event.type === "error") { receipt.state = "failed"; receipt.error = { code: event.code, message: event.message }; }
+    if (event.type === "error") { receipt.state = "failed"; receipt.error = { code: event.code, message: event.message, ...(event.detail ? { detail: event.detail } : {}) }; }
     entry.receipt = compactReceipt(receipt, RECOVERY_LIMITS.liveBytes, false);
   }
   finish(scope: AccountScope, id: string) {

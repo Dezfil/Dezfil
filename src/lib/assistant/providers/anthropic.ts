@@ -1,6 +1,7 @@
 import { readAnthropicStream } from "./anthropic-stream";
 import { anthropicTool } from "./anthropic-tool-schema";
-import { apiFailureSentence } from "./api-failure";
+import { apiFailureSentence, rejectedKeySentence } from "./api-failure";
+import { scrubbedError, scrubKey } from "./scrub";
 import { bareAnthropicOptions, type KeyPayer } from "./bare-client";
 import { effortToSend } from "../model-knowledge";
 import Anthropic from "@anthropic-ai/sdk";
@@ -41,23 +42,20 @@ function imageBlock(image: ProviderImage): Anthropic.ImageBlockParam {
   return { type: "image", source: { type: "base64", media_type: image.mediaType, data: Buffer.from(image.data).toString("base64") } };
 }
 
-function mapError(error: unknown): never {
+function mapError(error: unknown, apiKey: string, payer: KeyPayer): never {
   if (error instanceof Anthropic.AuthenticationError) {
-    throw new ProviderError(
-      "The configured Anthropic API key was rejected. Check ANTHROPIC_API_KEY and restart.",
-      "auth",
-    );
+    throw new ProviderError(rejectedKeySentence("Anthropic", payer), "auth", scrubKey(error.message, apiKey));
   }
   if (error instanceof Anthropic.APIError) {
     // The SDK's own error shape: a status when the failure was an HTTP
     // response, and for one delivered inside the stream the body's `error.type`
     // instead. Neither present, the message stands alone.
     throw new ProviderError(
-      apiFailureSentence("Anthropic", [error.status, error.type], error.message),
+      scrubKey(apiFailureSentence("Anthropic", [error.status, error.type], error.message), apiKey),
       "provider",
     );
   }
-  throw error;
+  throw scrubbedError(error, apiKey);
 }
 
 export function anthropicProvider(
@@ -111,7 +109,7 @@ export function anthropicProvider(
           active(); messages.push({ role: "assistant", content: response.native });
           return response.reply;
         } catch (error) {
-          mapError(error);
+          mapError(error, apiKey, payer);
         }
       }
 

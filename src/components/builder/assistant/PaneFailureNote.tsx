@@ -15,5 +15,5 @@ export function PaneFailureNote({ failure, pendingActions, onDismiss }: {
   pendingActions: number;
   onDismiss: () => void;
 }) {
-  return <ErrorNote message={failureWords(failure, { pendingActions })} onDismiss={onDismiss} />;
+  return <ErrorNote message={failureWords(failure, { pendingActions })} detail={failure.detail} onDismiss={onDismiss} />;
 }

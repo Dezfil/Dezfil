@@ -1,23 +1,19 @@
 import OpenAI from "openai";
 import { ProviderError, type ModelProvider } from "../provider";
 import { bareOpenAIOptions, type KeyPayer } from "./bare-client";
+import { rejectedKeySentence } from "./api-failure";
 import { openaiFailureSentence } from "./openai-error";
+import { scrubbedError, scrubKey } from "./scrub";
 import { responsesExchange } from "./openai-responses";
 
-function mapError(error: unknown): never {
+function mapError(error: unknown, apiKey: string, payer: KeyPayer): never {
   if (error instanceof OpenAI.AuthenticationError) {
-    throw new ProviderError(
-      "The configured OpenAI API key was rejected. Check OPENAI_API_KEY and restart.",
-      "auth",
-    );
+    throw new ProviderError(rejectedKeySentence("OpenAI", payer), "auth", scrubKey(error.message, apiKey));
   }
   if (error instanceof OpenAI.APIError) {
-    throw new ProviderError(
-      openaiFailureSentence(error),
-      "provider",
-    );
+    throw new ProviderError(scrubKey(openaiFailureSentence(error), apiKey), "provider");
   }
-  throw error;
+  throw scrubbedError(error, apiKey);
 }
 
 export function openaiProvider(apiKey: string, model: string, fetchImpl?: typeof fetch, effort?: string, payer: KeyPayer = "instance"): ModelProvider {
@@ -29,9 +25,9 @@ export function openaiProvider(apiKey: string, model: string, fetchImpl?: typeof
       retainedForTests: () => exchange.retainedForTests!(),
       setGrounding(value) { exchange.setGrounding?.(value); },
       extendTools(tools) { exchange.extendTools?.(tools); },
-      async send(text, control) { try { return await exchange.send(text, control); } catch (error) { mapError(error); } },
-      async continueWith(outcomes, control) { try { return await exchange.continueWith(outcomes, control); } catch (error) { mapError(error); } },
-      async continueWithImage(continuation, control) { try { return await exchange.continueWithImage!(continuation, control); } catch (error) { mapError(error); } },
+      async send(text, control) { try { return await exchange.send(text, control); } catch (error) { mapError(error, apiKey, payer); } },
+      async continueWith(outcomes, control) { try { return await exchange.continueWith(outcomes, control); } catch (error) { mapError(error, apiKey, payer); } },
+      async continueWithImage(continuation, control) { try { return await exchange.continueWithImage!(continuation, control); } catch (error) { mapError(error, apiKey, payer); } },
     };
   } };
 }

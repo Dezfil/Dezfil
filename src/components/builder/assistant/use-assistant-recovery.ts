@@ -70,7 +70,7 @@ export function useAssistantRecovery(
       store.announce(...settlementAnnouncements(streamed.actions, recovered.actions, receipt.state));
     }
     // The recovery path keeps the receipt's own code.
-    const outcome: PaneFailure | null = receipt.error ? { code: receipt.error.code, message: receipt.error.message }
+    const outcome: PaneFailure | null = receipt.error ? { code: receipt.error.code, message: receipt.error.message, ...(receipt.error.detail ? { detail: receipt.error.detail } : {}) }
       : receipt.state === "interrupted" ? note("The request stopped. Recorded actions show what completed. Send a new message to continue.")
       : receipt.state === "unavailable" ? note("This request is no longer available. It will not be repeated.") : null;
     const trimmed = receipt.incomplete ? "Some text or arguments were omitted from this recovery record." : null;

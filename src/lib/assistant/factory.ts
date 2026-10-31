@@ -33,5 +33,5 @@ export function createOwnKeyProvider(accountId: string, own: { provider: KeyProv
   const provider = own.provider === "anthropic"
     ? anthropicProvider(own.key, choice.model, undefined, choice.effort, "own")
     : openaiProvider(own.key, choice.model, undefined, choice.effort, "own");
-  return boundToSave(provider, accountId, own.save);
+  return boundToSave(provider, accountId, own);
 }

@@ -177,7 +177,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
     "The assistant is not enabled; no model credential is configured.",
   assistant_key_changed: "Your API key changed since this turn began. Send a new message.",
   assistant_auth:
-    "The configured model credential was rejected by the provider.",
+    "A model key was rejected by its provider: your own, or the instance's. The message says which.",
   assistant_provider:
     "The model provider request failed (outage, quota, or network).",
   pending_unknown:
