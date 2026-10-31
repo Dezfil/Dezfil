@@ -71,13 +71,14 @@ Some codes add a field beside the two:
 
 | Field | Comes with | What it holds |
 |---|---|---|
-| `account` | `already_signed_in` | The account already signed in to the arrival browser. Its session stays unchanged. |
 | `position` | `sql_error`, when the engine reports where | The `line` and `column` of the problem in your SQL, counted from 1. |
 | `retryAfter` | `rate_limited` from sign-in or a password check, and `authentication_busy` | The seconds to wait before you try again. The `Retry-After` header carries the same number. |
 | `retryAt` | `rate_limited` from sign-in or a password check | The time you may try again. |
 | `rule` | `rule_refused` | The instance rule that refused you: `tokens.create`, `publishing.publish`, `connections.create` or `imports.links`. |
 | `setting` | `basemap_not_offered` | The basemap switch that refused it, such as `basemaps.satellite`. |
 | `issues` | `geometry_choice_invalid`, and `invalid_request` for a tool's arguments over MCP | Each reason the request fails: a `code` and a `message` for a geometry choice, a `message` and the argument's `path` for a tool call. |
+
+One operation adds a field of its own: the `already_signed_in` answer from an external sign-in arrival also holds `account`, the account already signed in to that browser. Its session stays unchanged.
 
 > [!NOTE]
 > Over MCP, a failed tool call is marked as an error. Its result holds an `error` object with `code`, `message` and, where they apply, `position` and `issues`. A tool takes the edit revision as its `expected_revision` argument. [Connect an AI agent](mcp.md#troubleshooting) helps with the client.
