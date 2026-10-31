@@ -70,7 +70,7 @@ In password mode your own row offers **Change password**: you cannot remove your
 
 These steps apply in password mode.
 
-1. Open the person's row and click **Reset password**. You should see **The current password and earlier links will stop working. Browser sessions will end; API tokens stay valid.**
+1. Open the person's row and click **Reset password**. You should see **The current password, earlier links and browser sessions stop working, and any AI key of theirs is removed.** Using the link ends API tokens and assistant work too.
 2. Click **Reset password** again to confirm. You should see the **Sign-in link** and when it expires.
 3. Click **Copy link**, send the link to the person, then click **Done**.
 

@@ -56,6 +56,11 @@ export async function endAccountAssistantWorkBefore(accountId: string, mark: num
   for (const entry of cleanups ?? []) if (entry.begun < mark) { entry.cleanup(); cleanups!.delete(entry); }
   if (!cleanups?.size) holder.cleanups.delete(accountId);
 }
+/** Interrupts synchronously, then lets the older work unwind on its own. */
+export function stopAccountAssistantWork(accountId: string, reason: AccountEndReason): void {
+  void endAccountAssistantWorkBefore(accountId, assistantBeginMark(), reason)
+    .catch((error: unknown) => console.error("[assistant] ending an account's turns failed:", error instanceof Error ? error.name : "unknown"));
+}
 export async function drainAssistantWork(accountId: string): Promise<void> {
   for (const store of holder.stores) store.interrupt?.(accountId);
   for (;;) {

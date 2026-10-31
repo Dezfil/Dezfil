@@ -12,7 +12,7 @@ import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { AuthError } from "./errors";
 import { issueLink, revokeSignInCredentials } from "./link-issuance.mjs";
 import { securitySettings } from "./security-settings";
-import { stopTurnsOnOwnKey } from "@/lib/assistant/keys/change";
+import { stopAccountAssistantWork } from "@/lib/assistant/retained-work";
 
 export function requireAdmin(context: AuthContext, db: Database, now: number) {
   const account = requireCurrentActor(context, db, now);
@@ -51,7 +51,7 @@ export function issueSignInLink(context: AuthContext, accountId: string, db: Dat
     return { link: makeLink(accountId, account.status === "invited" ? "invite" : "reset", db, now), keyRemoved };
   }).immediate();
   // A key that went stops paying at once, not at the next redemption.
-  if (keyRemoved) stopTurnsOnOwnKey(accountId);
+  if (keyRemoved) stopAccountAssistantWork(accountId, "key_changed");
   return link;
 }
 

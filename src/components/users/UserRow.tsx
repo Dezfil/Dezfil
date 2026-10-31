@@ -47,7 +47,7 @@ export function UserRow({ account, own, open, busy, handOver, external = false, 
       {handOver ? <SignInHandOver value={handOver} onDone={onDone} /> : own ? !external && <div className={styles.actions}>
         <Link href="/settings#password" className={styles.passwordLink}>Change password</Link>
       </div> : confirm ? <div className={styles.actions}>
-        <p className={styles.note}>{confirm === "reset" ? "The current password and earlier links will stop working. Browser sessions will end; API tokens stay valid." : "Browser sessions will end and API tokens will lose access. Their work stays here."}</p>
+        <p className={styles.note}>{confirm === "reset" ? "The current password, earlier links and browser sessions stop working, and any AI key of theirs is removed. When the link is used, API tokens and assistant work end too." : "Browser sessions will end and API tokens will lose access. Their work stays here."}</p>
         <Button variant={confirm === "reset" ? "primary" : "danger"} busy={busy} onClick={() => void act()}>{confirm === "reset" ? resetLabel : "Deactivate"}</Button>
         <Button variant="quiet" disabled={busy} onClick={() => setConfirm(null)}>Cancel</Button>
       </div> : account.status === "deactivated" ? <div className={styles.actions}>
