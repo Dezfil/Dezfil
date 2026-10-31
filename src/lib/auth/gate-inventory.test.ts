@@ -20,6 +20,8 @@ import * as render from "@/app/api/published/[token]/render/[layerId]/route";
 import * as extent from "@/app/api/published/[token]/extent/[layerId]/route";
 import * as signIn from "@/app/api/auth/sign-in/route";
 import * as setup from "@/app/api/auth/setup/route";
+import * as externalStart from "@/app/api/auth/external/start/route";
+import * as externalArrival from "@/app/api/auth/external/arrive/route";
 import * as redeem from "@/app/api/auth/redeem/route";
 
 const origin = "http://instance.test";
@@ -45,6 +47,8 @@ const excluded = [
   { path: "/api/auth/sign-in", handlers: signIn, allowed: ["OPTIONS", "POST"] },
   { path: "/api/auth/setup", handlers: setup, allowed: ["OPTIONS", "POST"] },
   { path: "/api/auth/redeem", handlers: redeem, allowed: ["OPTIONS", "POST"] },
+  { path: "/api/auth/external/start", handlers: externalStart, allowed: ["OPTIONS", "POST"] },
+  { path: "/api/auth/external/arrive", handlers: externalArrival, allowed: ["OPTIONS", "POST"] },
 ];
 // Posts any caller may send: the handler's own gate admits them anonymously.
 const anonymousPost = (path: string) => path.startsWith("/api/published/") || path.startsWith("/api/auth/");
@@ -239,12 +243,12 @@ it("preserves cookie origin checks and final rolling cookies on every excluded s
 
 
 it("holds one closed exclusion inventory against the literal compiled matcher and router path decoding", () => {
-  const expected = "/((?!" + excluded.map(({ path }) => path.slice(1).replaceAll("fixture", "[^/]+") + "/?$").join("|") + ").*)";
+  const expected = "/((?!" + [...excluded.map(({ path }) => path.slice(1).replaceAll("fixture", "[^/]+") + "/?$"), "arrive/?$"].join("|") + ").*)";
   expect(config.matcher).toEqual([expected]);
   for (const { path } of excluded) for (const suffix of ["", "/", "?query=1"]) {
     expect(routerMatches({ config, nextConfig, url: path + suffix }), `${path}${suffix}`).toBe(false);
   }
-  for (const url of ["/api/%74ables", "/api/tables.json", "/api/tables/extra", "/api/tables-extra",
+  for (const url of ["/arrive/extra", "/arrive.json", "/api/auth/external/start/extra", "/api/auth/external/arrive/extra", "/api/%74ables", "/api/tables.json", "/api/tables/extra", "/api/tables-extra",
     "/api/published/token", "/api/published/token/render", "/api/published/token/render/id/extra",
     "/api/published/token/widget-values/extra", "/api/published/token/tiles/layer/0/0/0",
     "/api/published/token/%72ender/id", "/api/auth/sign-out", "/api/auth/session", "/api/auth/entry",

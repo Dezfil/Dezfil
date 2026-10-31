@@ -1,6 +1,8 @@
 const ENTRY_METHODS: Readonly<Record<string, readonly string[]>> = {
   "/api/auth/entry": ["GET", "HEAD"], "/api/auth/setup": ["POST"],
   "/api/auth/sign-in": ["POST"], "/api/auth/redeem": ["POST"],
+  "/api/auth/external/start": ["POST"], "/api/auth/external/arrive": ["POST"],
+  "/arrive": ["GET", "HEAD"],
   "/setup": ["GET", "HEAD"], "/sign-in": ["GET", "HEAD"], "/accept": ["GET", "HEAD"],
 };
 export function isEntryRequest(pathname: string, method: string): boolean {
