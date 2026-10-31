@@ -395,12 +395,12 @@ describe("changing tabs", () => {
     expect(byId("limits-public")).not.toBeNull();
   });
 
-  it("waits for every first read of a tab: System shows once its configuration, assistant and health reads have landed", async () => {
+  it("waits for every first read of a tab: System shows once its configuration and health reads have landed", async () => {
     await open("/settings/account");
     closeGate(["/api/health"]);
     await change("/settings/system");
     await settle();
-    // The configuration and the assistant have answered; the health read has not.
+    // The configuration has answered; the health read has not.
     expect(shown().map(tabOf)).toEqual(["account"]);
     expect(slot("system")?.querySelector('[id="sys-assistant-status"]')).not.toBeNull();
     await openGate();
@@ -413,7 +413,7 @@ describe("changing tabs", () => {
 
   it("marks and scrolls to the row an address names only once its tab is shown", async () => {
     await open("/settings/account");
-    closeGate(["/api/assistant", "/api/health"]);
+    closeGate(["/api/health"]);
     await change("/settings/system", "#sys-version");
     await settle();
     // The row is drawn out of sight; nothing lands on it there.

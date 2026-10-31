@@ -110,8 +110,20 @@ export function runningFor(startedAt: string, now = Date.now()): string {
   return `Running for ${plural(Math.floor(hours / 24), "day")}`;
 }
 
-/** The assistant's status read: on with its provider, or off with the reason. */
-export type AssistantStatus = { readonly enabled: true; readonly provider: string } | { readonly enabled: false; readonly reason: string };
+/**
+ * The instance key as the configuration read reports it, for the operator: set
+ * with its provider, or not with what to do about it. A person's own key is theirs
+ * and says nothing here.
+ */
+export type InstanceAssistant = { readonly set: true; readonly provider: string } | { readonly set: false; readonly reason: string };
+export function instanceAssistant(read: InstanceRead): InstanceAssistant {
+  const provider = read.settings.aiProvider;
+  if (typeof provider?.value === "string") return { set: true, provider: provider.value };
+  const variables = [read.settings.anthropicApiKey?.environment, read.settings.openaiApiKey?.environment].filter(Boolean).join(" or ");
+  return { set: false, reason: provider?.invalidOverride
+    ? `${provider.environment} names a provider with no key set. Set ${variables} and restart to use one.`
+    : `No instance key is set. Set ${variables} and restart to use one.` };
+}
 
 /** The assistant's provider, by its name. */
 export function providerName(provider: string): string {

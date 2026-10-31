@@ -361,7 +361,7 @@ describe("where a hit lands", () => {
     const declared = settingsDeclarations({
       account: { id: "ada", name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as never,
       external: false, tokens, look: LOOK, instance: storedRead(STORED, FACTS), entry: null,
-      health: "ready", assistant: { enabled: false, reason: "No model credential is configured." }, palettes: PALETTES,
+      health: "ready", palettes: PALETTES,
     }, true);
     const tabs: SettingsTabId[] = ["account", "tokens", "assistant", "appearance", "general", "maps", "libraries", "workflows", "publishing", "data", "limits", "security", "system"];
     expect(Object.keys(declared).sort()).toEqual([...tabs].sort());

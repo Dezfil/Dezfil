@@ -19,14 +19,13 @@ vi.mock("next/link", () => ({
  * System: the Status card from the configuration read and the health
  * read the rail's dot uses, each part with its state and its Test, the
  * Storage card from the storage read with Clear all on the service
- * caches, the read-only Assistant card from the assistant's status read,
+ * caches, the read-only Assistant card from the configuration read,
  * and the Server settings table. The reads, the Tests and the Clear are
  * faked; nothing here reaches a server.
  */
 
 let resolved: Record<string, Resolution>;
 let health: number;
-let assistant: unknown;
 let failRead: boolean;
 let requests: string[];
 /** The parts block each configuration read answers with, the first read first; the last one repeats. */
@@ -49,7 +48,6 @@ beforeEach(() => {
   resolved = { dataDir: { value: "/data", source: "environment", locked: true } };
   health = 200; failRead = false; requests = []; partReads = [{}]; answers = {}; tested = [];
   storage = storageReadFixture(); calls = []; clearFails = false;
-  assistant = { enabled: true, provider: "anthropic", model: "claude-opus-5", models: [], catalogue: {}, stepBudget: 20, autoCheck: true };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     requests.push(url);
     calls.push({ method: init?.method ?? "GET", url });
@@ -72,7 +70,7 @@ beforeEach(() => {
       return Response.json(answers[part] ?? { part, result: "passed", milliseconds: 4 });
     }
     if (url === "/api/health") return health === 200 ? Response.json({ status: "ready" }) : Response.json({ status: "unready", reason: "Internal error." }, { status: 503 });
-    if (url === "/api/assistant") return Response.json(assistant);
+    if (url === "/api/assistant") return Response.json({ enabled: false, reason: "Add your own API key to use the assistant.", instanceKey: false });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   }));
   host = installDomHost();
@@ -202,20 +200,31 @@ describe("System", () => {
     expect(titles()).toEqual(["Status", "Storage", "Assistant", "Server settings"]);
   });
 
-  it("shows the assistant on with its provider as a chip, and no key, model or access choice", async () => {
+  it("speaks of the instance key alone: set with its provider as a chip, and no model or access choice", async () => {
+    resolved = { ...resolved, aiProvider: { value: "anthropic", source: "environment", locked: true } };
     await open();
     const assistantCard = card("Assistant");
-    expect(byId("sys-assistant-status").textContent).toBe("StatusOn");
+    expect(byId("sys-assistant-status").textContent).toBe("Instance keySet");
     expect(byId("sys-assistant-provider").textContent).toBe("ProviderAnthropic");
-    expect(assistantCard.textContent).not.toMatch(/claude-opus-5|key|Model/i);
+    expect(assistantCard.textContent).not.toMatch(/claude-opus-5|Model|your key/i);
     for (const control of ["input", "select", "button"]) expect(assistantCard.querySelectorAll(control)).toEqual([]);
   });
 
-  it("shows the assistant off with the reason the status read gives", async () => {
-    assistant = { enabled: false, reason: "No model credential is configured." };
+  it("says what to set where the instance has no key, naming the variables, and makes no per-person read", async () => {
+    resolved = { ...resolved, aiProvider: { value: null, source: "default", locked: false } };
+    const reads: string[] = [];
+    const answer = globalThis.fetch;
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) => { reads.push(url); return answer(url, init); });
     await open();
-    expect(byId("sys-assistant-status").textContent).toBe("StatusOffNo model credential is configured.");
+    expect(byId("sys-assistant-status").textContent).toBe("Instance keyNot setNo instance key is set. Set ANTHROPIC_API_KEY or OPENAI_API_KEY and restart to use one.");
     expect(byId("sys-assistant-provider").textContent).toBe("ProviderNone");
+    expect(reads).not.toContain("/api/assistant");
+  });
+
+  it("names the variable when it picks a provider with no key", async () => {
+    resolved = { ...resolved, aiProvider: { value: null, source: "default", locked: true, invalidOverride: true } };
+    await open();
+    expect(byId("sys-assistant-status").textContent).toContain("DEZFIL_AI_PROVIDER names a provider with no key set.");
   });
 
   it("lists the server's settings with the variable, the disclosed value and where it came from, linking a stored limit or service value to its row", async () => {

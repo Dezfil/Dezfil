@@ -234,7 +234,7 @@ async function reads(where: string, source: "stored" | "environment") {
     searched(`${where}: the template list (${as})`, templates.text, { origin });
   }
   const index = buildSearchIndex(settingsDeclarations({ account: ACCOUNT, tokens: null, look: null, instance: read.body as InstanceRead,
-    entry: null, health: null, assistant: null, palettes: null }, true), true);
+    entry: null, health: null, palettes: null }, true), true);
   searched(`${where}: the settings search`, index, { origin });
 }
 
@@ -714,7 +714,7 @@ describe("a service address carrying a key", () => {
       searched("the template catalogue's Test under a folder", tested.text);
       const read = await ask("GET", "/api/instance/settings");
       const index = buildSearchIndex(settingsDeclarations({ account: ACCOUNT, tokens: null, look: null, instance: read.body as InstanceRead,
-        entry: null, health: null, assistant: null, palettes: null }, true), true);
+        entry: null, health: null, palettes: null }, true), true);
       searched("the settings search under a folder", index);
     } finally { vi.stubEnv(VARIABLE.templatesCatalogueUrl, undefined); }
   });

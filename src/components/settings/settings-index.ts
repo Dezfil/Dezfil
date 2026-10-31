@@ -21,7 +21,7 @@ import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
 import { partMeta, partState, STATUS_ROWS } from "./status-table";
 import { FREE_ROW, STORAGE_CARD, STORAGE_ROWS } from "./storage-table";
-import { EXTERNAL_SIGN_IN_CARD, externalSignInRows, providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
+import { EXTERNAL_SIGN_IN_CARD, externalSignInRows, providerName, instanceAssistant, serverSettingsRows } from "./system-table";
 
 /**
  * What each tab declares to the search: its cards and rows, under the ids
@@ -54,7 +54,6 @@ export interface IndexSources {
   /** The entry read, for a member's General. */
   readonly entry: EntryValues | null;
   readonly health: "ready" | "unready" | null;
-  readonly assistant: AssistantStatus | null;
   /** The saved palettes, from the palette read, for an admin's Libraries. */
   readonly palettes: readonly CustomPalette[] | null;
 }
@@ -198,7 +197,8 @@ function limitsCards(read: InstanceRead): IndexCard[] {
   }) }));
 }
 
-function systemCards(read: InstanceRead, health: IndexSources["health"], assistant: AssistantStatus | null): IndexCard[] {
+function systemCards(read: InstanceRead, health: IndexSources["health"]): IndexCard[] {
+  const assistant = instanceAssistant(read);
   // Each part as its row shows it before a Test: what is known of it and its state.
   const parts = PARTS.map(part => {
     const row = STATUS_ROWS[part], meta = partMeta(part, read), state = partState(part, read.parts, health ?? "checking", null);
@@ -212,12 +212,12 @@ function systemCards(read: InstanceRead, health: IndexSources["health"], assista
     // Storage by its rows' names and words: its sizes are read when System
     // opens, never by a search.
     { ...STORAGE_CARD, rows: [...STORAGE_KINDS.map(kind => STORAGE_ROWS[kind]), FREE_ROW].map(({ id, label, keys }) => ({ id, label, keys })) },
-    { id: "system-assistant", title: "Assistant", keys: "status on off", rows: assistant ? [
-      { id: "sys-assistant-status", label: "Status", keys: "on off enabled disabled assistant",
-        value: assistant.enabled ? "On" : `Off ${assistant.reason}` },
+    { id: "system-assistant", title: "Assistant", keys: "instance key", rows: [
+      { id: "sys-assistant-status", label: "Instance key", keys: "set not set enabled disabled assistant credential variable",
+        value: assistant.set ? "Set" : `Not set ${assistant.reason}` },
       { id: "sys-assistant-provider", label: "Provider", keys: "provider anthropic openai",
-        value: assistant.enabled ? providerName(assistant.provider) : "None" },
-    ] : [] },
+        value: assistant.set ? providerName(assistant.provider) : "None" },
+    ] },
     ...(read.externalSignIn ? [{ id: EXTERNAL_SIGN_IN_CARD.id, title: EXTERNAL_SIGN_IN_CARD.title, keys: EXTERNAL_SIGN_IN_CARD.keys,
       rows: externalSignInRows(read).map(({ id, label, keys, value }) => ({ id, label, keys, value })) }] : []),
     { id: "system-settings", title: "Server settings", keys: "environment variables configuration effective",
@@ -260,7 +260,7 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
       publishing: [...ruleCards([PUBLIC_LINKS_CARD], sources.instance), ...defaultsCards("publishing", sources.instance)],
       data: dataCards(sources.instance),
       limits: limitsCards(sources.instance), security: [...ruleCards(SECURITY_CARDS, sources.instance), SIGN_OUT_CARD],
-      system: systemCards(sources.instance, sources.health, sources.assistant),
+      system: systemCards(sources.instance, sources.health),
     } : {}),
   };
 }

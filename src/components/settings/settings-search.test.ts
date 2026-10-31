@@ -29,7 +29,7 @@ function sources(overrides: Partial<IndexSources> = {}): IndexSources {
       geocoderUrl: { value: { set: true, origin: "https://geocoder.example" }, source: "environment", locked: true },
     }),
     entry: { instanceName: "Atlas North", signInMessage: "", lostPasswordContact: "the GIS team", landingPage: "projects" },
-    health: "ready", assistant: { enabled: false, reason: "No model credential is configured." },
+    health: "ready",
     palettes: [{ name: "coastal-greens", label: "Coastal greens", stops: [{ color: "#e5f5e0", position: 0 }, { color: "#006d2c", position: 1 }] }],
     ...overrides,
   };

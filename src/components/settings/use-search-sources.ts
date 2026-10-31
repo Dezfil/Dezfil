@@ -7,12 +7,11 @@ import { normalizeLook } from "@/lib/look";
 import { accountRequest } from "./api";
 import { INSTANCE_SETTINGS, type InstanceRead } from "./instance-read";
 import type { EntryValues, IndexSources } from "./settings-index";
-import type { AssistantStatus } from "./system-table";
 
 export type SearchSources = Partial<Omit<IndexSources, "account">>;
 
 /** The reads a search draws on beyond the account: the person's tokens
- * and look, the sign-in mode, and the configuration, health, assistant and palette reads
+ * and look, the sign-in mode, and the configuration, health and palette reads
  * for an admin or the entry read for a member. Never a read this person may not
  * make. */
 function readsFor(admin: boolean): [keyof SearchSources, () => Promise<unknown>][] {
@@ -26,7 +25,6 @@ function readsFor(admin: boolean): [keyof SearchSources, () => Promise<unknown>]
     external,
     ["instance", () => accountRequest<InstanceRead>(INSTANCE_SETTINGS)],
     ["health", () => fetch("/api/health", { cache: "no-store" }).then(response => response.ok ? "ready" : "unready", () => "unready")],
-    ["assistant", () => accountRequest<AssistantStatus>("/api/assistant")],
     ["palettes", () => accountRequest<{ custom: CustomPalette[] }>("/api/palettes").then(body => body.custom)],
   ];
 }
