@@ -68,6 +68,17 @@ const resets = () => container.querySelectorAll("[data-unit-slot]").map(button =
 const press = (label: string) => act(async () => { container.querySelectorAll("button").find(button => button.textContent === label)!.click(); });
 
 describe("the token lifetime select under its bound", () => {
+  it("takes the narrowed offer from a write's answer when the bound changed elsewhere", async () => {
+    await open({});
+    expect(options()).toEqual(["never", "30d", "90d", "1y"]);
+    writeStoredSettings({ tokenLifetimeMax: "30d" }, fixture.db);
+    await press("Admins only");
+    await settle();
+    expect(writes).toHaveLength(1);
+    expect(options()).toEqual(["30d"]);
+    expect(chosen()).toBe("30d");
+  });
+
   it("offers every choice with no bound", async () => {
     await open({});
     expect(options()).toEqual(["never", "30d", "90d", "1y"]);
