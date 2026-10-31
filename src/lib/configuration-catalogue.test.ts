@@ -84,7 +84,7 @@ const reported = (output: string) => output.split("\n").filter(line => /^[A-Z ]+
 it("checks the real tables against the catalogue and keeps the script wiring check", () => {
   const result = check();
   expect(result.status, result.output).toBe(0);
-  expect(result.output).toContain("74 deployment variables");
+  expect(result.output).toContain("78 deployment variables");
   expect(result.output).toContain("40 stored instance settings");
   expect(result.output).toContain("4 test-wiring names");
   expect(result.output).toContain("1 test seam");

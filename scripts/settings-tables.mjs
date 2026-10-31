@@ -237,7 +237,7 @@ export function drawnTabs(source) {
     ] },
     { tab: "Data & services", cards: [...data.dataTabCards().map(dataCard), own(security.CONNECTIONS_CARD)] },
     { tab: "Limits", cards: limits.LIMITS_CARDS.map((card) => ({ title: card.title,
-      rows: card.rows.filter((row) => row.kind === "setting").map((row) => single(row.label, row.key)) })) },
+      rows: card.rows.filter((row) => row.key !== undefined).map((row) => single(row.label, row.key)) })) },
   ];
 }
 
@@ -302,7 +302,7 @@ export function settingsTables(source) {
   }
   // The Limits tab's rows in its order, then the variables beside them; the
   // listed areas in their lists' order; the rest in the catalogue's.
-  const limitsOrder = LIMITS_CARDS.flatMap((card) => card.rows).filter((row) => row.kind === "setting").map((row) => row.key);
+  const limitsOrder = LIMITS_CARDS.flatMap((card) => card.rows).filter((row) => row.key !== undefined).map((row) => row.key);
   const rank = (area, definition) => {
     const list = area === "limits" ? limitsOrder : ORDER[area] ?? BY_AREA[area] ?? [];
     const at = list.indexOf(definition.key);
