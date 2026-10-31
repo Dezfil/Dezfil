@@ -107,7 +107,7 @@ describe("a published pair survives a reader and a failed publication", () => {
     failOn = (to) => path.basename(to) === "m.json";
     await expect(
       saveThemedThumbnail(scope(), "m", "light", "c1", Buffer.from("light-3")),
-    ).rejects.toThrow("injected");
+    ).rejects.toMatchObject({ code: "storage_exhausted", status: 507 });
     failOn = null;
 
     // The injection: the manifest switch was attempted and failed.
