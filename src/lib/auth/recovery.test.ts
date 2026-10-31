@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { open } from "@/lib/metadata/db";
 import { insertAccount, markOriginalAccount, listAccounts } from "@/lib/metadata/accounts";
 import { issueSession, authenticateSession, authenticateToken, createApiToken } from "./credentials";
@@ -26,8 +26,8 @@ function snapshot(id?: string) {
     `SELECT * FROM ${table}${id ? ` WHERE ${table === "accounts" ? "id" : "account_id"} = ?` : ""} ORDER BY id`,
   ).all(...(id ? [id] : [])));
 }
-beforeEach(() => { directory = mkdtempSync("/tmp/dezfil-admin-recovery-"); db = open(path.join(directory, "metadata.sqlite")); });
-afterEach(() => { if (db.open) db.close(); rmSync(directory, { recursive: true, force: true }); });
+beforeEach(() => { directory = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "admin-recovery-")); db = open(path.join(directory, "metadata.sqlite")); });
+afterEach(() => { vi.unstubAllEnvs(); if (db.open) db.close(); rmSync(directory, { recursive: true, force: true }); });
 
 it("atomically replaces links and revokes the target password, sessions and API/MCP tokens only", () => {
   const target = add("ada"); markOriginalAccount("ada", db);
@@ -99,4 +99,16 @@ it.each([[], ["--data-dir", "x"], ["--origin", origin], ["--wat", "x"], ["--help
   const output: string[] = [], errors: string[] = [];
   expect(runAdminRecover(args, { isTTY: true, write: value => output.push(value), error: value => errors.push(value) })).toBe(1);
   expect(output).toEqual([]); expect(errors.join("")).toMatch(/Usage:/);
+});
+
+it.each(["DEZFIL_EXTERNAL_SIGN_IN_KEYS", "DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE"])("refuses recovery with %s before opening any store", variable => {
+  add("ada"); markOriginalAccount("ada", db); const before = snapshot();
+  vi.stubEnv(variable, "configured");
+  const message = "This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.";
+  // A nonexistent store and invalid origin would otherwise fail first.
+  expect(() => recoverAdmin({ dataDir: path.join(directory, "absent"), origin: "invalid" })).toThrow(message);
+  const output: string[] = [], errors: string[] = [];
+  expect(runAdminRecover(["--data-dir", directory, "--origin", origin],
+    { isTTY: true, write: value => output.push(value), error: value => errors.push(value) })).toBe(1);
+  expect(errors).toEqual([message + "\n"]); expect(output).toEqual([]); expect(snapshot()).toEqual(before);
 });
