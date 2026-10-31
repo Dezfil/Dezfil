@@ -50,6 +50,7 @@ export const AUTH_SCHEMAS = {
   AccountSession: { type: "object", properties: { account: { $ref: "#/components/schemas/Account" } }, required: ["account"], additionalProperties: false },
   AuthEntry: { type: "object", properties: { instanceName: { type: ["string", "null"] }, signInMessage: { type: "string", maxLength: 280, default: "" }, lostPasswordContact: { type: "string", maxLength: 120, default: "" }, landingPage: { type: "string", enum: ["home", "projects", "maps", "workflows", "data", "sql"], default: "home" },
     passwordMin: { type: "integer", minimum: 8, maximum: 64, description: "The fewest characters a password chosen on these screens needs: 8 for the first account, then the instance's shortest password, which admins set from 8 to 64." },
+    externalSignIn: { type: "object", additionalProperties: false, required: ["enabled", "doorUrl"], properties: { enabled: { type: "boolean" }, doorUrl: { type: ["string", "null"], description: "The configured sign-in service address while enabled, otherwise null. Start through POST /api/auth/external/start to bind the browser." } } },
     setupRequired: { type: "boolean" }, prefillName: { type: "string" } }, required: ["instanceName", "signInMessage", "lostPasswordContact", "landingPage", "passwordMin", "setupRequired"], additionalProperties: false },
   SignedOut: { type: "object", properties: { signedOut: { type: "boolean", const: true } }, required: ["signedOut"], additionalProperties: false },
 };

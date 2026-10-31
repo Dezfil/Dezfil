@@ -94,7 +94,7 @@ beforeEach(async () => {
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ tables: [], total: 0, nextAfter: null })));
   admin = await createFirstAccount({ name: "Admin", email: "admin@example.test", password }, db);
   const link = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Member", email: "member@example.test" }, db);
-  member = await redeemSignInLink(link.secret, password, db);
+  member = await redeemSignInLink(link.secret!, password, db);
   token = createApiToken(authenticateSession(member.secret, db)!, "Member CLI", db);
   adminScope = accountScope(authenticateSession(admin.secret, db)!, db);
   memberScope = accountScope(authenticateSession(member.secret, db)!, db);
@@ -341,7 +341,7 @@ it.each([
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve map ownership and hidden-versus-missing errors", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db);
+  const other = await redeemSignInLink(invitation.secret!, password, db);
   const actors = [admin, member, other];
   const maps = actors.map(actor => createMap(accountScope(authenticateSession(actor.secret, db)!, db), `Private ${actor.account.name}`));
   const before = db.prepare("SELECT * FROM maps ORDER BY id").all();
@@ -375,7 +375,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve map ownership 
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve layer ownership and hidden-versus-missing errors", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db);
+  const other = await redeemSignInLink(invitation.secret!, password, db);
   const actors = [admin, member, other];
   const maps = actors.map(actor => createMap(accountScope(authenticateSession(actor.secret, db)!, db), `Private ${actor.account.name}`));
   const layers = maps.map((map, i) => {
@@ -415,7 +415,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve layer ownershi
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve history ownership and hidden-versus-missing errors", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db);
+  const other = await redeemSignInLink(invitation.secret!, password, db);
   const actors = [admin, member, other];
   const maps = actors.map(actor => createMap(accountScope(authenticateSession(actor.secret, db)!, db), `Private ${actor.account.name}`));
   const before = db.prepare("SELECT * FROM maps ORDER BY id").all();
@@ -449,7 +449,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve history owners
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve dataset ownership and absent-name errors", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db);
+  const other = await redeemSignInLink(invitation.secret!, password, db);
   const actors = [admin, member, other];
   for (const actor of actors) insertTable(accountScope(authenticateSession(actor.secret, db)!, db), {
     id: actor.account.id, name: actor.account.id, file: "tables/private.parquet", format: "csv", sourceFilename: "private.csv",
@@ -483,7 +483,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve dataset owners
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve connection ownership and absent-id errors", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db);
+  const other = await redeemSignInLink(invitation.secret!, password, db);
   const actors = [admin, member, other];
   for (const actor of actors) insertConnection(accountScope(authenticateSession(actor.secret, db)!, db), {
     id: actor.account.id, name: "Same connection name", host: "private.example.test", port: 5432,
@@ -515,7 +515,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve connection own
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve workflow parent and step ownership", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const other = await redeemSignInLink(invitation.secret!, password, db), actors = [admin, member, other];
   const recipes = actors.map(actor => createRecipe(accountScope(authenticateSession(actor.secret, db)!, db), "Private workflow", db));
   const steps = recipes.map(recipe => addStep(recipe.id, { operation: "sql_step", parameters: { name: "roads", sql: "SELECT 1" } }, db));
   const before = db.prepare("SELECT * FROM recipe_steps ORDER BY id").all();
@@ -544,7 +544,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve workflow paren
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve project ownership", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const other = await redeemSignInLink(invitation.secret!, password, db), actors = [admin, member, other];
   const projects = actors.map(actor => createProject(accountScope(authenticateSession(actor.secret, db)!, db), { name: "Private project" }, db));
   const before = db.prepare("SELECT * FROM projects ORDER BY id").all();
   for (let i = 0; i < actors.length; i++) {
@@ -573,7 +573,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve project owners
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve private job identity without outputs", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const other = await redeemSignInLink(invitation.secret!, password, db), actors = [admin, member, other];
   for (const actor of actors) insertJob(accountScope(authenticateSession(actor.secret, db)!, db), {
     id: actor.account.id, subjectKind: "client", subjectId: "shared-subject", operation: "sql_step", parameters: { private: actor.account.id }, state: "queued",
     errorCode: null, errorMessage: null, outputId: null, outputName: null, acceptedAt: "time", startedAt: null, finishedAt: null,
@@ -605,7 +605,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve private job id
 it.each(["cookie", "token"])("MCP and assistant %s calls preserve private workflow run identity without outputs", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const other = await redeemSignInLink(invitation.secret!, password, db), actors = [admin, member, other];
   const recipes = actors.map(actor => createRecipe(accountScope(authenticateSession(actor.secret, db)!, db), "Private workflow", db));
   const steps = recipes.map(recipe => addStep(recipe.id, { operation: "sql_step", parameters: { name: "roads", sql: "SELECT 1" } }, db));
   const runs = recipes.map((recipe, i) => createCascade(recipe.id, "single", [{ stepId: steps[i].id, ordinal: 0 }], db));
@@ -636,7 +636,7 @@ it.each(["cookie", "token"])("MCP and assistant %s calls preserve private workfl
 it.each(["cookie", "token"])("MCP and assistant %s calls cannot retrieve another account's retained image after source deletion", async mode => {
   actualApi();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const other = await redeemSignInLink(invitation.secret!, password, db), actors = [admin, member, other];
   const png = encodePng({ width: 1, height: 1, rgba: new Uint8Array([1, 2, 3, 255]) });
   for (const actor of actors) {
     const scope = accountScope(authenticateSession(actor.secret, db)!, db), map = createMap(scope, "Private image");
@@ -695,7 +695,7 @@ it.each(["cookie", "token"])("MCP and assistant %s SQL use independent same-name
   const { resetQueryInstance } = await import("@/lib/duckdb");
   resetQueryInstance();
   const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Other", email: "other@example.test" }, db);
-  const other = await redeemSignInLink(invitation.secret, password, db), actors = [admin, member, other];
+  const other = await redeemSignInLink(invitation.secret!, password, db), actors = [admin, member, other];
   try {
     for (const actor of actors) await materialize(accountScope(authenticateSession(actor.secret, db)!, db), {
       name: "roads", sql: `SELECT '${actor.account.id}' AS sentinel`, operation: "sql_step",

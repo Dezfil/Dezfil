@@ -21,7 +21,7 @@ beforeEach(async () => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db); resetMode();
   const signed = await createFirstAccount({ name: "Owner", email: "owner@example.test", password }, db); session = signed.secret;
   context = authenticateSession(session, db)!; createApiToken(context, "Existing", db);
-  invitation = inviteAccount(context, { name: "Invited", email: "invited@example.test" }, db).secret;
+  invitation = inviteAccount(context, { name: "Invited", email: "invited@example.test" }, db).secret!;
   recovery = db.transaction(() => issueLink(context.account.id, "reset", db, Date.now(), 900_000).secret).immediate();
   vi.stubEnv("DEZFIL_EXTERNAL_SIGN_IN_KEYS", generateKeyPairSync("ed25519").publicKey.export({ format: "jwk" }).x!);
   vi.stubEnv("DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE", "instance"); vi.stubEnv("DEZFIL_EXTERNAL_SIGN_IN_URL", "https://door.example/sign-in"); resetMode();

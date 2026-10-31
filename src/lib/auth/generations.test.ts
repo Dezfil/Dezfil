@@ -22,7 +22,7 @@ it.each([true, false])("invalidates both parents in both raise orderings (sign-o
   const first = await createFirstAccount({ name: "Owner", email: "owner@example.test", password }, db);
   const context = authenticateSession(first.secret, db)!;
   const invited = inviteAccount(context, { name: "Member", email: "member@example.test" }, db);
-  const member = await redeemSignInLink(invited.secret, password, db);
+  const member = await redeemSignInLink(invited.secret!, password, db);
   db.prepare("UPDATE accounts SET external_identity='bound-member',is_admin=1 WHERE id=?").run(member.account.id);
   db.prepare("INSERT INTO projects(id,name,owner_id,created_at,updated_at) VALUES('project','Shared',?,'time','time')").run(first.account.id);
   db.prepare("INSERT INTO project_people(project_id,account_id,role,added_at) VALUES('project',?,'editor','time')").run(member.account.id);

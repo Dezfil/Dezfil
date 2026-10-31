@@ -64,7 +64,7 @@ it.each(["image", "look"])("%s refuses a foreign cookie origin without rendering
 });
 it.each(["cookie", "token"])("%s identity reaches both render paths without entering image facts or retained state", async mode => {
   const invitation = inviteAccount(authenticateSession(signed.secret, db)!, { name: "Member", email: "member@example.test" }, db);
-  signed = await redeemSignInLink(invitation.secret, "field notebooks at dawn", db);
+  signed = await redeemSignInLink(invitation.secret!, "field notebooks at dawn", db);
   token = createApiToken(authenticateSession(signed.secret, db)!, "Member render", db);
   const headers = mode === "cookie" ? cookie() : bearer();
   for (const operation of ["image", "look"]) expect((await invoke(operation, headers)).status).toBe(404);

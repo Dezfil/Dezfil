@@ -1046,6 +1046,7 @@ export function buildOpenApiDocument() {
               },
             },
             rules: instanceRulesSchema(RULE_KEYS),
+            externalSignIn: { type: "object", additionalProperties: false, required: ["enabled"], properties: { enabled: { type: "boolean" } } },
             passwordMin: {
               type: "integer", minimum: 8, maximum: 64,
               description:

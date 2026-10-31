@@ -20,7 +20,7 @@ beforeEach(async () => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   admin = await createFirstAccount({ name: "Admin", email: "admin@example.test", password }, db);
   const link = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Member", email: "member@example.test" }, db);
-  member = await redeemSignInLink(link.secret, password, db);
+  member = await redeemSignInLink(link.secret!, password, db);
   token = createApiToken(authenticateSession(member.secret, db)!, "Member CLI", db);
 });
 afterEach(() => { vi.restoreAllMocks(); db.close(); });
@@ -91,7 +91,7 @@ it.each(["invite", "access", "reset"] as const)("refuses cross-site admin %s wit
 it.each(["invited", "active", "deactivated"] as const)("reserves a normalized duplicate email for a %s account", async status => {
   const context = authenticateSession(admin.secret, db)!;
   const pending = inviteAccount(context, { name: "Pending", email: "pending@example.test" }, db);
-  if (status !== "invited") await redeemSignInLink(pending.secret, password, db);
+  if (status !== "invited") await redeemSignInLink(pending.secret!, password, db);
   if (status === "deactivated") changeAccountAccess(context, pending.account.id, { status }, db);
   const before = state(), response = await invite(request("/api/users", "POST", { name: "Duplicate", email: " PENDING@EXAMPLE.TEST " }));
   expect(response.status).toBe(409); expect(state()).toEqual(before);

@@ -126,7 +126,7 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
       return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${note}`.trim() }];
     })),
   },
-  InstanceSettings: object({ settings: object(settings),
+  InstanceSettings: object({ externalSignIn: object({ enabled: { type: "boolean" }, keyCount: { type: "integer", minimum: 0 }, signOutGeneration: { type: "integer", minimum: 0 }, doorGeneration: { type: "integer", minimum: 0 } }), settings: object(settings),
     capacities: object({ geocodeRows: { type: "integer", minimum: 1 }, isochroneOrigins: { type: "integer", minimum: 0 } }),
     maxImageDimension: { type: "integer", const: EXPORT_MAX_DIMENSION }, version: { type: "string" }, startedAt: { type: "string", format: "date-time" },
     warnings: { type: "array", items: { type: "string" }, description: "Effective timeout relationship mismatches, including deployment overrides. These do not block unrelated edits." },
