@@ -1,3 +1,4 @@
+import { adoptDoorGeneration, readGenerations } from "@/lib/metadata/auth-generations";
 import type { Database } from "better-sqlite3";
 import { NextResponse } from "next/server";
 import { metadataDb } from "@/lib/metadata/db";
@@ -46,7 +47,7 @@ export async function arriveExternalSignIn(request: Request, db: Database = meta
       const budget = addressBudget(ingress!.source, db, at);
       let ticket, resolved;
       try {
-        const generation = db.prepare("SELECT door_generation FROM auth_generations WHERE singleton=1").get() as { door_generation: number };
+        const generation = readGenerations(db);
         ticket = verifyTicket(encoded, requestStart(request), generation.door_generation, at);
         if (db.prepare("SELECT 1 FROM auth_ticket_ids WHERE id = ?").get(ticket.jti)) throw invalidTicket();
         resolved = resolveTicketIdentity(ticket, db);
@@ -59,6 +60,7 @@ export async function arriveExternalSignIn(request: Request, db: Database = meta
       db.prepare(`UPDATE accounts SET external_identity=?,email=?,name=?,status='active',last_sign_in_at=?,updated_at=? WHERE id=?`)
         .run(ticket.sub, email, name, new Date(at).toISOString(), new Date(at).toISOString(), account.id);
       recordAddressAttempt(budget, false, db);
+      adoptDoorGeneration(ticket.door_generation, db);
       const session = issueSession(getAccount(account.id, db)!, db, at);
       db.prepare("INSERT INTO auth_ticket_ids (id, expires_at) VALUES (?, ?)").run(ticket.jti, ticket.exp * 1000);
       return { session };

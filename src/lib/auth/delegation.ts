@@ -1,3 +1,5 @@
+import { credentialIsCurrent } from "@/lib/metadata/auth-generations";
+import { outdatedToken } from "./generations";
 import { delegatedWorkKey } from "./account-deletion-work";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Database } from "better-sqlite3";
@@ -44,6 +46,7 @@ export function authenticateDelegation(secret: string, db: Database = metadataDb
   const account = parent && getAccount(parent.account_id, db);
   if (!parent || !account || account.id !== value.accountId || account.status !== "active" || parent.revoked_at !== null ||
       (session !== null && session.expires_at <= now)) return null;
+  if (!credentialIsCurrent(parent, db)) { if (token) throw outdatedToken(); return null; }
   // A delegation never outlives the token it was made from, and says why.
   if (token !== null && tokenExpired(token, now)) throw expiredToken();
   return { account, credential: { kind: value.kind, id: parent.id }, delegationExpiresAt: value.expiresAt, workKey: delegatedWorkKey(secret) };

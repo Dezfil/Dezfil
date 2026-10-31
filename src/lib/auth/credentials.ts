@@ -1,3 +1,5 @@
+import { credentialIsCurrent } from "@/lib/metadata/auth-generations";
+import { outdatedToken } from "./generations";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { sqliteBusy, withBusyTimeout } from "@/lib/metadata/busy";
@@ -50,7 +52,7 @@ export function inspectSession(secret: string | null, db: Database, now = Date.n
   return db.transaction(() => {
     const record = sessionByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
-    if (!record || !account || record.revoked_at !== null || record.expires_at <= now || account.status !== "active") return null;
+    if (!record || !account || record.revoked_at !== null || record.expires_at <= now || account.status !== "active" || !credentialIsCurrent(record, db)) return null;
     return { account, credential: { kind: "session" as const, id: record.id } };
   })();
 }
@@ -65,7 +67,7 @@ export function authenticateSession(secret: string | null, db: Database = metada
   return authenticateWithRenewal(db, renew => {
     const record = sessionByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
-    if (!record || !account || record.revoked_at !== null || record.expires_at <= now || account.status !== "active") return null;
+    if (!record || !account || record.revoked_at !== null || record.expires_at <= now || account.status !== "active" || !credentialIsCurrent(record, db)) return null;
     if (renew) db.prepare("UPDATE auth_sessions SET last_used_at = ?, expires_at = ? WHERE id = ?")
       .run(now, now + securitySettings(db).sessionMs, record.id);
     return { account, credential: { kind: "session" as const, id: record.id } };
@@ -92,6 +94,7 @@ export function authenticateToken(secret: string | null, db: Database = metadata
     const record = tokenByHash(secretHash(secret), db);
     const account = record && getAccount(record.account_id, db);
     if (!record || !account || record.revoked_at !== null || account.status !== "active") return null;
+    if (!credentialIsCurrent(record, db)) throw outdatedToken();
     if (tokenExpired(record, now)) throw expiredToken();
     if (renew) db.prepare("UPDATE auth_tokens SET last_used_at = ? WHERE id = ?").run(now, record.id);
     return { account, credential: { kind: "token" as const, id: record.id } };
@@ -112,6 +115,7 @@ export function requireCurrentActor(context: AuthContext | null, db: Database = 
       account.id !== context.account.id || (session !== null && session.expires_at <= now)) {
     throw refused();
   }
+  if (!credentialIsCurrent(record, db)) throw token ? outdatedToken() : refused();
   if (token !== null && tokenExpired(token, now)) throw expiredToken();
   return account;
 }

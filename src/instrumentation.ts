@@ -15,6 +15,8 @@ export async function register() {
     metadataDb();
     const { initializeExternalOwner } = await import("@/lib/auth/external-sign-in/owner");
     initializeExternalOwner();
+    const { initializeAuthGenerations } = await import("@/lib/auth/generations");
+    initializeAuthGenerations();
     const { discoverAccountDeletions } = await import("@/lib/auth/account-deletion-journal");
     discoverAccountDeletions();
     const { maintainCredentials } = await import("@/lib/auth/credential-maintenance");

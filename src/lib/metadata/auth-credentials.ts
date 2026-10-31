@@ -1,12 +1,13 @@
+import { readGenerations, type CredentialGenerations } from "./auth-generations";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "./db";
 
 /** Internal records. Public token reads use the explicit projection below. */
-export interface SessionRecord {
+export interface SessionRecord extends CredentialGenerations {
   id: string; secret_hash: string; account_id: string; created_at: number;
   expires_at: number; last_used_at: number; revoked_at: number | null;
 }
-export interface TokenRecord {
+export interface TokenRecord extends CredentialGenerations {
   id: string; account_id: string; name: string; secret_hash: string;
   created_at: number; last_used_at: number | null; revoked_at: number | null;
   /** Null: the token never expires. */
@@ -23,10 +24,10 @@ export interface ApiToken {
   expiresAt: string | null;
 }
 
-export function insertSession(row: SessionRecord, db: Database = metadataDb()): void {
-  db.prepare(`INSERT INTO auth_sessions
-    (id, secret_hash, account_id, created_at, expires_at, last_used_at, revoked_at)
-    VALUES (@id, @secret_hash, @account_id, @created_at, @expires_at, @last_used_at, @revoked_at)`).run(row);
+export function insertSession(row: Omit<SessionRecord, keyof CredentialGenerations>, db: Database = metadataDb()): void {
+  db.transaction(() => db.prepare(`INSERT INTO auth_sessions
+    (id, secret_hash, account_id, created_at, expires_at, last_used_at, revoked_at, sign_out_generation, door_generation)
+    VALUES (@id, @secret_hash, @account_id, @created_at, @expires_at, @last_used_at, @revoked_at, @sign_out_generation, @door_generation)`).run({ ...row, ...readGenerations(db) })).immediate();
 }
 
 export function sessionByHash(hash: string, db: Database = metadataDb()): SessionRecord | null {
@@ -45,12 +46,12 @@ export function revokeSessions(accountId: string, now: number, exceptId: string 
 }
 
 /** A row given no expiry never expires. */
-export function insertToken(row: Omit<TokenRecord, "expires_at"> & Partial<Pick<TokenRecord, "expires_at">>,
+export function insertToken(row: Omit<TokenRecord, "expires_at" | keyof CredentialGenerations> & Partial<Pick<TokenRecord, "expires_at">>,
   db: Database = metadataDb()): void {
-  db.prepare(`INSERT INTO auth_tokens
-    (id, account_id, name, secret_hash, created_at, last_used_at, revoked_at, expires_at)
-    VALUES (@id, @account_id, @name, @secret_hash, @created_at, @last_used_at, @revoked_at, @expires_at)`)
-    .run({ ...row, expires_at: row.expires_at ?? null });
+  db.transaction(() => db.prepare(`INSERT INTO auth_tokens
+    (id, account_id, name, secret_hash, created_at, last_used_at, revoked_at, expires_at, sign_out_generation, door_generation)
+    VALUES (@id, @account_id, @name, @secret_hash, @created_at, @last_used_at, @revoked_at, @expires_at, @sign_out_generation, @door_generation)`)
+    .run({ ...row, expires_at: row.expires_at ?? null, ...readGenerations(db) })).immediate();
 }
 
 export function tokenByHash(hash: string, db: Database = metadataDb()): TokenRecord | null {
