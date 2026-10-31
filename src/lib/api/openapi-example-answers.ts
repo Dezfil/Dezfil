@@ -425,6 +425,7 @@ export const MAPS_LISTED = [
 
 /** The values in effect on a new instance, its palettes trimmed to two of the twenty-three. */
 export const CONFIG = {
+  instanceLimits: { maps: { key: "mapsLimit", limit: 0, count: 0 }, projects: { key: "projectsLimit", limit: 0, count: 0 }, people: { key: "peopleLimit", limit: 0, count: 1 }, tokenLifetimeMax: "none" },
   externalSignIn: { enabled: false },
   basemapUrl: "https://tiles.openfreemap.org/styles/dark",
   basemapOverrideUrl: null,
@@ -528,6 +529,10 @@ export const CONFIG = {
 
 /** Every instance setting on a new instance run from a checkout with DEZFIL_DATA_DIR=/data and PORT=3000, one per line. */
 const NEW_INSTANCE_SETTINGS = {
+  mapsLimit: { key: "mapsLimit", environment: "DEZFIL_MAPS_LIMIT", label: "Maps on this instance", purpose: "Every map, including duplicates and template copies. Zero means no limit.", defaultValue: 0, unit: "maps", write: { kind: "integer", min: 0, max: 9007199254740991 }, parsing: "non-negative-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "0", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 0, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  projectsLimit: { key: "projectsLimit", environment: "DEZFIL_PROJECTS_LIMIT", label: "Projects on this instance", purpose: "Every project. Zero means no limit.", defaultValue: 0, unit: "projects", write: { kind: "integer", min: 0, max: 9007199254740991 }, parsing: "non-negative-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "0", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 0, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  peopleLimit: { key: "peopleLimit", environment: "DEZFIL_PEOPLE_LIMIT", label: "People on this instance", purpose: "Invited, active and deactivated accounts and unfinished deletions. Zero means no limit.", defaultValue: 0, unit: "people", write: { kind: "integer", min: 0, max: 9007199254740991 }, parsing: "non-negative-integer", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "0", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 0, source: "default", locked: false, invalidOverride: false, storedValue: null },
+  tokenLifetimeMax: { key: "tokenLifetimeMax", environment: "DEZFIL_TOKEN_LIFETIME_MAX", label: "Longest token lifetime", purpose: "The longest lifetime new tokens may take. None leaves the token rule unbounded.", defaultValue: "none", documentedDefault: "none", kind: "choice", scope: "instance", readBy: "admin", changedBy: "admin", environmentTiming: "restart", timing: "live", secret: false, editable: true, write: { kind: "choice", values: ["none", "30d", "90d", "1y"] }, value: "none", source: "default", locked: false, invalidOverride: false, storedValue: null },
   uploadMaxMb: { key: "uploadMaxMb", environment: "DEZFIL_UPLOAD_MAX_MB", label: "Largest upload", purpose: "Size cap for one uploaded file.", defaultValue: 5120, unit: "MB", write: { kind: "integer", min: 1, max: 102400 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "5120", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 5120, source: "default", locked: false, invalidOverride: false, storedValue: null },
   dataProcessingTimeoutS: { key: "dataProcessingTimeoutS", environment: "DEZFIL_DATA_PROCESSING_TIMEOUT_S", label: "Data processing time limit", purpose: "Time to receive one upload, and, counted apart, time for one data processing job, such as an import.", defaultValue: 3600, unit: "seconds", write: { kind: "integer", min: 60, max: 21600 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "3600", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 3600, source: "default", locked: false, invalidOverride: false, storedValue: null },
   remoteMaxMb: { key: "remoteMaxMb", environment: "DEZFIL_REMOTE_MAX_MB", label: "Largest link import", purpose: "Size cap for a URL or object-store import.", defaultValue: 2048, unit: "MB", write: { kind: "integer", min: 1, max: 102400 }, parsing: "positive", kind: "number", scope: "instance", readBy: "admin", changedBy: "admin", documentedDefault: "2048", environmentTiming: "restart", timing: "live", secret: false, editable: true, value: 2048, source: "default", locked: false, invalidOverride: false, storedValue: null },
@@ -649,6 +654,7 @@ const NEW_INSTANCE_SETTINGS = {
 
 /** The instance's settings, as an admin reads them on that instance. */
 export const INSTANCE_SETTINGS = {
+  instanceLimits: { maps: { key: "mapsLimit", limit: 0, count: 0 }, projects: { key: "projectsLimit", limit: 0, count: 0 }, people: { key: "peopleLimit", limit: 0, count: 1 }, tokenLifetimeMax: "none" },
   externalSignIn: { enabled: false, keyCount: 0, signOutGeneration: 0, doorGeneration: 0 },
   settings: NEW_INSTANCE_SETTINGS,
   capacities: { geocodeRows: 27, isochroneOrigins: 13 },

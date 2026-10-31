@@ -1,3 +1,4 @@
+import { readInstanceLimits } from "@/lib/instance-limit-read";
 import { externalSignIn } from "@/lib/auth/external-sign-in/config";
 import { readGenerations } from "@/lib/metadata/auth-generations";
 import type { Database } from "better-sqlite3";
@@ -54,7 +55,7 @@ export function readInstanceSettings(context: AuthContext, db: Database = metada
       }];
     }));
     const mode = externalSignIn(), generations = readGenerations(db);
-    return { externalSignIn: { enabled: mode.enabled, keyCount: mode.keys.length, signOutGeneration: generations.sign_out_generation, doorGeneration: generations.door_generation }, settings, capacities: { geocodeRows: maxBatchRows(budget), isochroneOrigins: maxIsochroneOrigins(budget) },
+    return { instanceLimits: readInstanceLimits(db), externalSignIn: { enabled: mode.enabled, keyCount: mode.keys.length, signOutGeneration: generations.sign_out_generation, doorGeneration: generations.door_generation }, settings, capacities: { geocodeRows: maxBatchRows(budget), isochroneOrigins: maxIsochroneOrigins(budget) },
       maxImageDimension: EXPORT_MAX_DIMENSION, version, startedAt, warnings: settingsWarnings(numbers.queryTimeoutS.value, numbers.operationTimeoutS.value),
       // Each part's state, read without starting anything.
       parts: readPartStates({ imagesAtOnce: numbers.exportRenderConcurrency.value, metadataFile: db.name }),

@@ -1,3 +1,4 @@
+import { INSTANCE_CREATION_LIMIT } from "./openapi-instance-limits";
 import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, editRevisionParam, conditionalMapRevisionParam, editRevisionResponses } from "./openapi-document-facts";
 import { FILING_DESTINATION } from "./openapi-project-access";
 import { resultAccess } from "./openapi-result-access";
@@ -57,7 +58,7 @@ export const MAP_COLLECTION_PATHS = {
     })),
     post: ownedCreationOp(mapAccess({
       summary: "Create a map",
-      description:
+      description: INSTANCE_CREATION_LIMIT +
         "Optionally filed into a project at birth: an " +
         "unknown project refuses and creates nothing. A new map takes " +
         "the instance's defaults for its basemap, starting view and " +
@@ -338,7 +339,7 @@ export const MAP_RESOURCE_PATHS = {
   "/api/maps/{id}/duplicate": {
     post: ownedCreationOp(mapAccess({
       summary: "Duplicate a map",
-      description:
+      description: INSTANCE_CREATION_LIMIT +
         "Full copy — viewport, basemap, note, legend, timeline dock, and " +
         "every layer under fresh ids — named \"<name> copy\", always an " +
         "unpublished draft. Edit history does not carry over.",

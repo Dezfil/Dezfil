@@ -1,3 +1,4 @@
+import { INSTANCE_LIMITS_SCHEMA, TOKEN_LIFETIME_BOUND_NOTE } from "./openapi-instance-limits";
 import { SETTING_CATALOGUE } from "@/lib/settings/catalogue";
 import { disclosedDefinition, refusesUserInformation, variableMayNameFolder } from "@/lib/settings/disclosure";
 import { isInstanceDefault } from "@/lib/settings/instance-defaults";
@@ -54,8 +55,12 @@ function valueSchema(definition: SettingDefinition): Record<string, unknown> {
 }
 
 const settings = Object.fromEntries(SETTING_CATALOGUE.filter(d => d.scope !== "account").map(definition => {
-  const fields = Object.fromEntries(Object.entries(disclosedDefinition(definition)).filter(([, value]) => value !== undefined)
+  const fields: Record<string, unknown> = Object.fromEntries(Object.entries(disclosedDefinition(definition)).filter(([, value]) => value !== undefined)
     .map(([key, value]) => [key, { const: value }]));
+  if (definition.key === "tokens.expiry") fields.write = { enum: [
+    { kind: "choice", values: ["never", "30d", "90d", "1y"] }, { kind: "choice", values: ["30d"] },
+    { kind: "choice", values: ["30d", "90d"] }, { kind: "choice", values: ["30d", "90d", "1y"] },
+  ] };
   return [definition.key, object({ ...fields, value: valueSchema(definition),
     source: { type: "string", enum: ["environment", "stored", "default"] }, locked: { type: "boolean" }, invalidOverride: { type: "boolean" },
     // An address is write-only: what was stored is never read back, only disclosed in value.
@@ -93,7 +98,7 @@ export function instanceRulesSchema(keys: readonly string[]) {
   const definitions = SETTING_CATALOGUE.filter(definition => keys.includes(definition.key));
   return {
     type: "object", additionalProperties: false, required: definitions.map(definition => definition.key),
-    description: "The rules every signed-in account follows, keyed and valued as PATCH /api/instance/settings takes them. Admins change them.",
+    description: "The rules every signed-in account follows, keyed and valued as PATCH /api/instance/settings takes them. Admins change them. " + TOKEN_LIFETIME_BOUND_NOTE,
     properties: Object.fromEntries(definitions.map(definition => [definition.key, {
       type: "string", enum: [...(definition.write as Extract<WriteConstraint, { kind: "choice" }>).values], description: definition.purpose,
     }])),
@@ -126,7 +131,7 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
       return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${note}`.trim() }];
     })),
   },
-  InstanceSettings: object({ externalSignIn: object({ enabled: { type: "boolean" }, keyCount: { type: "integer", minimum: 0 }, signOutGeneration: { type: "integer", minimum: 0 }, doorGeneration: { type: "integer", minimum: 0 } }), settings: object(settings),
+  InstanceSettings: object({ instanceLimits: INSTANCE_LIMITS_SCHEMA, externalSignIn: object({ enabled: { type: "boolean" }, keyCount: { type: "integer", minimum: 0 }, signOutGeneration: { type: "integer", minimum: 0 }, doorGeneration: { type: "integer", minimum: 0 } }), settings: object(settings),
     capacities: object({ geocodeRows: { type: "integer", minimum: 1 }, isochroneOrigins: { type: "integer", minimum: 0 } }),
     maxImageDimension: { type: "integer", const: EXPORT_MAX_DIMENSION }, version: { type: "string" }, startedAt: { type: "string", format: "date-time" },
     warnings: { type: "array", items: { type: "string" }, description: "Effective timeout relationship mismatches, including deployment overrides. These do not block unrelated edits." },
@@ -139,7 +144,7 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
 export const INSTANCE_SETTINGS_PATHS = {
   "/api/instance/settings": { get: { ...op({
     summary: "Read instance configuration",
-    description: "Requires a current admin account through a cookie session or bearer token, rechecked on every call. " +
+    description: TOKEN_LIFETIME_BOUND_NOTE + "Requires a current admin account through a cookie session or bearer token, rechecked on every call. " +
       "Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, " +
       "source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks " +
       "the setting even when invalid; invalid numeric overrides use the default without returning the override text. " +
@@ -171,7 +176,7 @@ export const INSTANCE_SETTINGS_PATHS = {
     responses: { "200": jsonOk("#/components/schemas/InstanceSettings"), "401": ERROR_RESPONSE, "403": ERROR_RESPONSE, "503": ERROR_RESPONSE },
   }), security: AUTH_SECURITY }, patch: { ...op({
     summary: "Change instance settings",
-    description: "Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. " +
+    description: TOKEN_LIFETIME_BOUND_NOTE + "Requires a current admin through cookie or bearer authentication, rechecked inside the write transaction on every call. " +
       "Cookie mutations require the same trusted Origin; an admin bearer token calls directly with no additional scope or approval step. " +
       "Responses, including refusals, are private, no-store. Submit only editable keys; omitted keys stay unchanged and null clears a stored value. " +
       "The complete body is validated against the committed configuration under one write lock. A refusal or failed commit changes nothing. " +

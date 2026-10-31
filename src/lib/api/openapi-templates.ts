@@ -1,3 +1,4 @@
+import { INSTANCE_CREATION_LIMIT } from "./openapi-instance-limits";
 import { CARD_PICTURES, CATALOGUE_REFUSALS, CATALOGUE_STATES } from "@/lib/templates/card";
 import { TEMPLATE_KINDS, TEMPLATE_STEPS_MAX, TEMPLATE_TAGS, TEMPLATE_THEMES } from "@/lib/templates/format";
 import { AUTH_SECURITY } from "./openapi-auth";
@@ -293,7 +294,7 @@ export const TEMPLATES_PATHS = {
   }), security: AUTH_SECURITY } },
   "/api/templates/{id}/copy": { post: { ...ownedCreationOp({
     summary: "Copy a template",
-    description: SIGNED_IN + "Cookie requests require the same trusted Origin; a bearer token calls directly. " +
+    description: INSTANCE_CREATION_LIMIT + SIGNED_IN + "Cookie requests require the same trusted Origin; a bearer token calls directly. " +
       "Makes a copy of one installed version of a template into a new project of the caller's, private under the ownership rules, all of it or " +
       "nothing: the version the body names, else the installed one. The copy is local and sends nothing: an installed version is copied whether the " +
       "catalogue still lists it or not, and with the catalogue off; a listed version that is not installed is refused with 409 template_not_installed, " +
