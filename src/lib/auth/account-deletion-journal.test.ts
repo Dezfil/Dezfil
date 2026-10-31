@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
+import { writeStoredSettings } from "@/lib/settings/store";
 import { getAccount } from "@/lib/metadata/accounts";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { GET as users } from "@/app/api/users/route";
@@ -40,6 +41,7 @@ it.each(corruptions)("isolates an unreadable deletion from Users, invitations an
   expect(body.deletions).toContainEqual(expect.objectContaining({ id: control, state: "pending", account: expect.objectContaining({ id: "control" }) }));
   expect(body.users.map((user: { id: string }) => user.id).sort()).toEqual(["admin", "other"]);
   expect(deletionReservesEmail("fresh@example.test")).toBe(false);
+  writeStoredSettings({ peopleLimit: 5 }, metadataDb());
   expect(inviteAccount(actor, { name: "Fresh", email: "fresh@example.test" }).account.email).toBe("fresh@example.test");
   expect(changeAccountAccess(actor, "other", { isAdmin: true }).isAdmin).toBe(true);
   expect(metadataDb().prepare("SELECT status,email FROM accounts WHERE id='target'").get()).toEqual({ status: "deleting", email: "target@example.test" });

@@ -20,7 +20,7 @@ const definitions = SETTING_CATALOGUE.filter(d => d.editable && d.environment &&
 const sources = productionSources(process.cwd());
 const inventory = consumptionInventory(definitions, sources);
 const matrix = Object.keys(numericConsumerProbes).sort().map(key => ({ key,
-  consumer: key.startsWith("public") ? "src/lib/publish/rate-limit.ts" : "src/lib/limits.ts",
+  consumer: ["mapsLimit", "projectsLimit", "peopleLimit"].includes(key) ? "src/lib/settings/instance-limit-values.ts" : key.startsWith("public") ? "src/lib/publish/rate-limit.ts" : "src/lib/limits.ts",
   observe: numericConsumerProbes[key],
 }));
 
@@ -42,8 +42,8 @@ afterEach(() => { resetQueryInstance(); resetLane(); resetRateLimits(); vi.useRe
 describe("editable numeric consumer matrix", () => {
   it("covers every editable deployment setting and every inventoried consumer", () => {
     coverage();
-    expect(inventory).toHaveLength(23);
-    expect(inventory.flatMap(row => row.consumers)).toHaveLength(23);
+    expect(inventory).toHaveLength(26);
+    expect(inventory.flatMap(row => row.consumers)).toHaveLength(26);
   });
   it("rejects an additional consumer with no observation in the matrix", () => {
     expect(() => coverage({ ...sources, "src/lib/extra-consumer.ts":

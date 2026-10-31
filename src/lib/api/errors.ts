@@ -56,6 +56,7 @@ export type ErrorCode =
   | "method_not_allowed"
   | "stale_revision"
   | "setting_locked"
+  | "instance_limit_reached"
   | "invalid_request"
   | "not_found"
   | "sql_rejected"

@@ -10,6 +10,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   invalid_ticket: "This sign-in ticket is invalid or expired. Start sign-in again.",
   external_sign_in_only: "This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.",
   picture_upload_retired: "Browser picture uploads are retired. Request a server picture with POST /api/maps/{id}/picture/refresh.",
+  instance_limit_reached: "This instance has reached a creation limit. The key, limit and count name the limit in force. Delete one, or raise the limit using the setting or locked variable named in the message. Nothing was created.",
   setting_locked: "An environment variable locks a submitted setting. No settings changed; change or remove the named variable and restart before editing this setting.",
   project_owner_cannot_leave: "The project's owner cannot leave. Transfer or delete the project instead.",
   method_not_allowed: "This method is not allowed for this path.",

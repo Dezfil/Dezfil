@@ -187,7 +187,7 @@ export function createMap(scope: AccountScope, name: string, projectId: string |
     if (projectId) fileMap(scope, map.id, projectId, undefined, { expectedRevision: documentFacts({ kind: "map", id: map.id }).editRevision });
   });
   return { ...map, ...documentFacts({ kind: "map", id: map.id }) };
-  })();
+  }).immediate();
   notifyPicture(created.id);
   return created;
 }
@@ -446,7 +446,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers & D
   const layers = listLayers(id);
   const now = new Date().toISOString();
   const newId = randomUUID();
-  recordDocumentBatch(scope, () => {
+  metadataDb().transaction(() => recordDocumentBatch(scope, () => {
     requireDuplicable(scope, id);
     const layerIds = new Map<string, string>();
     // The copy keeps its source's SQL home, whoever makes it.
@@ -517,7 +517,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers & D
     // source no longer is (found at review).
     const sourceProject = mapProjectId(id);
     if (sourceProject && mayFileInto(scope, sourceProject)) fileMap(scope, newId, sourceProject, undefined, { expectedRevision: documentFacts({ kind: "map", id: newId }).editRevision });
-  });
+  })).immediate();
   return ownMapWithLayers(scope, newId);
 }
 

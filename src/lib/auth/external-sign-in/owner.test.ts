@@ -16,6 +16,7 @@ beforeEach(() => {
 });
 afterEach(() => { db.close(); vi.restoreAllMocks(); vi.unstubAllEnvs(); Reflect.deleteProperty(process, Symbol.for("dezfil.external-sign-in")); });
 it("creates exactly one invited admin bound to the configured identity, with no credential", () => {
+  vi.stubEnv("DEZFIL_PEOPLE_LIMIT", "1");
   initializeExternalOwner(db, owner);
   const rows = db.prepare("SELECT * FROM accounts").all();
   expect(rows).toHaveLength(1);

@@ -1,3 +1,4 @@
+import { admitInstanceCreation } from "@/lib/instance-limit-admission";
 import { recordDocumentCreation } from "./revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { Database } from "better-sqlite3";
@@ -180,6 +181,7 @@ export interface MapWithLayers extends MapRecord {
 export function insertMap(scope: AccountScope, m: MapRecord, db: Database = metadataDb(), home?: string): void {
   const ownerId = requireAccountScope(scope, db);
   db.transaction(() => {
+  admitInstanceCreation("maps", db);
   db.prepare(
     `INSERT INTO maps
        (owner_id, home_account_id, id, name, view_lng, view_lat, view_zoom, view_pitch, view_bearing, basemap, custom_basemap, basemap_layers, note, legend_corner, legend_order, timeline, widgets, widgets_published, publish_token, published_at, created_at, updated_at)
@@ -209,7 +211,7 @@ export function insertMap(scope: AccountScope, m: MapRecord, db: Database = meta
     m.updatedAt,
   );
   recordDocumentCreation(scope, { kind: "map", id: m.id }, db);
-  })();
+  }).immediate();
 }
 
 /** The account whose space a map's SQL is evaluated in; null only for a

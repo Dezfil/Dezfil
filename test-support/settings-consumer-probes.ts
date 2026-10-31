@@ -26,6 +26,13 @@ import { admitPublishedRequest } from "../src/lib/publish/source-admission";
 import { socketRequest } from "../src/lib/assistant/testing/socket-request";
 import { SERVICE_NUMBER_PROBES } from "./service-number-probes";
 
+import { instanceCounts } from "../src/lib/instance-limits";
+import { createMap } from "../src/lib/map-service";
+import { createProject } from "../src/lib/metadata/owned-projects";
+import { inviteAccount } from "../src/lib/auth/admin";
+import { getAccount } from "../src/lib/metadata/accounts";
+import { authenticateSession, issueSession } from "../src/lib/auth/credentials";
+
 type Probe = (db: Database) => Promise<void> | void;
 const payload = Buffer.alloc(1.5 * 1024 ** 2, 32);
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
@@ -77,6 +84,22 @@ function publicWindow(key: "publicRateLimit" | "publicTileRateLimit"): Probe {
 /** Independent boundary observations, keyed by the consumption inventory's setting.
  * These call operations, never the resolver or the configuration read. */
 export const numericConsumerProbes: Record<string, Probe> = {
+  ...Object.fromEntries((["maps", "projects", "people"] as const).map(kind => [`${kind}Limit`, (db: Database) => {
+    const scope = testAccountScope(db, "admin");
+    const context = authenticateSession(issueSession(getAccount("admin", db)!, db, Date.now()).secret, db)!;
+    let serial = 0;
+    const create = () => kind === "maps" ? createMap(scope, "Count boundary") : kind === "projects"
+      ? createProject(scope, { name: "Count boundary" }, db)
+      : inviteAccount(context, { name: "Count boundary", email: `boundary${serial++}@example.test` }, db);
+    const limit = instanceCounts(db)[kind] + 1;
+    writeStoredSettings({ [`${kind}Limit`]: limit }, db);
+    create();
+    expect(create).toThrow(expect.objectContaining({ code: "instance_limit_reached", extra: { key: `${kind}Limit`, limit, count: limit } }));
+    writeStoredSettings({ [`${kind}Limit`]: limit + 1 }, db);
+    create();
+    writeStoredSettings({ [`${kind}Limit`]: 0 }, db);
+    create();
+  }])),
   dataProcessingTimeoutS: async db => {
     // An upload captures the stored limit, and admitted processing is refused at it.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });

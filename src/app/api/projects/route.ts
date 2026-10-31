@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         members,
       });
       return { created, revisions: documentResults(scope, memberDocuments(members ?? {})) };
-    })();
+    }).immediate();
     return NextResponse.json({ ...await projectOverview(scope, created.id), revisions }, {
       status: 201,
       headers: { Location: `/api/projects/${created.id}` },

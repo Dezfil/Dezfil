@@ -32,6 +32,7 @@ async function race(actions: object[]): Promise<Result[]> {
     import { existsSync } from 'node:fs';
     import { pathToFileURL, fileURLToPath } from 'node:url';
     registerHooks({ resolve(specifier, context, next) {
+      if (specifier === "next/server") return next("next/server.js", context);
       if (specifier.startsWith('@/')) return next(pathToFileURL(${JSON.stringify(root)} + '/src/' + specifier.slice(2) + '.ts').href, context);
       if (specifier.startsWith('.') && context.parentURL?.startsWith('file:')) {
         const candidate = new URL(specifier + '.ts', context.parentURL);
