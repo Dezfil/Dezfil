@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { externalFixture } from "../../../test-support/external-sign-in";
+import { generationTurn, type TurnHold } from "../../../test-support/assistant-generation-turn";
+import { setLookDriverForTests } from "@/lib/export/map-look";
 import { arriveExternalSignIn } from "./external-sign-in/arrival";
 import { getAccountByEmail } from "@/lib/metadata/accounts";
 import { authenticateSession, createApiToken, issueSession } from "./credentials";
@@ -20,11 +22,19 @@ import { buildTools } from "@/lib/tools/tools";
 import { testClient } from "@/lib/mcp/test-client";
 let f: ReturnType<typeof externalFixture>;
 beforeEach(async () => { f = externalFixture(); expect((await arriveExternalSignIn(f.request())).status).toBe(200); });
-afterEach(() => { pendingActions.resetForTests(); assistantRuns.resetForTests(); vi.unstubAllGlobals(); f.close(); });
+afterEach(() => { setLookDriverForTests(null); pendingActions.resetForTests(); assistantRuns.resetForTests(); vi.unstubAllGlobals(); f.close(); });
 function currentOwner() {
   const session = issueSession(getAccountByEmail("owner@example.test", f.db)!, f.db, Date.now());
   const context = authenticateSession(session.secret, f.db)!;
   return { context, scope: accountScope(context, f.db), secret: session.secret };
+}
+async function raise(kind: string) {
+  if (kind === "admin") signEveryoneOut(currentOwner().context, f.db);
+  else if (kind === "ticket") expect((await arriveExternalSignIn(f.request(f.ticket({ door_generation: 5 })))).status).toBe(200);
+  else {
+    vi.stubEnv("DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR", "5"); Reflect.deleteProperty(process, Symbol.for("dezfil.external-sign-in"));
+    expect(initializeAuthGenerations(f.db)).toBe(true);
+  }
 }
 function held(scope: AccountScope) {
   const hold = Promise.withResolvers<ProviderReply>(), entered = Promise.withResolvers<void>(); let signal: AbortSignal | undefined;
@@ -48,12 +58,7 @@ it.each(["admin", "ticket", "floor"])("a %s raise ends all older running and par
   const cleaned: string[] = []; retainAssistantCleanup(owner.scope.accountId, () => cleaned.push("old"));
   let fresh: ReturnType<typeof held> | undefined;
   try {
-    if (kind === "admin") signEveryoneOut(owner.context, f.db);
-    else if (kind === "ticket") expect((await arriveExternalSignIn(f.request(f.ticket({ door_generation: 5 })))).status).toBe(200);
-    else {
-      vi.stubEnv("DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR", "5"); Reflect.deleteProperty(process, Symbol.for("dezfil.external-sign-in"));
-      expect(initializeAuthGenerations(f.db)).toBe(true);
-    }
+    await raise(kind);
     for (const turn of old) { expect(turn.signal?.aborted).toBe(true); expect(await turn.result).toHaveProperty("error"); }
     expect(pendingActions.peek(member, parked)).toBeUndefined(); expect(dispose).toHaveBeenCalledOnce();
     const next = currentOwner(); fresh = held(next.scope); await fresh.entered;
@@ -68,6 +73,38 @@ it.each(["admin", "ticket", "floor"])("a %s raise ends all older running and par
     fresh.release(); expect(await fresh.result).toHaveProperty("text", expect.stringContaining("finished")); detachNew();
   } finally { old.forEach(turn => turn.release()); fresh?.release(); await new Promise(resolve => setImmediate(resolve)); }
 });
+const holds: TurnHold[] = ["tool continuation", "before automatic check", "automatic render", "image continuation"];
+for (const holdAt of holds) for (const actor of ["owner", "member"]) {
+  it.each(["admin", "ticket", "floor"])(`a %s raise interrupts ${actor}'s ${holdAt} without another provider request`, async kind => {
+    if (actor === "member") testAccountScope(f.db, "member");
+    const account = getAccountByEmail(`${actor}@example.test`, f.db)!;
+    const context = () => authenticateSession(issueSession(account, f.db, Date.now()).secret, f.db)!;
+    const old = generationTurn(context(), holdAt);
+    try {
+      await old.entered;
+      expect(old.outcomes[0]).toEqual([expect.objectContaining({ toolCallId: "edit", isError: false })]);
+      const requests = holdAt === "image continuation" ? ["send", "tools", "image"] : ["send", "tools"];
+      expect(old.requests).toEqual(requests);
+      const renders = ["automatic render", "image continuation"].includes(holdAt) ? 1 : 0;
+      expect(old.render).toHaveBeenCalledTimes(renders);
+      await raise(kind);
+      expect(old.signal.aborted).toBe(true);
+      expect(old.signals.every(signal => signal?.aborted)).toBe(true);
+      expect(await old.result).toHaveProperty("error");
+      // Let uncooperative old work return, then await the producer, not just its closed stream.
+      old.release(); await old.completed;
+      expect(old.requests).toEqual(requests); expect(old.render).toHaveBeenCalledTimes(renders);
+      if (holdAt === "automatic render") expect(old.kill).toHaveBeenCalled();
+      expect(assistantRuns.read(old.scope, old.id).state).toBe("interrupted");
+      const fresh = generationTurn(context());
+      expect(await fresh.result).toHaveProperty("text", expect.stringContaining("finished"));
+      await fresh.completed;
+      expect(fresh.signal.aborted).toBe(false); expect(fresh.requests).toEqual(["send", "tools", "image"]);
+      expect(fresh.events).toContainEqual(expect.objectContaining({ type: "tool_result", automatic: true, ok: true }));
+      expect(fresh.events).toContainEqual({ type: "done", reason: "end" });
+    } finally { old.release(); await old.completed; }
+  });
+}
 it("exposes the confirmed destructive tool and calls the admin operation through its generated schema", async () => {
   const owner = currentOwner(), token = createApiToken(owner.context, "Admin", f.db);
   const tool = buildTools().find(tool => tool.name === "sign_everyone_out")!;
