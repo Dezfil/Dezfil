@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { randomBytes } from "node:crypto";
 import { mkdir, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -130,6 +131,7 @@ async function publishInTurn(write: PictureWrite, writes: AccountWrites, picture
   const version = picture ? await placeCandidate(write.subjectId, picture) : null;
   const previous = await commit(write, version, authorize, db).catch(async (error: unknown) => {
     if (version) await discardCandidate(write.subjectId, version);
+    rethrowStorageFailure(error);
     throw error;
   });
   writes.published = write.sequence;
@@ -175,6 +177,7 @@ async function placeCandidate(accountId: string, picture: Buffer): Promise<strin
     await removeAccountFile(partialPath(accountId, version));
   } catch (error) {
     await discardCandidate(accountId, version);
+    rethrowStorageFailure(error);
     throw error;
   }
   return version;
@@ -204,6 +207,7 @@ export async function sweepProfilePictures(db: Database = metadataDb()): Promise
     { id: string; picture_version: string }[]).map((row) => pictureName(row.id, row.picture_version)));
   const names = await readdir(folder()).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return [] as string[];
+    rethrowStorageFailure(error);
     throw error;
   });
   const leftovers = names.filter((name) => !current.has(name));

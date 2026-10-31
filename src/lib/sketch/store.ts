@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { currentTrustedOperation } from "@/lib/trusted-operation";
@@ -138,6 +139,7 @@ async function writeArtifact(
   } catch (error) {
     currentTrustedOperation()?.refuseIfFinal(error);
     await removeAccountFile(abs, { force: true });
+    rethrowStorageFailure(error);
     throw error;
   }
 }
@@ -297,7 +299,8 @@ export async function createSketch(
     } catch (error) {
       currentTrustedOperation()?.refuseIfFinal(error);
       await removeAccountFile(abs, { force: true });
-      throw error;
+      rethrowStorageFailure(error);
+    throw error;
     }
   });
 }
@@ -374,7 +377,8 @@ async function mutate(
       } catch (error) {
         currentTrustedOperation()?.refuseIfFinal(error);
         await removeAccountFile(abs, { force: true });
-        throw error;
+        rethrowStorageFailure(error);
+    throw error;
       }
     });
   });

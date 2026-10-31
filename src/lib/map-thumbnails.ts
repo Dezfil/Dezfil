@@ -1,18 +1,16 @@
-import { admitResourceWork, bindDeletionDatasets, inDeletionWork, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
+import { writeAtomically } from "./pictures/write-atomically";
+import { admitResourceWork, bindDeletionDatasets, inDeletionWork } from "@/lib/auth/account-deletion-work";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireMap, requireOwnMap } from "./map-access";
 import { servableTo } from "./artifact-access";
 import { metadataDb } from "@/lib/metadata/db";
-import { renameSync } from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import {
-  mkdir,
   readdir,
   readFile,
   rm,
   stat,
-  writeFile,
 } from "node:fs/promises";
 import { dataDir } from "@/lib/config";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
@@ -194,22 +192,6 @@ const readRecipe = (raw: unknown): number | undefined => (Number.isInteger(raw) 
 const otherTheme = (theme: ThumbnailTheme): ThumbnailTheme =>
   theme === "light" ? "dark" : "light";
 
-/** Write whole, then rename into place: a reader never sees a partial file. */
-async function writeAtomically(target: string, bytes: Uint8Array | string, authorize: () => void, published?: () => void) {
-  await mkdir(path.dirname(target), { recursive: true });
-  authorize();
-  const temp = `${target}.${randomBytes(6).toString("hex")}.tmp`;
-  try {
-    await writeFile(temp, bytes);
-    // Authorization and publication share one event-loop turn.
-    authorize();
-    renameSync(temp, target);
-    published?.();
-  } catch (error) {
-    await observeDeletionCleanup(() => rm(temp, { force: true }));
-    throw error;
-  }
-}
 
 async function exists(file: string): Promise<boolean> {
   try {

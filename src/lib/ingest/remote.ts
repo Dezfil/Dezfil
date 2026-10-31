@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { settingRemedy } from "@/lib/settings/remedy";
@@ -147,7 +148,8 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, 
     await pipeline(response.body, counter, createWriteStream(tmpPath), { signal: currentTrustedOperation()?.signal });
   } catch (error) {
     currentTrustedOperation()?.assertCanCommit();
-    if (isTrustedOperationRefusal(error)) throw error;
+    rethrowStorageFailure(error);
+      if (isTrustedOperationRefusal(error)) throw error;
     throw new ApiError(
       "remote_fetch_failed",
       `The download from ${shown} was interrupted${
@@ -167,7 +169,8 @@ async function ensureObjectStoreSupport(
   try {
     await conn.run(`INSTALL ${extension}; LOAD ${extension};`);
   } catch (error) {
-    if (isTrustedOperationRefusal(error)) throw error;
+    rethrowStorageFailure(error);
+      if (isTrustedOperationRefusal(error)) throw error;
     throw new ApiError(
       "remote_fetch_failed",
       `Reading ${scheme}// URLs needs the DuckDB ${extension} extension, which could not be loaded${
@@ -185,6 +188,7 @@ async function ensureObjectStoreSupport(
         `CREATE SECRET IF NOT EXISTS dezfil_s3 (TYPE s3, PROVIDER credential_chain)`,
       );
     } catch (error) {
+      rethrowStorageFailure(error);
       if (isTrustedOperationRefusal(error)) throw error;
       /* Aws extension unavailable — anonymous access still works */
     }
@@ -193,6 +197,7 @@ async function ensureObjectStoreSupport(
 
 /** Map a DuckDB read failure on a remote source to an honest error. */
 function mapObjectStoreError(url: string, error: unknown): never {
+  rethrowStorageFailure(error);
   const message = error instanceof Error ? error.message : String(error);
   if (isTrustedOperationRefusal(error) && (!(error instanceof ApiError) || error.code !== "malformed_file")) throw error;
   if (

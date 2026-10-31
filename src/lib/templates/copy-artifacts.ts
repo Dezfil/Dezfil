@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
@@ -49,6 +50,7 @@ export async function copyDatasetFile(accountId: string, folder: string, member:
     return { id, file };
   } catch (error) {
     await removeAccountFile(target, { force: true });
+    rethrowStorageFailure(error);
     throw error;
   }
 }

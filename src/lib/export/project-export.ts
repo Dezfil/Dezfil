@@ -1,3 +1,4 @@
+import { isStorageExhausted, storageExhausted, rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { ownedArchive } from "./owned-archive";
@@ -272,6 +273,7 @@ async function assembleProjectExportWork(
         // Addressed by identity: never a same-named dataset of the caller's.
         converted = await exportTable(scope, t.id, effective);
       } catch (e) {
+        rethrowStorageFailure(e);
         if (e instanceof AuthError || isTrustedOperationRefusal(e)) throw e;
         throw new ApiError(
           "export_failed",
@@ -299,7 +301,7 @@ async function assembleProjectExportWork(
     operation.assertCanCommit();
     return { path: staged, filename: `${base}.zip`, size };
   } catch (e) {
-    const refusal = isTrustedOperationRefusal(e) || e instanceof AuthError ? e : new ApiError(
+    const refusal = isStorageExhausted(e) ? storageExhausted() : isTrustedOperationRefusal(e) || e instanceof AuthError ? e : new ApiError(
       "export_failed",
       `The archive could not be assembled: ${e instanceof Error ? e.message : "unknown failure"}`,
       500,

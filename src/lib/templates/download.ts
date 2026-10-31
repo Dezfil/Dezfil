@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { sharedTrustedWork } from "@/lib/trusted-shared";
@@ -111,7 +112,8 @@ async function land(body: Readable, file: string, declared: number): Promise<{ s
       done(null, chunk);
     },
   });
-  await pipeline(body, count, createWriteStream(file, { flags: "wx" }), { signal: currentTrustedOperation()?.signal });
+  try { await pipeline(body, count, createWriteStream(file, { flags: "wx" }), { signal: currentTrustedOperation()?.signal }); }
+  catch (error) { rethrowStorageFailure(error); throw error; }
   return { size, sha256: hash.digest("hex") };
 }
 

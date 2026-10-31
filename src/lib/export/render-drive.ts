@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { trackRenderWork } from "./render-work";
 import { AuthError } from "@/lib/auth/errors";
@@ -284,6 +285,7 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
         throw error;
       });
     } catch (error) {
+      rethrowStorageFailure(error);
       if (drive.signal?.aborted) throw new EvaluationCancelled();
       if (timedOut || Date.now() >= deadline) throw renderTimeout(budget);
       if (error instanceof ApiError || error instanceof AuthError || error instanceof EvaluationCancelled) throw error;
@@ -330,6 +332,7 @@ export async function driveRender(drive: RenderDrive): Promise<RenderImageResult
       ...(outcome.encoded ? { encoded: outcome.encoded } : {}),
     };
   } catch (error) {
+      rethrowStorageFailure(error);
     if (error instanceof AuthError || error instanceof ApiError || error instanceof EvaluationCancelled) {
       throw error;
     }

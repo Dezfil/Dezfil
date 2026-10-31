@@ -1,3 +1,4 @@
+import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { ApiError } from "@/lib/api/errors";
 import { storageMessage } from "./storage-state";
 
@@ -20,5 +21,7 @@ export function storageExhausted(): ApiError {
 export function rethrowStorageFailure(error: unknown): void {
   if (isStorageExhausted(error)) throw storageExhausted();
   const code = (error as NodeJS.ErrnoException | null)?.code;
-  if (code === "EACCES" || code === "EPERM" || code === "EROFS" || code === "EIO") throw error;
+  if (code === "EACCES" || code === "EPERM" || code === "EROFS" || code === "EIO") {
+    throw new ApiError("internal", ERROR_CATALOGUE.internal, 500);
+  }
 }

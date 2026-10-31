@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { copyFileWork } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -180,6 +181,7 @@ async function exportLayerResultWork(
              TO '${target}' WITH (${options})`,
           );
         } catch (error) {
+          rethrowStorageFailure(error);
           if (error instanceof ApiError) throw error;
           if (isOutOfMemory(error)) throw error;
           throw sqlError(error);
@@ -267,6 +269,7 @@ async function exportQueryResultWork(
              TO '${target}' WITH (${options})`,
           );
         } catch (error) {
+          rethrowStorageFailure(error);
           if (error instanceof ApiError) throw error;
           if (isOutOfMemory(error)) throw error;
           throw sqlError(error);
@@ -303,7 +306,8 @@ async function describe(
       }[]
     ).map((c) => ({ name: c.column_name, type: c.column_type }));
   } catch (error) {
-    if (error instanceof ApiError) throw error;
+    rethrowStorageFailure(error);
+          if (error instanceof ApiError) throw error;
     if (isOutOfMemory(error)) throw error;
     throw sqlError(error);
   }

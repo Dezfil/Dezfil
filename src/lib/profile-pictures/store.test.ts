@@ -333,3 +333,14 @@ describe("the start-up sweep", () => {
     expect(await sweepProfilePictures()).toBe(0);
   });
 });
+
+it.each([['ENOSPC', 507, 'storage_exhausted'], ['EACCES', 500, 'internal']] as const)("preserves the previous picture after a partial %s write", async (code, status, answer) => {
+  await set("target", "one");
+  const previous = version("target");
+  faults.write = target => { writeFileSync(target, "partial"); throw Object.assign(new Error("destination refused"), { code }); };
+  await expect(set("target", "two")).rejects.toMatchObject({ code: answer, status });
+  expect(version("target")).toBe(previous);
+  expect(stored()).toEqual([file("target")]);
+  expect(records()).toEqual([`profile-pictures/${file("target")}`]);
+  expect(readFileSync(path.join(folder(), file("target")), "utf8")).toBe("one");
+});

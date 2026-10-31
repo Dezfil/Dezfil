@@ -4,6 +4,8 @@ import type { ErrorCode } from "./errors";
  * error's code appears in the API documentation). Single source, rendered
  * into the docs and the OpenAPI description. */
 export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
+  storage_full: "This instance's storage is full. The message gives free and total space. Delete datasets or maps you no longer need, or ask an admin to free space. Work was refused before writing.",
+  storage_exhausted: "The volume refused a write for want of space. The message gives free and total space. Delete datasets or maps you no longer need, or ask an admin to free space. A writing operation may have changed state; read it before retrying.",
   already_signed_in: "Sign out of the current account before signing in through the sign-in service.",
   account_not_invited: "There is no account for this email on this instance. Ask its admin for an invitation.",
   token_outdated: "This token was made before everyone was signed out and no longer works. Create a new one.",
