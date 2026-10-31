@@ -4,7 +4,7 @@
 
 ## account-connection
 
-The client reads DEZFIL_API_TOKEN from its environment and sends it as an Authorization bearer. Calls use that account's current permissions. An authentication_required response means the client needs a current account token; forbidden means the account lacks the required permission. Credential configuration belongs to the client transport, outside tool arguments and task messages.
+The client reads DEZFIL_API_TOKEN from its environment and sends it as an Authorization bearer. Calls use that account's current permissions. An authentication_required response means the client needs a current account token; forbidden means the account lacks the required permission. A token_outdated response means everyone was signed out or the door generation advanced; sign in again and create a new API token. External sign-in tickets are browser arrivals, never API or MCP credentials. In that mode invitations return only the account, without a link, and password operations return external_sign_in_only. The confirmed sign_everyone_out tool ends every account's sessions, tokens and older assistant work, including the caller's. Credential configuration belongs to the client transport, outside tool arguments and task messages.
 
 ## ownership-and-sharing
 

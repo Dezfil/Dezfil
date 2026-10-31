@@ -896,6 +896,7 @@ export function buildOpenApiDocument() {
               properties: {
                 code: { type: "string", enum: Object.keys(ERROR_CATALOGUE) },
                 message: { type: "string" },
+                account: { $ref: "#/components/schemas/Account", description: "The current browser account on an already_signed_in arrival refusal." },
                 retryAfter: { type: "integer", minimum: 1, description: "Seconds before retry after a login limit or temporary authentication capacity refusal." },
                 retryAt: { type: "string", format: "date-time", description: "When a login limit permits another attempt." },
                 rule: { type: "string", enum: [...WHO_MAY_RULES], description: "The instance rule that refused a rule_refused request, keyed as PATCH /api/instance/settings takes it." },

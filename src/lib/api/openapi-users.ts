@@ -1,4 +1,4 @@
-import { AUTH_SECURITY } from "./openapi-auth";
+import { AUTH_SECURITY, EXTERNAL_PASSWORD_REFUSAL } from "./openapi-auth";
 import { ERROR_RESPONSE, jsonOk, op, pathParam } from "./openapi-helpers";
 import { LOCAL_ADD, LOCAL_READ, LOCAL_REPLACE } from "./operation-mcp";
 import { READ_ONLY, resource, writes } from "./operation-metadata";
@@ -28,7 +28,7 @@ export const USERS_PATHS = {
     parameters: [pathParam("id", "The account to change.")],
     requestBody: body({ isAdmin: { type: "boolean" }, status: { type: "string", enum: ["active", "deactivated"] } }, [], { anyOf: [{ required: ["isAdmin"] }, { required: ["status"] }] }),
     responses: { "200": jsonOk("#/components/schemas/AccountSession"), ...errors, "404": ERROR_RESPONSE } }), security: AUTH_SECURITY } },
-  "/api/users/{id}/sign-in-link": { post: { ...op({ summary: "Issue a new sign-in link", description: privacy + "Returns a one-time signInUrl expiring after the instance's link lifetime, security.linkDays, seven days by default; the link keeps the lifetime it was issued with. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
+  "/api/users/{id}/sign-in-link": { post: { ...op({ summary: "Issue a new sign-in link", description: EXTERNAL_PASSWORD_REFUSAL + privacy + "Returns a one-time signInUrl expiring after the instance's link lifetime, security.linkDays, seven days by default; the link keeps the lifetime it was issued with. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
     tag: "Accounts", tool: "issue_user_sign_in_link", effects: writes(resource("accounts", "id")), mcp: LOCAL_REPLACE,
     display: { verb: "Issued a sign-in link for {subject}", subject: { resource: "accounts", argument: "id" } }, confirm: true,
     confirmation: { target: "Issue a new sign-in link for {target}?", consequence: "The current password and earlier links will stop working. Browser sessions will end; API tokens stay valid.", subject },

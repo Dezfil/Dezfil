@@ -144,7 +144,7 @@ export const INSTANCE_SETTINGS_PATHS = {
       "source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks " +
       "the setting even when invalid; invalid numeric overrides use the default without returning the override text. " +
       "Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. " +
-      "Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. " +
+      "externalSignIn reports the frozen mode, accepted public-key count, signOutGeneration and doorGeneration. Public key material is never returned. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. " +
       "Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. " +
       "A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's " +
       "encryption key no longer opens it; its storedValue is always null. The satellite tile template in effect, stored or set by DEZFIL_SATELLITE_URL, " +
