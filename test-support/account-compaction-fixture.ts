@@ -36,6 +36,9 @@ export function compactionFixture() {
     (id === "target" ? target : control).push(envelope);
     db.prepare(`INSERT INTO pg_connections (id,name,host,port,database,username,password_encrypted,created_at,owner_id)
       VALUES (?, 'same connection', 'localhost', 5432, 'gis', 'user', ?, 'time', ?)`).run(id, envelope, id);
+    const keyEnvelope = `${envelope}-assistant-key`;
+    (id === "target" ? target : control).push(keyEnvelope);
+    db.prepare("INSERT INTO assistant_keys VALUES (?, 'openai', ?, 'f00d', 1)").run(id, keyEnvelope);
   }
   return { db, directory, file, target, control, formerImmediately, scan,
     erase() {

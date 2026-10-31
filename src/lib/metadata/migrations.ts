@@ -1,3 +1,4 @@
+import { ASSISTANT_KEYS_MIGRATION } from "./migrations-assistant-keys";
 import { EXTERNAL_SIGN_IN_MIGRATION } from "./migrations-external-sign-in";
 import { DATASET_CONNECTION_MIGRATIONS } from "./migrations-datasets-connections";
 import { OWNERSHIP_MIGRATION, CONNECTION_NAMES_MIGRATION, DATASET_NAMES_MIGRATION } from "./migrations-ownership";
@@ -562,4 +563,5 @@ export const MIGRATIONS: string[] = [
   // new picture lands.
   `ALTER TABLE map_pictures ADD COLUMN retired INTEGER NOT NULL DEFAULT 0;`,
   EXTERNAL_SIGN_IN_MIGRATION,
+  ASSISTANT_KEYS_MIGRATION,
 ];

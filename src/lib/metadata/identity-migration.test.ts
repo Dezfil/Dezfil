@@ -17,7 +17,7 @@ let directory: string, file: string, db: Database.Database;
  * identity migration left it, every other byte included. */
 const LATER_CREDENTIAL_COLUMNS = /, (?:expires_at INTEGER, )?sign_out_generation INTEGER NOT NULL DEFAULT 0, door_generation INTEGER NOT NULL DEFAULT 0\)$/;
 const LATER_COLUMNS: Record<string, string[]> = { auth_tokens: ["expires_at", "sign_out_generation", "door_generation"], auth_sessions: ["sign_out_generation", "door_generation"], accounts: ["picture_version", "external_identity"] };
-const LATER_TABLES = new Set(["basemap_styles", "map_pictures", "auth_generations", "auth_ticket_ids"]);
+const LATER_TABLES = new Set(["basemap_styles", "map_pictures", "auth_generations", "auth_ticket_ids", "assistant_keys"]);
 function schema() {
   return (db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE NOT (type = 'table' AND name = 'accounts') ORDER BY type, name").all() as
     { type: string; name: string; tbl_name: string; sql: string | null }[])
