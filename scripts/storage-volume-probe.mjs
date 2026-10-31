@@ -150,7 +150,8 @@ try {
   assert.equal((await api('GET', `/api/users/deletions/${deletion.id}`)).status, 404);
   report.push({ check: 'account compaction', status: 'confirmed', before: pending.state, after: completed.state });
   openDb();
-  assert.equal(db.prepare('SELECT id FROM accounts WHERE id=?').get(target.id), undefined);
+  // A signed-in account leaves a row that keeps its name reserved and holds nothing personal.
+  assert.deepEqual({ ...db.prepare('SELECT status, name, email, password_hash, is_admin FROM accounts WHERE id=?').get(target.id) }, { status: 'deleted', name: null, email: null, password_hash: null, is_admin: null });
   await upload('storage_after');
   await until(render, value => value.tiles?.state === 'ready', 'Tile failure remained sticky after capacity returned');
   const transitions = lines(mark('storage-log.ndjson')).map(row => /^\[storage\] (full|available):/.exec(row.message)?.[1]).filter(Boolean);
