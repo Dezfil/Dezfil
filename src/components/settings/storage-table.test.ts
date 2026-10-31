@@ -70,6 +70,7 @@ describe("the Storage rows' words", () => {
     expect(after.kinds.service_caches).toEqual({ bytes: 0, files: 0, finished: true });
     expect(after.total).toEqual({ bytes: read.total.bytes - read.kinds.service_caches.bytes, files: read.total.files - 120, finished: false });
     expect(after.disk).toEqual(read.disk);
+    expect(after.state).toEqual(read.state);
     for (const kind of STORAGE_KINDS.filter(kind => kind !== "service_caches")) expect(after.kinds[kind], kind).toEqual(read.kinds[kind]);
     // An unfinished count of the caches is gone with them.
     const unfinished = storageReadFixture({ service_caches: { bytes: 6 * MIB, files: 9, finished: false } });

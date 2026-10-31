@@ -1,3 +1,5 @@
+import { admitStorageWrite } from "@/lib/system/storage-admission";
+import { assertStorageWritersOpen } from "@/lib/system/storage-fence";
 import type { AccountActor } from "@/lib/account-actor";
 import { accountActors } from "@/lib/metadata/account-actors";
 import { readDocumentRevision, requireDocumentRevision } from "@/lib/metadata/revisions";
@@ -215,6 +217,7 @@ function readStartedRun(scope: AccountScope, started: StartedRun): StartedRun {
 }
 
 export function recordUnderLock(scope: AccountScope, recipeId: string, kind: CascadeKind, members: MemberIdentity[], expectedRevision: unknown): StartedRun {
+  assertStorageWritersOpen(); admitStorageWrite();
   const db = metadataDb();
   return db.transaction(() => {
     authorizedSteps(scope, { recipeId, members: members.map(member => member.stepId) });

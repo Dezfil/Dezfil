@@ -19,7 +19,7 @@ export const IMPORT_PATHS = {
         "tables' provenance, so the import can be re-run with the " +
         "refresh operation.",
       tag: "Tables",
-      tool: "import_table_from_url", mcp: REMOTE_ADD,
+      storage: "write", tool: "import_table_from_url", mcp: REMOTE_ADD,
       display: {"verb": "Imported a file from a URL"},
       effects: writes(resource("tables", "", ["id", "tables.*.id"]), resource("projects")),
       requestBody: {
@@ -80,7 +80,7 @@ export const IMPORT_PATHS = {
         'states of Germany = {theme: "divisions", level: "region", ' +
         'scope: {type: "country", code: "DE"}}.',
       tag: "Tables",
-      tool: "import_table_from_overture", mcp: REMOTE_ADD,
+      storage: "write", tool: "import_table_from_overture", mcp: REMOTE_ADD,
       display: {"verb": "Imported Overture data as {subject}", "subject": {"resource": "tables", "result": "id", "name": ["name"]}},
       effects: writes(resource("tables", "", "id"), resource("projects")),
       requestBody: {
@@ -564,7 +564,7 @@ export const IMPORT_PATHS = {
         "Identical queries within the cache window do not re-hit the " +
         "endpoint.",
       tag: "Tables",
-      tool: "import_table_from_osm", mcp: REMOTE_ADD,
+      storage: "write", tool: "import_table_from_osm", mcp: REMOTE_ADD,
       display: {"verb": "Imported OpenStreetMap data"},
       effects: writes(resource("tables", "", "tables.*.id"), resource("projects")),
       requestBody: {

@@ -1,3 +1,4 @@
+import { STORAGE_STATE_SCHEMA } from "./openapi-storage";
 import { PARTS, PART_FAILURES } from "@/lib/system/part-test-answer";
 import { STORAGE_KINDS } from "@/lib/system/storage-answer";
 import { AUTH_SECURITY } from "./openapi-auth";
@@ -49,6 +50,7 @@ const storageUse = (what: string) => ({
 export const INSTANCE_SYSTEM_SCHEMAS = {
   StorageRead: {
     ...object({
+      state: STORAGE_STATE_SCHEMA,
       kinds: object({
         tables: storageUse("Dataset files the metadata registers."),
         tile_archives: storageUse("Tile archives with a tile record, and what they were built from."),
@@ -58,7 +60,7 @@ export const INSTANCE_SYSTEM_SCHEMAS = {
         templates: storageUse("Downloaded templates, and the copies of an installed template's data the query engine reads, a file with two names counted once."),
         metadata_database: storageUse("The metadata database and its journal files."),
         leftover_files: storageUse("What the next restart's sweeps would remove: upload, download and tile scratch, staged project exports with their ownership records, table files no dataset or installed template uses, archives no layer uses and their evidence, unfinished thumbnail writes, pictures that are no one's current picture with their ownership records. It includes work in progress."),
-        other: storageUse("Everything else in the data folder, such as the key file and the server's records."),
+        other: storageUse("Everything else in the data folder, including the recovery reserve, key file and server records."),
       }),
       total: storageUse("What the data folder holds: every kind together."),
       disk: { description: "Free and total bytes on the data folder's volume, or null when the system would not say within the read's 10 seconds.",
@@ -81,7 +83,7 @@ export const INSTANCE_SYSTEM_SCHEMAS = {
 export const INSTANCE_SYSTEM_PATHS = {
   "/api/instance/storage": { get: { ...op({
     summary: "Read how the data folder is used",
-    description: "Requires a current admin through cookie or bearer authentication, rechecked on every call. " +
+    description: "Includes the current uncached full-storage state and fixed 512 MB threshold, with free and total bytes rounded to whole MB. The fixed 64 MB reserve appears under Other; only recovery writes draw on it. File counts and the disk reading still use the walk cache described below. Requires a current admin through cookie or bearer authentication, rechecked on every call. " +
       "A cookie request must show it comes from this instance's own page, by an Origin that is this instance's, Sec-Fetch-Site same-origin or the " +
       "X-Dezfil-Account header its pages send; one with none of them, or with another origin's Origin or a cross-site or same-site Sec-Fetch-Site, " +
       "is refused. An admin bearer token calls directly. Responses, including refusals, are private, no-store. " +

@@ -1,3 +1,4 @@
+import { roundedStorageState } from "@/lib/system/storage-state";
 import { readInstanceLimits } from "@/lib/instance-limit-read";
 import { externalSignIn } from "@/lib/auth/external-sign-in/config";
 import { NextResponse } from "next/server";
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
     requireRequestAuth(request);
     const security = securitySettings();
     return privateResponse(NextResponse.json({
+      storage: roundedStorageState(),
       instanceLimits: readInstanceLimits(),
       externalSignIn: { enabled: externalSignIn().enabled },
       basemapUrl: basemapUrl(),

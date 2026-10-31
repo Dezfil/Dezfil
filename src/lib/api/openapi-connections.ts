@@ -391,7 +391,7 @@ export const CONNECTION_PATHS = {
         "parameters, so refresh honours them. Live federation is " +
         "deliberately not offered.",
       tag: "Tables",
-      tool: "import_table_from_postgis", mcp: REMOTE_ADD,
+      storage: "write", tool: "import_table_from_postgis", mcp: REMOTE_ADD,
       display: {"verb": "Imported a PostGIS table as {subject}", "subject": {"resource": "tables", "result": "id", "name": ["name"]}},
       effects: writes(resource("tables", "", "id"), resource("connections", "connectionId"), resource("projects")),
       requestBody: {

@@ -1,3 +1,5 @@
+import { admitStorageWrite } from "@/lib/system/storage-admission";
+import { assertStorageWritersOpen } from "@/lib/system/storage-fence";
 import { NextResponse } from "next/server";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { requireMapFor } from "@/lib/map-access";
@@ -7,6 +9,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const scope = requireRequestScope(request), { id } = await params;
     requireMapFor(scope, id, "edit");
+    assertStorageWritersOpen(); admitStorageWrite();
     if (!activePictureService()) startPictures();
     const state = await activePictureService()!.refresh(id).catch(error => {
       // An owner-work refusal is not a failure of the Editor's credential.

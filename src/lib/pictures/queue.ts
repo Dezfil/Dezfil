@@ -1,3 +1,6 @@
+import { isStorageExhausted } from "@/lib/system/storage-errors";
+import { readStorageState } from "@/lib/system/storage-state";
+import { storageWritersState } from "@/lib/system/storage-fence";
 import { EvaluationCancelled } from "@/lib/api/errors";
 import type { Database } from "better-sqlite3";
 import { listPictureStates, settlePicture, type PictureState } from "./state";
@@ -19,6 +22,7 @@ export class PictureQueue {
   private running = new Map<string, Promise<void>>();
   constructor(private readonly options: PictureQueueOptions) {}
   tick(): void {
+    if (readStorageState().full || storageWritersState().fenced) return;
     const o = this.options, now = o.now();
     for (const state of listPictureStates(o.db)) {
       if ((state.state === "current" || state.state === "unsupported") || this.running.has(state.mapId)) continue;
@@ -35,6 +39,11 @@ export class PictureQueue {
       const active = o.db.prepare("SELECT 1 FROM maps m JOIN accounts a ON a.id = m.owner_id WHERE m.id = ? AND a.status = 'active'").get(state.mapId);
       if (!active) continue;
       const work = o.run(state).catch(error => {
+        if (isStorageExhausted(error) || (error && typeof error === "object" && "code" in error && error.code === "storage_full")) {
+          try { settlePicture(state.mapId, state.requestedGeneration, { state: "waiting", nextAttemptAt: o.now() + 30_000 }, o.db); }
+          catch (failure) { if (!isStorageExhausted(failure)) throw failure; }
+          return;
+        }
         if (error instanceof EvaluationCancelled) {
           settlePicture(state.mapId, state.requestedGeneration, { state: "waiting", nextAttemptAt: o.now() }, o.db);
           return;

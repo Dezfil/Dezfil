@@ -12,7 +12,7 @@ const result = { "200": jsonOk("#/components/schemas/AccountDeletionStatus", "De
   "202": jsonOk("#/components/schemas/AccountDeletionStatus", "Deletion is pending or needs retry; erasure is unfinished."), ...errors };
 export const DELETE_USER_OPERATION = { ...op({ summary: "Delete a user", description: privacy + hostLimits +
   "First deactivate an ever-active target separately and call preview_user_deletion. Submit confirm: true, the opaque confirmation and the exact current email for an ever-active account. A never-redeemed invitation requires explicit confirmation but no email; it is removed wholly and frees its SQL name. No private content read is granted. Missing confirmation returns invalid_request; self_change_refused takes precedence over account_not_deactivated. Acceptance rechecks eligibility and the owned inventory in the same transaction; a stale eligible preview returns deletion_changed without effects. A repeated acceptance returns the same unfinished identifier and state without restarting cleanup. After completion, this target and the completed deletion identifier return not_found.",
-  tag: "Accounts", tool: "delete_user", effects, mcp: LOCAL_DELETE, confirm: true,
+  tag: "Accounts", storage: "recovery", tool: "delete_user", effects, mcp: LOCAL_DELETE, confirm: true,
   display: { verb: "Requested account deletion" },
   confirmation: { target: "Delete this account and its work?", consequence,
     subject: { path: "/api/users", argument: "id", name: "name", collection: "users", identity: "id" } },
@@ -34,7 +34,7 @@ export const USER_DELETION_PATHS = {
     parameters: [pathParam("id", "The accepted deletion identifier, not an account id.")], responses: { "200": jsonOk("#/components/schemas/AccountDeletionProgress"), ...errors } }), security: AUTH_SECURITY } },
   "/api/users/deletions/{id}/finish": { post: { ...op({ summary: "Finish deleting a user", description: privacy + hostLimits +
     "Resumes the accepted deletion, including after restart, without changing its identifier or repeating completed dissolution. Concurrent requests join the same work. An unreadable record returns 409 deletion_unreadable without changing any files. Completed identifiers return 404 not_found.",
-    tag: "Accounts", tool: "finish_user_deletion", effects, mcp: LOCAL_DELETE, confirm: true, display: { verb: "Continued account deletion" },
+    tag: "Accounts", storage: "recovery", tool: "finish_user_deletion", effects, mcp: LOCAL_DELETE, confirm: true, display: { verb: "Continued account deletion" },
     confirmation: { target: "Finish deleting this account?", consequence, subject: { path: "/api/users", argument: "id", name: "account.name", collection: "deletions", identity: "id" } },
     parameters: [pathParam("id", "The accepted deletion identifier, not an account id.")], responses: result }), security: AUTH_SECURITY } },
 };

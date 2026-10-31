@@ -65,7 +65,7 @@ export const SKETCH_PATHS = {
         "qualified with the drawer's SQL name when that home is someone " +
         "else's.",
       tag: "Sketches",
-      tool: "create_sketch", mcp: LOCAL_ADD,
+      storage: "write", tool: "create_sketch", mcp: LOCAL_ADD,
       display: {"verb": "Started a sketch on the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
       effects: writes(resource("tables", "", "tableId"), resource("layers", "", "layerId"), resource("maps", "id")),
       parameters: [pathParam("id", "Map id."), editRevisionParam],
@@ -172,7 +172,7 @@ export const SKETCH_PATHS = {
         "map's role grants; anyone else who reaches it is refused with " +
         "forbidden.",
       tag: "Sketches",
-      tool: "append_sketch_feature", mcp: LOCAL_ADD,
+      storage: "write", tool: "append_sketch_feature", mcp: LOCAL_ADD,
       display: {"verb": "Added a feature to the sketch {subject}", "subject": {"resource": "tables", "argument": "name"}},
       effects: writes(resource("tables", "name")),
       parameters: [pathParam("name", "Sketch table name.")],
@@ -222,7 +222,7 @@ export const SKETCH_PATHS = {
         "moved ring passes the same structural gate as a fresh commit. " +
         "Only the sketch's drawer moves a vertex.",
       tag: "Sketches",
-      tool: "move_sketch_vertex", mcp: LOCAL_REPLACE,
+      storage: "write", tool: "move_sketch_vertex", mcp: LOCAL_REPLACE,
       display: {"verb": "Moved a vertex of the sketch {subject}", "subject": {"resource": "tables", "argument": "name"}},
       effects: writes(resource("tables", "name")),
       parameters: [
@@ -267,7 +267,7 @@ export const SKETCH_PATHS = {
         "and its layer in place. Only the sketch's drawer deletes a " +
         "feature.",
       tag: "Sketches",
-      tool: "delete_sketch_feature", mcp: LOCAL_DELETE,
+      storage: "write", tool: "delete_sketch_feature", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted a feature of the sketch {subject}", "subject": {"resource": "tables", "argument": "name"}},
       effects: writes(resource("tables", "name")),
       parameters: [

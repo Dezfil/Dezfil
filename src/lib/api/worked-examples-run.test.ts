@@ -235,6 +235,9 @@ function readOn(doc: Description): RunWith {
 function asCut(doc: Description, key: string, example: unknown, actual: unknown, ran: RunWith): unknown {
   const shown = example as Record<string, unknown>, answer = structuredClone(actual) as Record<string, unknown>;
   if (key === "GET /api/config") {
+    // Capacity varies by host; compare the disclosed shape and fixed threshold.
+    expect(answer.storage).toMatchObject({ full: expect.any(Boolean), free: expect.any(Number), total: expect.any(Number), threshold: 536870912 });
+    answer.storage = shown.storage;
     // Its palettes are trimmed to the ones it shows.
     const names = (shown.palettes as { name: string }[]).map((palette) => palette.name);
     answer.palettes = names.map((name) => (answer.palettes as { name: string }[]).find((palette) => palette.name === name));

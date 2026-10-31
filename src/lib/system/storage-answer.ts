@@ -21,10 +21,19 @@ export interface StorageUse {
 }
 
 export interface StorageRead {
+  readonly state: StorageState;
   readonly kinds: Readonly<Record<StorageKind, StorageUse>>;
   /** What the data folder holds: every kind together. */
   readonly total: StorageUse;
   /** Free and total bytes on the data folder's volume, or null when the
    * system would not say. */
   readonly disk: { readonly free: number; readonly total: number } | null;
+}
+
+/** The uncached volume state. Public capacities are whole MB, in bytes. */
+export interface StorageState {
+  readonly full: boolean;
+  readonly free: number;
+  readonly total: number;
+  readonly threshold: number;
 }

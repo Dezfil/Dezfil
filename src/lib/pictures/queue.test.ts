@@ -81,3 +81,16 @@ it("a lane interruption requeues immediately without spending a failed attempt",
   queue.tick(); await queue.drain();
   expect(getPictureState(map, f.db)).toMatchObject({ state: "waiting", attemptCount: 2, nextAttemptAt: 5000 });
 });
+
+it("storage failures never spend failed attempts or retire the previous picture", async () => {
+  const map = "target-in-target";
+  requestPicture(map, "drawing", 0, false, f.db);
+  settlePicture(map, 1, { attemptCount: 2, publishedGeneration: 1 }, f.db);
+  let now = 5000, retired = 0;
+  const queue = new PictureQueue({ db: f.db, now: () => now, available: () => true, building: () => false, capacity: () => 1,
+    run: async () => { throw Object.assign(new Error("storage is full"), { code: "storage_exhausted" }); },
+    failed: () => { retired++; } });
+  for (let i = 0; i < 4; i++) { queue.tick(); await queue.drain(); now += 3600000; }
+  expect(retired).toBe(0);
+  expect(getPictureState(map, f.db)).toMatchObject({ state: "waiting", attemptCount: 2, publishedGeneration: 1 });
+});

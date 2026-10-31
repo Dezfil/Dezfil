@@ -1,3 +1,5 @@
+import { admitStorageWrite } from "@/lib/system/storage-admission";
+import { assertStorageWritersOpen } from "@/lib/system/storage-fence";
 import { pictureBindings, schedulingBindings, bindingMayUse, rememberBindings, bindingsChanged } from "./bindings";
 import { metadataDb } from "@/lib/metadata/db";
 import { mapOwnerWorkScope } from "@/lib/auth/scope";
@@ -84,6 +86,7 @@ export class PictureService {
     return getPictureState(mapId) ?? state;
   }
   async refresh(mapId: string): Promise<PictureState> {
+    assertStorageWritersOpen(); admitStorageWrite();
     const pending = getPictureState(mapId);
     return this.request(mapId, pending?.state !== "waiting" && pending?.state !== "unavailable");
   }

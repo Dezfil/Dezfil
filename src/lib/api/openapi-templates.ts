@@ -262,7 +262,7 @@ export const TEMPLATES_PATHS = {
       "template_picture_too_large; 422 template_checksum_mismatch and the template reader's other codes, template_reference_outside among them for a " +
       "layer or step naming a dataset that is not the template's; 403 egress_blocked; 502 remote_fetch_failed; 504 remote_timeout. " +
       "Answers the version installed.",
-    tag: "Templates", tool: "fetch_template", toolInput: { closed: true },
+    tag: "Templates", storage: "write", tool: "fetch_template", toolInput: { closed: true },
     confirm: true,
     confirmation: {
       target: "Download version {version} of {target}?",
@@ -316,7 +316,7 @@ export const TEMPLATES_PATHS = {
       "dataset the copy does not make, or a step reading one; 422 template_record_mismatch and the template reader's other codes for an installed version that changed on " +
       "disk; 400 invalid_request for a body that is not an optional name and version; 413 request_body_too_large. Answers the project with its " +
       "members.",
-    tag: "Templates", tool: "copy_template", toolInput: { closed: true },
+    tag: "Templates", storage: "write", tool: "copy_template", toolInput: { closed: true },
     confirm: true,
     confirmation: {
       target: "Copy version {version} of {target} into a new project?",

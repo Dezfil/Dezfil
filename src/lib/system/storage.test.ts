@@ -1,3 +1,4 @@
+import * as volumeState from "./storage-state";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -106,6 +107,7 @@ beforeEach(() => {
   p = people();
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   forgetStorageRead();
   closeMetadataDb();
   vi.useRealTimers();
@@ -342,7 +344,7 @@ describe("the storage read", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     const answer = await response.json() as StorageRead;
-    expect(Object.keys(answer).sort()).toEqual(["disk", "kinds", "total"]);
+    expect(Object.keys(answer).sort()).toEqual(["disk", "kinds", "state", "total"]);
     expect(Object.keys(answer.kinds)).toEqual([...STORAGE_KINDS]);
     for (const use of [...Object.values(answer.kinds), answer.total]) expect(Object.keys(use).sort()).toEqual(["bytes", "files", "finished"]);
     expect(answer.kinds.tables).toEqual({ bytes: 246, files: 2, finished: true });
@@ -438,11 +440,11 @@ describe("one walk at a time", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const answers = await Promise.all(Array.from({ length: 5 }, () => readStorage(p.context, p.db)));
     expect(watch.walks).toBe(1);
-    expect(new Set(answers).size).toBe(1);
+    expect(new Set(answers.map(answer => answer.kinds)).size).toBe(1);
     expect(answers[0].kinds.service_caches).toEqual({ bytes: 100, files: 2, finished: true });
     vi.setSystemTime(Date.now() + 29_000);
     put("cache/geocode/answer-3.json", 10);
-    expect(await readStorage(p.context, p.db)).toBe(answers[0]);
+    expect((await readStorage(p.context, p.db)).kinds).toBe(answers[0].kinds);
     expect(watch.walks).toBe(1);
     await clearServiceCaches(p.context, null, p.db);
     const cleared = await readStorage(p.context, p.db);
@@ -474,7 +476,7 @@ describe("one walk at a time", () => {
     expect((await before).kinds.service_caches).toEqual({ bytes: 100, files: 2, finished: true });
     const [first, second] = await Promise.all(after);
     expect(first.kinds.service_caches, "a read after the Clear was given the walk begun before it").toEqual({ bytes: 0, files: 0, finished: true });
-    expect(second).toBe(first);
+    expect(second.kinds).toBe(first.kinds);
     expect(watch.walks).toBe(2);
   });
 
@@ -652,4 +654,17 @@ describe("one walk at a time", () => {
     expect(held.kinds.metadata_database.finished).toBe(true);
     expect(held.total.finished).toBe(false);
   });
+});
+
+
+it("refreshes capacity on each read while reusing the directory counts", async () => {
+  const state = { full: false, free: 1024 * 1024 * 1024, total: 2 * 1024 * 1024 * 1024, threshold: volumeState.STORAGE_FULL_BYTES };
+  const sample = vi.spyOn(volumeState, "roundedStorageState").mockReturnValue(state);
+  const first = await readStorage(p.context, p.db);
+  sample.mockReturnValue({ ...state, full: true, free: 0 });
+  const second = await readStorage(p.context, p.db);
+  expect(second.kinds).toBe(first.kinds);
+  expect(second.state).toEqual({ ...state, full: true, free: 0 });
+  expect(first.state).toEqual(state);
+  expect(watch.walks).toBe(1);
 });

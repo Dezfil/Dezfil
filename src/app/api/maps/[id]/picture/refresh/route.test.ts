@@ -1,3 +1,4 @@
+import * as storage from "@/lib/system/storage-state";
 import { isolatePictureData } from "@/lib/test-support/picture-data";
 import { afterAll, expect, it, vi } from "vitest";
 const runtime = vi.hoisted(() => ({ service: undefined as unknown }));
@@ -60,4 +61,16 @@ it("documents only the waiting state for an accepted refresh", async () => {
   const answers = operation.responses as unknown as Record<string, { content: { "application/json": { schema: { properties: { pictureState: unknown } } } } }>;
   const answer = answers["202"];
   expect(answer.content["application/json"].schema.properties.pictureState).toEqual({ type: "string", const: "waiting" });
+});
+
+it("refuses a refresh before scheduling when storage is full", async () => {
+  const scope = testAccountScope(undefined, "full-owner"), db = metadataDb(), map = createMap(scope, "Full");
+  const before = getPictureState(map.id);
+  const current = vi.spyOn(storage, "readStorageState").mockReturnValue({ full: true, free: 0, total: 1024 ** 3, threshold: storage.STORAGE_FULL_BYTES });
+  try {
+    const response = await POST(testAccountRequest(new Request(`http://fixture.test/api/maps/${map.id}/picture/refresh`, { method: "POST" }), db, scope.accountId), { params: Promise.resolve({ id: map.id }) });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: "storage_full" } });
+    expect(getPictureState(map.id)).toEqual(before);
+  } finally { current.mockRestore(); }
 });

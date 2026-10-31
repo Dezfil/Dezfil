@@ -1,3 +1,4 @@
+import { roundedStorageState } from "./storage-state";
 import type { Database } from "better-sqlite3";
 import { statfs } from "node:fs/promises";
 import { requireAdmin } from "@/lib/auth/admin";
@@ -35,10 +36,13 @@ export const STORAGE_WALK_MS = 10_000;
 /** How long a finished walk's answer is given again. */
 export const STORAGE_REUSE_MS = 30_000;
 
+type WalkRead = Omit<StorageRead, "state">;
+const withState = (answer: WalkRead): StorageRead => ({ ...answer, state: roundedStorageState() });
+
 interface Kept {
   /** The walk under way, with the generation it began under and what ends it early. */
-  walking: { answer: Promise<StorageRead>; generation: number; stop: AbortController } | null;
-  last: { answer: StorageRead; at: number; generation: number } | null;
+  walking: { answer: Promise<WalkRead>; generation: number; stop: AbortController } | null;
+  last: { answer: WalkRead; at: number; generation: number } | null;
   /** Moves on at each forgetting; a walk begun before it is not kept. */
   generation: number;
 }
@@ -70,7 +74,7 @@ async function templateReferences(deadline: number, stop: AbortSignal): Promise<
   }
 }
 
-async function walk(db: Database, deadline: number, stop: AbortSignal): Promise<StorageRead> {
+async function walk(db: Database, deadline: number, stop: AbortSignal): Promise<WalkRead> {
   const folder = dataDir();
   // Asked first, answered beside the walk, held to the same deadline.
   const space = disk(folder, deadline, stop);
@@ -95,7 +99,7 @@ export async function readStorage(context: AuthContext, db: Database = metadataD
   const deadline = Date.now() + STORAGE_WALK_MS;
   for (;;) {
     const current = kept.walking;
-    if (current?.generation === kept.generation) return current.answer;
+    if (current?.generation === kept.generation) return withState(await current.answer);
     if (current) {
       // Begun before a Clear, which has ended it: its answer is not this
       // read's. Once it has settled, the first read back starts the one
@@ -104,7 +108,7 @@ export async function readStorage(context: AuthContext, db: Database = metadataD
       continue;
     }
     const last = kept.last;
-    if (last && last.generation === kept.generation && Date.now() - last.at < STORAGE_REUSE_MS) return last.answer;
+    if (last && last.generation === kept.generation && Date.now() - last.at < STORAGE_REUSE_MS) return withState(last.answer);
     const generation = kept.generation;
     const stop = new AbortController();
     const walking = {
@@ -118,7 +122,7 @@ export async function readStorage(context: AuthContext, db: Database = metadataD
       }),
     };
     kept.walking = walking;
-    return walking.answer;
+    return withState(await walking.answer);
   }
 }
 

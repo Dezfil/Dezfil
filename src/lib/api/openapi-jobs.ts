@@ -56,7 +56,7 @@ export const JOB_PATHS = {
         "says so, on the dry run, on the accepted run, and on the " +
         "output.",
       tag: "Operations",
-      tool: "run_operation", mcp: REMOTE_ADD,
+      storage: "write", tool: "run_operation", mcp: REMOTE_ADD,
       display: {"verb": "Ran the operation {arg.operation}", "planningVerb": "Planned the operation {arg.operation}"},
       relevance: ["builder", "workflow"],
       effects: planning("dryRun", writes(resource("runs", "", "run.id"), resource("tables"))),

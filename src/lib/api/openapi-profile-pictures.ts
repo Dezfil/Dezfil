@@ -39,7 +39,7 @@ export const PROFILE_PICTURE_PATHS = {
           "record dropped. " + ORDER + "A refusal or failure leaves the current picture. Answers the " +
           "account, its new pictureVersion included. " + MCP_PICTURE,
         tag: "Accounts",
-        tool: "set_account_picture", mcp: LOCAL_REPLACE,
+        storage: "write", tool: "set_account_picture", mcp: LOCAL_REPLACE,
         toolInput: { multipart: { field: "file", filename: "filename", content: "content_base64" } },
         display: { verb: "Set your picture" },
         effects: writes(resource("accounts")),

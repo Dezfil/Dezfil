@@ -77,5 +77,6 @@ export function cachesCleared(read: StorageRead): StorageRead {
     kinds,
     total: { bytes: uses.reduce((sum, use) => sum + use.bytes, 0), files: uses.reduce((sum, use) => sum + use.files, 0), finished: uses.every(use => use.finished) },
     disk: read.disk,
+    state: read.state,
   };
 }

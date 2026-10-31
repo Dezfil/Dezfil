@@ -129,7 +129,7 @@ export const PROJECT_PATHS = {
         "workflow, dataset and artifact remains, unfiled unless " +
         "another project holds it. The response says so explicitly.",
       tag: "Projects",
-      tool: "delete_project", mcp: LOCAL_DELETE,
+      storage: "recovery", tool: "delete_project", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted the project {subject}", "subject": {"resource": "projects", "argument": "id"}},
       effects: writes(resource("projects", "id")),
       confirmation: {"target": "Delete {target}?", "consequence": "This dissolves the project. Its maps, workflows and datasets remain.", "subject": {"path": "/api/projects/{id}", "argument": "id", "name": "name"}},
@@ -238,7 +238,7 @@ export const PROJECT_PATHS = {
         "With prepare, a single-use ticket instead — the page's " +
         "road; redeem it with GET within a minute.",
       tag: "Projects",
-      tool: "export_project", mcp: LOCAL_TRANSIENT_READ,
+      storage: "write", tool: "export_project", mcp: LOCAL_TRANSIENT_READ,
       toolOutput: { binary: { representation: "attachment", nativeImage: false } },
       display: {"verb": "Exported the project {subject}", "subject": {"resource": "projects", "argument": "id"}},
       effects: READ_ONLY,

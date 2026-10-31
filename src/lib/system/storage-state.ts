@@ -1,15 +1,11 @@
+import type { StorageState } from "./storage-answer";
+export type { StorageState } from "./storage-answer";
 import path from "node:path";
 import { statfsSync } from "node:fs";
 import { dataDir } from "@/lib/config";
 
 export const STORAGE_MB = 1024 * 1024;
 export const STORAGE_FULL_BYTES = 512 * STORAGE_MB;
-export interface StorageState {
-  readonly full: boolean;
-  readonly free: number;
-  readonly total: number;
-  readonly threshold: number;
-}
 export type StorageReading = (folder: string) => { free: number; total: number };
 
 function volumeReading(folder: string): { free: number; total: number } {

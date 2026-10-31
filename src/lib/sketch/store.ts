@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
@@ -534,7 +535,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
       // state. Snapshot before the registry row disappears.
       const dependents = ownedDependentLayerIds(scope, fresh.name);
       const db = metadataDb();
-      const { mapId, layerId, editRevision } = db.transaction(() => {
+      const { mapId, layerId, editRevision } = await withStorageRecovery(() => db.transaction(() => {
         requireOwnedResource(scope, "dataset", fresh.id, db);
         let { mapId, layerId } = recorded;
         if (mapId && layerId) {
@@ -581,7 +582,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
         touchProjectsOf({ tableId: fresh.id }, db);
         deleteOwnedTable(scope, fresh, db);
         return { mapId, layerId, ...(mapId ? { editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision } : {}) };
-      })();
+      })());
       operation.markCommitted();
       if (mapId) notifyPicture(mapId);
       // What follows the commit runs on the operation's cleanup path, last

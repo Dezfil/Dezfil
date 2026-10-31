@@ -1,3 +1,4 @@
+import { recordUnderLock } from "@/lib/operations/cascade";
 import { importOsm } from "@/lib/osm/import";
 import { importOverture } from "@/lib/overture/import";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -68,6 +69,7 @@ it("refuses every writing road before it leaves an artifact, retaining the exist
     () => saveThumbnail(scope, map.id, Buffer.from("new")),
     () => publishPicture(picture, Buffer.from("new"), () => {}),
     () => materialize(scope, { sql: "SELECT 1 AS n", name: "result", operation: "sql" }),
+    () => recordUnderLock(scope, "absent", "single", [], undefined),
     () => startRun(scope, { operation: "sql", parameters: { sql: "SELECT 1 AS n" } }),
     () => renderMapImage(scope, { mapId: map.id } as Parameters<typeof renderMapImage>[1]),
   ];
