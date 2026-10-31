@@ -4819,18 +4819,20 @@
     },
     "writer:src/lib/ingest/file-ownership.ts#registerAccountFile:mkdirSync": {
       "stores": [
-        "file:account-files"
+        "file:account-files",
+        "file:tmp"
       ],
       "roots": [
-        "file-owners"
+        "file-owners",
+        "tmp"
       ]
     },
     "writer:src/lib/ingest/file-ownership.ts#registerAccountFile:writeFileSync": {
       "stores": [
-        "file:account-files"
+        "file:tmp"
       ],
       "roots": [
-        "file-owners/*.json"
+        "tmp/ownership-*.tmp"
       ]
     },
     "writer:src/lib/ingest/gdal-formats.ts#ingestSpatialFile:registerAccountFile": {
@@ -7423,6 +7425,40 @@
     "memory:src/lib/system/storage-state.ts#transition": {
       "stores": [
         "memory:storage-state"
+      ]
+    },
+    "writer:src/lib/ingest/file-ownership.ts#registerAccountFile:renameSync": {
+      "stores": [
+        "file:account-files",
+        "file:tmp"
+      ],
+      "roots": [
+        "file-owners/*.json",
+        "tmp/ownership-*.tmp"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#registerAccountFile.candidate:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/ownership-*.tmp"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#registerAccountFile.scratch:dataDir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#registerAccountFile.scratch:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
       ]
     }
   },

@@ -1,6 +1,6 @@
 import { observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync, renameSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
@@ -35,11 +35,22 @@ const unplacedRecordPath = (file: string) => path.join(folder(), `${digest(file)
 export function registerAccountFile(accountId: string, file: string, directory = false): void {
   const rel = relative(file); mkdirSync(folder(), { recursive: true });
   const record: OwnedFile = { accountId, file: rel, directory };
-  try { writeFileSync(recordPath(rel), JSON.stringify(record), { flag: "wx", mode: 0o600 }); }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  if (existsSync(recordPath(rel))) {
     const previous = JSON.parse(readFileSync(recordPath(rel), "utf8")) as OwnedFile;
     if (previous.accountId !== accountId || previous.directory !== directory) throw new Error("Conflicting file ownership.");
+    return;
+  }
+  // Keep unfinished JSON outside the ledger's reader. The normal ingest
+  // scratch sweep removes a candidate left by a process that stopped.
+  const scratch = path.join(dataDir(), "tmp");
+  mkdirSync(scratch, { recursive: true });
+  const candidate = path.join(scratch, `ownership-${randomUUID()}.tmp`);
+  try {
+    writeFileSync(candidate, JSON.stringify(record), { flag: "wx", mode: 0o600 });
+    renameSync(candidate, recordPath(rel));
+  } catch (error) {
+    rmSync(candidate, { force: true });
+    throw error;
   }
 }
 export function ownedFileRecords(): OwnedFile[] {
