@@ -78,13 +78,19 @@ Do things in the app: data, maps, SQL, workflows and sharing.
 - [The assistant](use/assistant.md)
   - path: `docs/use/assistant.md`
   - summary: Ask the assistant in plain words to change a map, write SQL into the editor, or explain a workflow node and its last run.
-  - read when: you want to change a map by asking in plain words; you want the assistant to write a SQL query, or explain a workflow node or a failed run; the assistant asks you to confirm an action, or you want to stop or undo what it did; you want to choose another model or effort; the assistant pane says no model credential is configured
+  - read when: you want to change a map by asking in plain words; you want the assistant to write a SQL query, or explain a workflow node or a failed run; the assistant asks you to confirm an action, or you want to stop or undo what it did; you want to choose another model or effort; the assistant pane asks for an API key
   - audience: user
 
 - [Your settings](use/settings.md)
   - path: `docs/use/settings.md`
   - summary: Change your look, light or dark, how your lists are laid out and sorted, and your name, picture, email and password.
   - read when: you want another color, typeface, background or panel style, or the side menu always open; you want the dark theme; you want your maps, data, workflows or projects as a list, or sorted another way; you want to change your display name, picture, email or password; you want to know which choices follow you to another browser
+  - audience: user
+
+- [Your AI key](use/ai-key.md)
+  - path: `docs/use/ai-key.md`
+  - summary: Add your own Anthropic or OpenAI key so the assistant answers you on it, then replace or remove it.
+  - read when: the assistant pane asks for an API key; you want the assistant to answer you on your own key, where the instance has one too; you want to replace or remove your key, or the note says it was rejected
   - audience: user
 
 ## Self-host
@@ -111,8 +117,8 @@ Install, secure, configure and back up your own instance.
 
 - [Set up the assistant](self-host/assistant.md)
   - path: `docs/self-host/assistant.md`
-  - summary: Turn on the in-app assistant with an Anthropic or OpenAI key, choose its models, and check that it answers.
-  - read when: you want to turn on the assistant for your instance; you want to change which models people can choose; you want to offer a model or an effort level Dezfil does not list; you need to know what the assistant sends to the AI provider; the assistant pane shows an error instead of an answer
+  - summary: Give the in-app assistant an instance key from Anthropic or OpenAI, or leave it to each person's own key; choose its models, and check that it answers.
+  - read when: you want to turn on the assistant for your instance; you want to change which models people can choose, or offer one Dezfil does not list; you need to know what the assistant sends to the AI provider; people on your instance add their own AI keys; the assistant pane shows an error instead of an answer
   - audience: operator
 
 - [Back up and restore](self-host/backup-and-restore.md)

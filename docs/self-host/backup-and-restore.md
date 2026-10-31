@@ -56,7 +56,7 @@ To see the sizes before you copy, sign in as an admin and open **Settings** > **
 
 | In the data folder | What it holds | In **Storage** |
 |---|---|---|
-| `metadata.sqlite`, with its `-wal` and `-shm` files when present | Accounts, sessions and API tokens; maps, layers, styles and published links; projects; workflows and their runs; connections; what admins saved in **Settings** | **Metadata database** |
+| `metadata.sqlite`, with its `-wal` and `-shm` files when present | Accounts, sessions, API tokens and people's AI keys; maps, layers, styles and published links; projects; workflows and their runs; connections; what admins saved in **Settings** | **Metadata database** |
 | `tables/` | Your datasets as GeoParquet files, the shapes drawn on maps among them | **Tables** |
 | `tiles/` | Tile archives built for large layers | **Tile archives** |
 | `thumbnails/` | The pictures on map cards | **Thumbnails** |
@@ -266,9 +266,9 @@ Give the volume `name: dezfil-data` in `compose.yaml`, as [Docker Compose](docke
 
 Browsing or importing from a saved connection fails with "An unexpected server error occurred.", or a service address in **Settings** says "The instance’s encryption key cannot read the saved address. Save it again." Dezfil runs with another key than the one the backup was made with.
 
-Run Dezfil with the backup's key: the same `DEZFIL_SECRET_KEY` value, or the backup's `secret.key` with the variable unset, since a set variable wins. A container keeps its variables, so replace it as [Set a variable](configuration.md#set-a-variable) shows.
+Run Dezfil with the backup's key: the same `DEZFIL_SECRET_KEY` value, or the backup's `secret.key` with the variable unset. A container keeps its variables, so replace it as [Set a variable](configuration.md#set-a-variable) shows.
 
-If that key is lost, save each address again. Delete each connection in **Connections** and add it again: its snapshots keep their data, but they cannot refresh.
+If that key is lost, save each address again and people re-add their AI keys. Delete each connection in **Connections** and add it again: its snapshots keep their data but cannot refresh.
 
 ## Next steps
 

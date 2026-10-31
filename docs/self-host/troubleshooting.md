@@ -194,9 +194,9 @@ Both memory budgets come out of the machine's memory, so leave the container roo
 
 ## The assistant and map pictures
 
-### The assistant pane says "No model credential is configured."
+### The assistant pane says "Add your own API key to use the assistant."
 
-The server has no provider key. Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` and replace the container. On the **Assistant** card of **Settings** > **System**, **Status** then reads **On**.
+Nobody has a key. They can [add their own](../use/ai-key.md), or you set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` and replace the container. On the **Assistant** card of **Settings** > **System**, **Instance key** then reads **Set**.
 
 For a key the provider refuses, or a provider the server cannot reach, see [Set up the assistant](assistant.md#troubleshooting).
 

@@ -23,8 +23,8 @@ the agent can read and build your maps, data and workflows, with your
 account's rights.
 
 Your client brings its own model, so the instance needs no AI key for this.
-The assistant inside the app is a separate thing, with a provider key of its
-own: see [The assistant](../use/assistant.md).
+The assistant inside the app is a separate thing: see
+[The assistant](../use/assistant.md).
 
 ## Step 1: Create an API token
 
@@ -172,6 +172,7 @@ A token acts as your account, so the agent reaches what you reach:
 - Your own maps, data, workflows and connections.
 - Projects shared with you, in your role there. A **Viewer** reads; an **Editor** also changes maps and workflows, and runs workflows. [Share and publish](../use/share-and-publish.md#what-viewers-and-editors-can-do) lists what each role can do, and [Who may do what](http-api.md#who-may-do-what) how the API applies it.
 - Admin tools, such as `list_users`, work only with an admin's token. Being an admin gives no access to other people's private work.
+- `set_assistant_key`, `get_assistant_key` and `remove_assistant_key` hold [your own AI key](../use/ai-key.md). No tool returns the key, and the assistant inside the app has none of them.
 
 To give an agent less than your own access, ask an admin to invite a separate
 account for it in **Users**, then share only the projects it needs. Sign in as

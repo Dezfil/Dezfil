@@ -118,6 +118,7 @@ If your Dezfil signs people in through a sign-in service, **Account** has no **C
 ## The other tabs
 
 - **API & MCP** holds **API / MCP tokens** and the **MCP server** card. The [API quickstart](../api/quickstart.md) and [Connect an AI agent](../api/mcp.md) show how to use them.
+- **Assistant** holds [your own AI key](ai-key.md).
 - Under **Instance**, **General** shows the instance's name and its sign-in settings. Only admins change them; [Configuration](../self-host/configuration.md) covers the tabs an admin sees.
 - **Search settings**, at the top of the column, finds any setting by its name.
 

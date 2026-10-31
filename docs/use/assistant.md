@@ -6,7 +6,7 @@ read_when:
   - "you want the assistant to write a SQL query, or explain a workflow node or a failed run"
   - "the assistant asks you to confirm an action, or you want to stop or undo what it did"
   - "you want to choose another model or effort"
-  - "the assistant pane says no model credential is configured"
+  - "the assistant pane asks for an API key"
 audience:
   - user
 checked: none
@@ -15,7 +15,7 @@ order: 8
 
 ![The map builder with the Assistant pane open on the right: the Map and Layer chips, a message asking to color the cities by population, two action lines with check marks and the reply, beside the cities colored by population](../images/use/assistant-builder.webp)
 
-- **You need:** an instance with the assistant turned on, which takes a provider key from whoever runs it. [Set up the assistant](../self-host/assistant.md) shows how.
+- **You need:** [your own AI key](ai-key.md), unless whoever runs your instance [set one for everyone](../self-host/assistant.md).
 - **Example data:** the `world_cities` dataset and the map from [Your first map](../start/first-map.md).
 
 ## Open the assistant
@@ -134,11 +134,11 @@ While a request runs, the button is locked to the model that answers it. Where y
 
 ## Troubleshooting
 
-**The pane says "No model credential is configured.", or names `DEZFIL_AI_PROVIDER`.** The assistant is off on your instance. Whoever runs it turns it on with a provider key: [Set up the assistant](../self-host/assistant.md).
+**The pane asks for a key, or a note says a key was rejected.** See [Your AI key](ai-key.md#troubleshooting).
 
 **The pane says "The assistant couldn't be reached."** The page could not ask the server whether the assistant is on. Click **Try again**.
 
-**The pane says "The assistant is at capacity: eight requests are open on this instance."** Wait for one to finish, then send again. If a **Recover pending action** button shows, open that action and confirm or cancel it to free a place.
+**The pane says "The assistant is at capacity: eight requests are open on this instance.", or "You have four requests open, the most one person may."** Wait for one to finish, then send again. If a **Recover pending action** button shows, open that action and confirm or cancel it to free a place.
 
 **A button reads "Recover pending action:" and names an action.** A card from an earlier request still waits, from another page or tab. Click the button to see the card again, then click **Confirm** or **Cancel**.
 

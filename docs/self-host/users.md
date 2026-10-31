@@ -182,7 +182,7 @@ https://maps.example.com/accept#secret=<SECRET>
 1. Open the link within 15 minutes; the expiry is in UTC. You should see **Choose your password**.
 2. Type a new **Password** and click **Set password**. You should see **Home**, signed in as that admin.
 
-The script works with the server running or stopped, and a second run replaces the link. It ends that account's old password, earlier links, browser sessions and API tokens, so make new tokens in **Settings** > **API & MCP**. Other accounts keep theirs.
+The script works with the server running or stopped, and a second run replaces the link. It ends that account's old password, earlier links, browser sessions, API tokens and own AI key, so make new tokens in **Settings** > **API & MCP**. Other accounts keep theirs.
 
 > [!NOTE]
 > If someone else took over the instance, the script lets you back in but leaves their accounts and changes in place. Restore a backup from before, as [Back up and restore](backup-and-restore.md) describes.
