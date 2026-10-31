@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ERROR_CATALOGUE } from "./error-catalogue";
 import { AuthError, type AuthErrorCode } from "@/lib/auth/errors";
+import { isStorageExhausted, storageExhausted } from "@/lib/system/storage-errors";
 
 /**
  * Every API error carries a stable machine-readable code plus a
@@ -9,6 +10,8 @@ import { AuthError, type AuthErrorCode } from "@/lib/auth/errors";
  */
 export type ErrorCode =
   | AuthErrorCode
+  | "storage_full"
+  | "storage_exhausted"
   | "picture_upload_retired"
   | "project_owner_cannot_leave"
   | "unsupported_format"
@@ -200,6 +203,7 @@ export class QueryResultTooLarge extends ApiError {
 }
 
 export function errorResponse(error: unknown): NextResponse {
+  if (isStorageExhausted(error) && !(error instanceof ApiError)) error = storageExhausted();
   // The client already closed the request; the status is for logs only
   // (499, the de-facto client-closed-request convention).
   if (error instanceof EvaluationCancelled) {
