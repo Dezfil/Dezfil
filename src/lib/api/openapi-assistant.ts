@@ -10,15 +10,15 @@ export const ASSISTANT_PATHS = {
         get: op({
           summary: "Assistant status",
           description:
-            "Whether the in-product assistant is enabled. When enabled, " +
-            "reports the resolved provider, model, step budget and whether the " +
+            "Whether the in-product assistant answers the caller. Enabled when they have a " +
+            "usable key: their own, or the instance's. It then reports the provider in use, " +
+            "its default model, the step budget and whether the " +
             "map is checked automatically after a turn that changed it, " +
-            "and every model a request may choose on this instance with that " +
-            "model's own effort levels. When not, " +
-            "reports the reason and how to enable it. The model credential is " +
-            "never included. Enablement is a deployment setting (an Anthropic " +
-            "or OpenAI API key); with none, this is a complete non-assistant " +
-            "instance and the surface is absent.",
+            "every model a request may choose with that " +
+            "model's own effort levels, and which key pays. Otherwise it " +
+            "reports the reason, in the caller's words. The two answers differ per account. No key's " +
+            "text is ever included: a person's own appears as its last four characters and the " +
+            "time it was saved, to that person alone.",
           tag: "Agents",
           tool: false,
           effects: READ_ONLY,

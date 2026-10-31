@@ -107,7 +107,7 @@ describe("the catalogue's texts are unchanged", () => {
       assistant_context_invalid: "The submitted page context is malformed or refers to an incompatible object.",
       assistant_context_too_large: "Page context exceeds 64 KiB of UTF-8 JSON.",
       assistant_context_unavailable: "The page context could not be read from this instance.",
-      assistant_disabled: "The assistant is not enabled; no model credential is configured.",
+      assistant_disabled: "The assistant has no key to answer you with: you have none of your own and the instance has none.",
       assistant_auth: "A model key was rejected by its provider: your own, or the instance's. The message says which.",
       assistant_provider: "The model provider request failed (outage, quota, or network).",
       pending_unknown: "The referenced pending action is unknown; it may have expired with the server's working state.",

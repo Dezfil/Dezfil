@@ -80,20 +80,20 @@ async function everyRead(member: ReturnType<typeof person>, admin: ReturnType<ty
     ["users", await admin("/api/users")],
     ["directory", await admin("/api/accounts/search?q=ada")],
     ["member directory", await member("/api/accounts/search?q=ada")],
-    ["deletion preview", await admin("/api/users/ada/deletion-preview")],
     ["settings", await admin("/api/instance/settings")],
     ["storage", await admin("/api/instance/storage")],
     ["config", await admin("/api/config")],
     ["admin status", await admin("/api/assistant")],
     ...(runId ? [["run receipt", await member(`/api/assistant/runs/${runId}`)] as [string, Response]] : []),
   ];
-  const seen: Record<string, number> = {};
+  // An account has a deletion preview once deactivated, which keeps its key.
+  metadataDb().prepare("UPDATE accounts SET status = 'deactivated' WHERE id = 'ada'").run();
+  reads.push(["deletion preview", await admin("/api/users/ada/deletion-preview")]);
   for (const [name, response] of reads) {
+    expect(response.status, name).toBe(200);
     const text = await response.text();
-    seen[name] = response.status;
     expect(text.includes(CANARY), `${name} carries the key`).toBe(false);
   }
-  return seen;
 }
 const status = (code: number, body: unknown) => new Response(JSON.stringify(body), { status: code, headers: { "content-type": "application/json" } });
 

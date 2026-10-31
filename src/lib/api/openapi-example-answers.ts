@@ -727,12 +727,15 @@ export const ASSISTANT_ENABLED = {
   catalogue: { source: "shipped", instance: "absent" },
   stepBudget: 20,
   autoCheck: true,
+  payer: { kind: "instance", provider: "anthropic" },
+  instanceKey: true,
 };
 
-/** The assistant's status on an instance without a provider key. */
+/** The assistant's status on an instance without a provider key, for someone without one. */
 export const ASSISTANT_OFF = {
   enabled: false,
-  reason: `No model credential is configured. Set ${ANTHROPIC_KEY} or ${OPENAI_KEY} (optionally DEZFIL_AI_PROVIDER and DEZFIL_AI_MODEL) and restart to enable the assistant.`,
+  reason: "Add your own API key to use the assistant.",
+  instanceKey: false,
 };
 
 /** The map Field notes, as the create_map tool answers it over MCP. */

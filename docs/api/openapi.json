@@ -57788,7 +57788,7 @@
     "/api/assistant": {
       "get": {
         "summary": "Assistant status",
-        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Whether the in-product assistant is enabled. When enabled, reports the resolved provider, model, step budget and whether the map is checked automatically after a turn that changed it, and every model a request may choose on this instance with that model's own effort levels. When not, reports the reason and how to enable it. The model credential is never included. Enablement is a deployment setting (an Anthropic or OpenAI API key); with none, this is a complete non-assistant instance and the surface is absent.",
+        "description": "Requires a current cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Whether the in-product assistant answers the caller. Enabled when they have a usable key: their own, or the instance's. It then reports the provider in use, its default model, the step budget and whether the map is checked automatically after a turn that changed it, every model a request may choose with that model's own effort levels, and which key pays. Otherwise it reports the reason, in the caller's words. The two answers differ per account. No key's text is ever included: a person's own appears as its last four characters and the time it was saved, to that person alone.",
         "tags": [
           "Agents"
         ],
@@ -57808,7 +57808,7 @@
                 "examples": {
                   "enabled": {
                     "summary": "Read the assistant's status on an instance with a key",
-                    "description": "Needs a token. The instance has an Anthropic key and the shipped model list.",
+                    "description": "Needs a token. The instance has an Anthropic key and the shipped model list, and the caller has no key of their own.",
                     "value": {
                       "enabled": true,
                       "provider": "anthropic",
@@ -57920,15 +57920,21 @@
                         "instance": "absent"
                       },
                       "stepBudget": 20,
-                      "autoCheck": true
+                      "autoCheck": true,
+                      "payer": {
+                        "kind": "instance",
+                        "provider": "anthropic"
+                      },
+                      "instanceKey": true
                     }
                   },
                   "notEnabled": {
                     "summary": "Read the assistant's status on an instance without a key",
-                    "description": "Needs a token. The instance has no provider key, so the assistant is off.",
+                    "description": "Needs a token. Neither the instance nor the caller has a provider key, so the assistant is off for them.",
                     "value": {
                       "enabled": false,
-                      "reason": "No model credential is configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY (optionally DEZFIL_AI_PROVIDER and DEZFIL_AI_MODEL) and restart to enable the assistant."
+                      "reason": "Add your own API key to use the assistant.",
+                      "instanceKey": false
                     }
                   }
                 }
@@ -88270,15 +88276,55 @@
           },
           "reason": {
             "type": "string",
-            "description": "Present when disabled."
+            "description": "Present when disabled: what the caller can do about it."
           },
           "provider": {
             "type": "string",
-            "description": "Present when enabled."
+            "description": "Present when enabled: the provider of the key that pays for the caller."
           },
           "model": {
             "type": "string",
-            "description": "Present when enabled."
+            "description": "Present when enabled: that provider's default model. The instance's default-model override applies only to the provider of the instance's own key."
+          },
+          "payer": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Present when enabled: which key pays for the caller. The caller's own, with its provider, last four characters and saving time, or the instance's, with its provider.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "own",
+                  "instance"
+                ]
+              },
+              "provider": {
+                "type": "string"
+              },
+              "lastFour": {
+                "type": "string",
+                "description": "On the caller's own key."
+              },
+              "savedAt": {
+                "type": "string",
+                "description": "On the caller's own key."
+              }
+            },
+            "required": [
+              "kind",
+              "provider"
+            ]
+          },
+          "instanceKey": {
+            "type": "boolean",
+            "description": "Whether the instance has a key of its own. Where it has none, only the caller's own key can pay."
+          },
+          "unreadableKey": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "Present when the caller's saved key can no longer be read and the instance's key pays meanwhile. Add it again."
           },
           "catalogue": {
             "$ref": "#/components/schemas/AssistantCatalogueState",
@@ -88297,7 +88343,7 @@
             "items": {
               "$ref": "#/components/schemas/AssistantModelChoice"
             },
-            "description": "Present when enabled: every model a request may choose on this instance, the resolved provider's list alone, with the default among them exactly once. The instance owner narrows and orders it with DEZFIL_AI_MODELS_ANTHROPIC or DEZFIL_AI_MODELS_OPENAI. Unset offers the effective catalogue in file order. A set empty or separators-only list offers the default alone. The default stays where listed or is prepended when missing. Unknown identities read as themselves with default effort alone. Listing an identity grants permission to request it; whether the provider has it is the provider's own answer."
+            "description": "Present when enabled: every model a request may choose on this instance, the list of the provider in use alone, a person's own key included, with the default among them exactly once. The instance owner narrows and orders it with DEZFIL_AI_MODELS_ANTHROPIC or DEZFIL_AI_MODELS_OPENAI. Unset offers the effective catalogue in file order. A set empty or separators-only list offers the default alone. The default stays where listed or is prepended when missing. Unknown identities read as themselves with default effort alone. Listing an identity grants permission to request it; whether the provider has it is the provider's own answer."
           }
         },
         "required": [
@@ -88811,7 +88857,7 @@
     "assistant_context_invalid": "The submitted page context is malformed or refers to an incompatible object.",
     "assistant_context_too_large": "Page context exceeds 64 KiB of UTF-8 JSON.",
     "assistant_context_unavailable": "The page context could not be read from this instance.",
-    "assistant_disabled": "The assistant is not enabled; no model credential is configured.",
+    "assistant_disabled": "The assistant has no key to answer you with: you have none of your own and the instance has none.",
     "assistant_key_changed": "Your API key changed since this turn began. Send a new message.",
     "assistant_auth": "A model key was rejected by its provider: your own, or the instance's. The message says which.",
     "assistant_provider": "The model provider request failed (outage, quota, or network).",

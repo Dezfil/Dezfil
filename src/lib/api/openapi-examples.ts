@@ -371,12 +371,12 @@ export const WORKED_EXAMPLES: WorkedExamples = {
   "GET /api/assistant": {
     enabled: {
       summary: "Read the assistant's status on an instance with a key",
-      description: "Needs a token. The instance has an Anthropic key and the shipped model list.",
+      description: "Needs a token. The instance has an Anthropic key and the shipped model list, and the caller has no key of their own.",
       response: answer("200", ASSISTANT_ENABLED),
     },
     notEnabled: {
       summary: "Read the assistant's status on an instance without a key",
-      description: "Needs a token. The instance has no provider key, so the assistant is off.",
+      description: "Needs a token. Neither the instance nor the caller has a provider key, so the assistant is off for them.",
       response: answer("200", ASSISTANT_OFF),
     },
   },

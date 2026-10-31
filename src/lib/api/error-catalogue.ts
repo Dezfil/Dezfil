@@ -174,7 +174,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   assistant_context_too_large: "Page context exceeds 64 KiB of UTF-8 JSON.",
   assistant_context_unavailable: "The page context could not be read from this instance.",
   assistant_disabled:
-    "The assistant is not enabled; no model credential is configured.",
+    "The assistant has no key to answer you with: you have none of your own and the instance has none.",
   assistant_key_changed: "Your API key changed since this turn began. Send a new message.",
   assistant_auth:
     "A model key was rejected by its provider: your own, or the instance's. The message says which.",

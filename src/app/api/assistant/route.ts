@@ -1,35 +1,39 @@
 import { authFailure, privateResponse, requireRequestAuth } from "@/lib/auth/http";
+import { accountScope } from "@/lib/auth/scope";
 import { NextResponse } from "next/server";
-import { currentAssistantChoices } from "@/lib/assistant/catalogue-choices";
+import { currentAssistantChoices, ownKeyChoices } from "@/lib/assistant/catalogue-choices";
+import { resolvePayer, type Payer } from "@/lib/assistant/keys/resolve";
 import { describeModel } from "@/lib/assistant/model-knowledge";
 import { limits } from "@/lib/limits";
 
 /**
- * Assistant status: whether the assistant is enabled, and if not, the
- * documented enablement explanation. Never exposes the credential — only the
- * resolved provider/model when enabled.
+ * Assistant status, for the person asking: whether the assistant answers them,
+ * on which provider and models, and whose key pays. Never exposes a credential:
+ * a person's own key shows as its last four and the time it was saved. What the
+ * server's variables should say is the System tab's, not this read's.
  *
- * Adds what a person may choose: the allowed identities of the resolved
- * provider in the owner's order, each with its display name and the effort
- * levels that model offers. `model` keeps its meaning, the instance default,
- * and is always one of them. The read still holds no credential, constructs
- * no client and reaches no network.
+ * Adds what a person may choose: the allowed identities of the provider in use
+ * in the owner's order, each with its display name and the effort levels that
+ * model offers. `model` is that provider's default and is always one of them.
+ * The read constructs no client and reaches no network.
  */
 export async function GET(request: Request) {
   try {
-    requireRequestAuth(request);
-    return privateResponse(await status());
+    const scope = accountScope(requireRequestAuth(request));
+    return privateResponse(await status(resolvePayer(scope.accountId)));
   } catch (error) { return authFailure(error); }
 }
 
-async function status() {
-  const availability = currentAssistantChoices();
-  if (!availability.enabled) {
+async function status(payer: Payer) {
+  if (payer.kind === "none") {
     return NextResponse.json({
       enabled: false,
-      reason: availability.reason,
+      reason: payer.reason,
+      instanceKey: false,
     });
   }
+  const availability = payer.kind === "own" ? ownKeyChoices(payer.provider) : currentAssistantChoices();
+  if (!availability.enabled) return NextResponse.json({ enabled: false, reason: availability.reason, instanceKey: false });
   return NextResponse.json({
     enabled: true,
     provider: availability.provider,
@@ -41,5 +45,8 @@ async function status() {
     // loop consults, so a headless client and the pane learn it the same
     // way.
     autoCheck: limits.assistantAutoCheck,
+    payer: payer.kind === "own" ? { kind: "own", ...payer.facts } : { kind: "instance", provider: payer.provider },
+    instanceKey: payer.instanceKey,
+    ...(payer.kind === "instance" && payer.unreadable ? { unreadableKey: true } : {}),
   });
 }

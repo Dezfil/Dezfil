@@ -112,15 +112,12 @@ describe("the status read and the instance's choices", () => {
     }
   });
 
-  it("the disabled read keeps its exact shape and explanation, and offers nothing", async () => {
+  it("the disabled read keeps its shape, speaks to the person and offers nothing", async () => {
     vi.stubEnv("DEZFIL_AI_MODELS_OPENAI", "gpt-6-astra");
     const reported = await read();
-    expect(Object.keys(reported).sort()).toEqual(["enabled", "reason"]);
+    expect(Object.keys(reported).sort()).toEqual(["enabled", "instanceKey", "reason"]);
     expect(reported.enabled).toBe(false);
-    expect(reported.reason).toBe(
-      "No model credential is configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY " +
-      "(optionally DEZFIL_AI_PROVIDER and DEZFIL_AI_MODEL) and restart to enable the assistant.",
-    );
+    expect(reported.reason).toBe("Add your own API key to use the assistant.");
   });
 
   it("the traps this file relies on do fire when they are touched", async () => {

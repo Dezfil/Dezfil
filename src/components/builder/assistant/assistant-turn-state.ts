@@ -10,8 +10,11 @@ import { entryFromAction, entryFromCall, entryFromConfirmation, entryFromResult,
 export type Status = { enabled: true; provider: string; model: string; stepBudget: number; autoCheck?: boolean;
   /** Every model a request may choose on this instance;
    * absent from an instance older than the picker, which is one model. */
-  models?: ModelKnowledge[] }
-  | { enabled: false; reason: string } | null;
+  models?: ModelKnowledge[];
+  /** Which key pays for this person, and whether the instance has one at all. */
+  payer?: { kind: "own" | "instance"; provider: string; lastFour?: string; savedAt?: string };
+  instanceKey?: boolean }
+  | { enabled: false; reason: string; instanceKey?: boolean } | null;
 /** Where a turn's request came from: the page, and for
  * /sql the exact draft the request carried, which Insert compares with. */
 export type TurnOrigin = { page: "builder" | "workflow" } | { page: "sql"; draft: string };
