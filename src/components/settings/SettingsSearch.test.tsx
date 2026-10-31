@@ -78,6 +78,7 @@ beforeEach(() => {
       await new Promise(resolve => setTimeout(resolve, 5));
       return Response.json(storedRead(STORED, FACTS));
     }
+    if (url === "/api/config") return Response.json({ externalSignIn: { enabled: false }, passwordMin: 8 });
     if (url === "/api/palettes") return Response.json({ custom: PALETTES });
     if (url === "/api/auth/entry") return Response.json({ instanceName: "Atlas North", signInMessage: "", lostPasswordContact: "the GIS team", landingPage: "projects", setupRequired: false });
     if (url === "/api/health") return Response.json({ status: "ready" });
@@ -358,7 +359,7 @@ describe("where a hit lands", () => {
   it("names only cards and rows its tab draws, under the same id and label", async () => {
     const declared = settingsDeclarations({
       account: { id: "ada", name: "Ada Okafor", email: "ada@example.test", sqlName: "ada_okafor", isAdmin: true } as never,
-      tokens, look: LOOK, instance: storedRead(STORED, FACTS), entry: null,
+      external: false, tokens, look: LOOK, instance: storedRead(STORED, FACTS), entry: null,
       health: "ready", assistant: { enabled: false, reason: "No model credential is configured." }, palettes: PALETTES,
     }, true);
     const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "libraries", "workflows", "publishing", "data", "limits", "security", "system"];

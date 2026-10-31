@@ -42,7 +42,9 @@ export interface EntryValues {
 
 export interface IndexSources {
   readonly account: Account;
-  /** People sign in through a sign-in service: the Account card has no password. */
+  /** People sign in through a sign-in service: the Account card has no
+   * password. Until the mode is read, or if it cannot be, no password row is
+   * found: only false offers them. */
   readonly external?: boolean;
   readonly tokens: readonly ApiToken[] | null;
   /** The person's look, from the own-settings read. */
@@ -69,13 +71,13 @@ export function tokenState(token: Pick<ApiToken, "lastUsedAt" | "revokedAt" | "e
 
 const text = (value: unknown) => typeof value === "string" ? value : "";
 
-function accountCards(account: Account, external = false): IndexCard[] {
+function accountCards(account: Account, external: boolean | undefined): IndexCard[] {
   return [{ id: "account", title: "Account", keys: "profile", rows: [
     { id: "set-picture", label: "Picture", keys: "photo avatar face image profile" },
     { id: "set-display-name", label: "Display name", keys: "name profile person", value: account.name },
     { id: "set-sql-name", label: "SQL name", keys: "sql identifier tables owner", value: account.sqlName },
     { id: "set-email", label: "Email", keys: "email address mail sign in", value: account.email },
-    ...(external ? [] : [
+    ...(external !== false ? [] : [
       { id: "set-current-password-email", label: "Current password to change email", secret: true },
       { id: "password", label: "Change password", keys: "password change new current" },
       { id: "set-current-password", label: "Current password", secret: true },

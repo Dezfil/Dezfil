@@ -12,8 +12,9 @@ vi.mock("next/link", () => ({
 /**
  * Users on an instance with a sign-in service: no row offers Reset password
  * or New sign-in link, the person's own row no Change password, and an
- * invitation hands over the way in with no link. With the mode off, or a
- * configuration read that fails, each is as it always was. The reads are fakes.
+ * invitation hands over the way in with no link. With the mode off each is as
+ * it always was. While the mode cannot be read the page says so, with its retry,
+ * and draws no row. The reads are fakes.
  */
 
 const base = { sqlName: "x", isAdmin: false, isOriginal: false, createdAt: "2026-01-01", updatedAt: "2026-01-01", lastSignInAt: null };
@@ -104,12 +105,9 @@ describe("in the mode", () => {
   });
 });
 
-describe.each([
-  ["with the mode off", () => Response.json({ externalSignIn: { enabled: false } })],
-  ["when the configuration read fails", () => Response.json({ error: { code: "internal", message: "No." } }, { status: 500 })],
-])("%s", (_name, answer) => {
+describe("with the mode off", () => {
   beforeEach(() => {
-    config = answer;
+    config = () => Response.json({ externalSignIn: { enabled: false } });
     invitation = () => Response.json({ account: NEW, signInUrl: "https://dezfil.example/accept#secret=once", expiresAt: "2026-11-07T00:00:00.000Z" }, { status: 201 });
   });
 
@@ -128,5 +126,37 @@ describe.each([
     expect(row("Cy Marsh").querySelector("input")).not.toBeNull();
     expect(row("Cy Marsh").textContent).toContain("Shown once. No email is sent; share this link privately.");
     expect(offered("Cy Marsh")).toEqual(["Copy link", "Done"]);
+  });
+});
+
+describe("while the mode cannot be read", () => {
+  const offersNothing = () => {
+    expect(container.querySelectorAll("button[aria-expanded]")).toEqual([]);
+    for (const words of ["Reset password", "New sign-in link", "Change password"]) expect(container.textContent).not.toContain(words);
+  };
+
+  it("says so in the server's words, with its retry, and draws no row to act on", async () => {
+    config = () => Response.json({ error: { code: "internal", message: "The configuration could not be read." } }, { status: 500 });
+    await mount();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("The configuration could not be read.");
+    offersNothing();
+  });
+
+  it("says so when the server cannot be reached", async () => {
+    config = () => { throw new TypeError("Failed to fetch"); };
+    await mount();
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+    offersNothing();
+  });
+
+  it("draws the rows the mode calls for once the retry reads it", async () => {
+    config = () => Response.json({ error: { code: "internal", message: "No." } }, { status: 500 });
+    await mount();
+    config = () => Response.json({ externalSignIn: { enabled: true } });
+    await press("Try again");
+    await settle();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    await expand("Ada Okafor");
+    expect(offered("Ada Okafor")).toEqual(["Make admin", "Deactivate"]);
   });
 });

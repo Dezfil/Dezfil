@@ -94,12 +94,13 @@ it("draws the Password card and an editable email with the mode off", async () =
   expect(container.textContent).not.toContain("Your email comes from the sign-in service.");
 });
 
-const search = (external: boolean, query: string) => {
+const search = (external: boolean | undefined, query: string) => {
   const sources: IndexSources = { account: ADA, external, tokens: [], look: null, instance: null, entry: null, health: null, assistant: null, palettes: null };
   return searchSettings(buildSearchIndex(settingsDeclarations(sources, false), false), query).map(hit => hit.name);
 };
-it("leaves the password rows out of the search in the mode, and only then", () => {
+it("finds the password rows only once the mode is known to be off", () => {
   expect(search(true, "change password")).toEqual([]);
   expect(search(false, "change password")).toContain("Change password");
+  expect(search(undefined, "change password")).toEqual([]);
   expect(search(true, "email")).toContain("Email");
 });

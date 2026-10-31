@@ -20,7 +20,7 @@ const TOKENS = [
 
 function sources(overrides: Partial<IndexSources> = {}): IndexSources {
   return {
-    account: ACCOUNT, tokens: TOKENS, look: { ...defaultLook(), color: "heather", rail: "icons" },
+    account: ACCOUNT, external: false, tokens: TOKENS, look: { ...defaultLook(), color: "heather", rail: "icons" },
     instance: instanceReadFixture({
       instanceName: { value: "Atlas North", source: "stored", storedValue: "Atlas North" },
       landingPage: { value: "maps", source: "stored", storedValue: "maps" },

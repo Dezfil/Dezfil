@@ -82,6 +82,7 @@ beforeEach(() => {
     if (url === "/api/account") {
       return Response.json({ account: { id: "ada", name: accountName, email: "ada@example.test", sqlName: "ada", isAdmin: admin } });
     }
+    if (url === "/api/config") return Response.json({ externalSignIn: { enabled: false }, passwordMin: 8 });
     if (url === "/api/instance/settings") return Response.json(storedRead({ instanceName }));
     if (url === "/api/auth/entry") {
       return Response.json({ instanceName, signInMessage: "", lostPasswordContact: "", landingPage: "home", setupRequired: false });

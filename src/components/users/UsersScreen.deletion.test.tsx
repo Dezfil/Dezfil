@@ -24,6 +24,7 @@ beforeEach(() => {
   entries = []; listed = [{ ...account, status: "invited", lastSignInAt: null }]; result = "completed"; calls = [];
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET"; calls.push(`${method} ${url}`);
+    if (url === "/api/config") return Response.json({ externalSignIn: { enabled: false } });
     if (url === "/api/account") return Response.json({ account: { ...account, id: "me" } });
     if (url === "/api/users") return Response.json({ users: listed, deletions: entries });
     if (url.endsWith("/deletion-preview")) return Response.json({ account, invited: true, totals: {}, people: 0, confirmation: "a".repeat(64) });
