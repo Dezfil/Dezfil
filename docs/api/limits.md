@@ -81,7 +81,7 @@ Most refusals at a setting's limit say in their `message` which setting changes 
 
 ## Limits an operator changes
 
-An admin changes most limits in **Settings** › **Limits**. A row with a lock is decided by the server: the line under it names the variable that changes it, except **Largest image**, which is fixed.
+An admin changes most limits in **Settings** › **Limits**. A row with a lock is decided by the server: the line under it names the variable that changes it. **Largest image** and **Storage full at** are fixed.
 
 From a script, send the new value with `<YOUR_ADMIN_TOKEN>`, a token an admin's account created; any other account's token answers 403 `forbidden`:
 
@@ -169,7 +169,7 @@ Read `previewRows` and `renderCapFeatures` through `GET /api/config`.
 
 | What | Fixed limit, no setting | When reached |
 |---|---|---|
-| Free space on the data folder's volume | At or below 512 MB | New file work answers 409 `storage_full` |
+| Free space on the data folder's volume, **Storage full at** on the **This instance** card | At or below 512 MB | New file work answers 409 `storage_full` |
 | A declared transfer | Its size must fit in the free space above 512 MB | Refused before reception |
 | A transfer without a declared size | Capacity checked every 4 MB received | Stopped at the threshold; its partial file is removed |
 | Work already admitted | No capacity reservation | Overlapping transfers and conversion output can fill the volume and answer 507 `storage_exhausted` |

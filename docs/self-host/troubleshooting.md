@@ -202,6 +202,7 @@ This instance's storage is full: <free> free of <total>. Delete datasets or maps
 |---|---|
 | New file work is refused | Sign in and delete unwanted datasets or maps. Admins can clear **Service caches** in **Settings** > **System**. |
 | Cleanup also answers `storage_exhausted` | The recovery reserve is finite. Free space elsewhere on the volume or enlarge it, keeping Dezfil's remaining files together. |
+| The **Data** page or **Add data** shows "Storage is full: <free> free.", or the **Storage** card names the threshold | It goes once free space is above the threshold. |
 | The log reports full or available storage | Each transition names the data folder and free bytes once. Repeated requests in the same state add no transition line. |
 | An account shows **Deletion unfinished** | Free space for compaction, then use **Finish deleting** in **Users**. See [Delete an account](users.md#deactivate-or-delete-an-account). |
 

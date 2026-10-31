@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readInstanceSettings } from "@/lib/settings/read";
 import { TIMEOUT_RELATIONSHIP } from "@/lib/settings/relationships";
+import { STORAGE_FULL_BYTES, STORAGE_MB } from "@/lib/system/storage-state";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
 import { capacityText, countedText, inLabels, limitChoiceWords, LIMITS_CARDS, LIMITS_LABELS, LIMITS_ROW_IDS, LIMITS_UNITS, limitsSettingRows, serviceSetUp, shownUnit, withShownUnit } from "./limits-table";
 
@@ -79,6 +80,15 @@ describe("the Limits label table against the read", () => {
     expect(LIMITS_ROW_IDS.tokenLifetimeMax).toBe(row.id);
   });
 
+  it("names the threshold the server admits work against, with nothing to set", () => {
+    const row = LIMITS_CARDS.flatMap(card => card.rows).find(candidate => candidate.kind === "fixed")!;
+    expect(row.label).toBe("Storage full at");
+    expect(row.key).toBeUndefined();
+    expect(Object.values(LIMITS_LABELS)).not.toContain(row.label);
+    expect(row.kind === "fixed" && row.value).toBe(`${STORAGE_FULL_BYTES / STORAGE_MB} MB free or less`);
+    expect(row.kind === "fixed" && row.value).toBe("512 MB free or less");
+  });
+
   it("lays out the six cards in the order and under the labels the page shows", () => {
     expect(LIMITS_CARDS.map(card => [card.title, card.rows.map(row => row.label)])).toEqual([
       ["Imports", ["Largest upload", "Data processing time limit", "Largest link import", "Link import time limit", "OpenStreetMap area", "Overture area"]],
@@ -86,7 +96,7 @@ describe("the Limits label table against the read", () => {
       ["Tools", ["Tools running at once", "Tools waiting", "Time limit per tool run", "Geocode addresses", "Travel-time area"]],
       ["Image export", ["Largest image", "Images at once", "Time limit per image"]],
       ["Public requests", ["Requests per visitor", "Tile requests per visitor"]],
-      ["This instance", ["Maps on this instance", "Projects on this instance", "People on this instance", "Longest token lifetime"]],
+      ["This instance", ["Maps on this instance", "Projects on this instance", "People on this instance", "Longest token lifetime", "Storage full at"]],
     ]);
     expect(LIMITS_LABELS).toMatchObject({
       uploadMaxMb: "Largest upload", operationConcurrency: "Tools running at once", operationQueueMax: "Tools waiting",

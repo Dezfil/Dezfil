@@ -162,6 +162,15 @@ describe("Limits", () => {
     expect(field("Time limit per image").getAttribute("aria-invalid")).toBe("true");
   });
 
+  it("names the storage threshold as a fixed row of This instance, with nothing to change and no second read", async () => {
+    await open();
+    expect(field("Storage full at").disabled).toBe(true);
+    expect(field("Storage full at").value).toBe("512 MB free or less");
+    expect(row("Storage full at").textContent).toBe("Storage full atUploads, imports and exports stop. Reading and deleting keep working.");
+    expect(card("This instance").textContent).toContain("Storage full at");
+    expect(requests.map(request => request.url)).toEqual(["/api/instance/settings"]);
+  });
+
   it("draws the feature cap and the largest image fixed, and a setting the environment pins locked", async () => {
     pinned = { uploadMaxMb: 8192, operationConcurrency: 3 };
     await open();
