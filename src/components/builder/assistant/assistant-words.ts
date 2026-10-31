@@ -1,3 +1,5 @@
+import { ASSISTANT_ACCOUNT_CAPACITY } from "@/lib/api/error-catalogue";
+
 /**
  * The pane's words for a failure. Every assistant failure path carries
  * a structured code with its text to the pane; the boundary words it
@@ -15,6 +17,7 @@ export interface PaneSituation {
 }
 
 const CAPACITY = "The assistant is at capacity: eight requests are open on this instance.";
+const ACCOUNT_CAPACITY = "You have four requests open, the most one person may.";
 
 const WORDS: Record<string, string> = {
   assistant_reservation_required: "The message could not be started. Send it again.",
@@ -26,13 +29,15 @@ const WORDS: Record<string, string> = {
   pending_unknown: "This confirmation is no longer available and nothing ran. Send a new message.",
   pending_resolved: "This action was already answered. It will not run again.",
   pending_superseded: "A newer message declined this action.",
+  assistant_reservation_limit: "Two of your messages have not started yet. Wait a few minutes, then send again.",
 };
 
 export function failureWords(failure: PaneFailure, situation: PaneSituation): string {
   if (failure.code === "assistant_capacity") {
+    const full = failure.message === ASSISTANT_ACCOUNT_CAPACITY ? ACCOUNT_CAPACITY : CAPACITY;
     return situation.pendingActions > 0
-      ? `${CAPACITY} Recover a pending action below, or abandon it, to free one.`
-      : `${CAPACITY} Wait for one to finish, then send again.`;
+      ? `${full} Recover a pending action below, or abandon it, to free one.`
+      : `${full} Wait for one to finish, then send again.`;
   }
   if (failure.code === "internal" && /^Request failed \(\d{3}\)$/.test(failure.message)) return "Something went wrong on the instance. Try again.";
   return WORDS[failure.code] ?? failure.message;
