@@ -17,9 +17,9 @@ const SERVER_DRIVEN = new Set(['lastUsedAt', 'picture', 'pictureState', 'picture
 /** Full served probe. The injectable transport is only for route-level tests;
  * the command always uses real HTTP, production fixtures and the transport arms.
  * @param {string} base
- * @param {{serverLog: string, exchangeImpl?: typeof exchange, runTransport?: boolean}} options
+ * @param {{serverLog: string, externalBase?: string, exchangeImpl?: typeof exchange, runTransport?: boolean}} options
  */
-export async function bodyProbe(base, { serverLog, exchangeImpl = exchange, runTransport = true }) {
+export async function bodyProbe(base, { serverLog, externalBase = base, exchangeImpl = exchange, runTransport = true }) {
   assert.ok(process.env.DEZFIL_DATA_DIR, 'DEZFIL_DATA_DIR must name the isolated server data directory');
   assert.ok(serverLog, '--server-log is required'); await readFile(serverLog);
   const started = Date.now();
@@ -39,21 +39,26 @@ export async function bodyProbe(base, { serverLog, exchangeImpl = exchange, runT
   };
   const before = await state(), evidence = [];
   for (const { template, method, operation } of operations) {
-    const limit = operation.requestBody['x-byte-limit']; assert.ok([65_536, 131_072, 16_777_216].includes(limit), template);
+    const limit = operation.requestBody['x-byte-limit']; assert.ok([8192, 65_536, 131_072, 16_777_216].includes(limit), template);
+    const target = template === '/api/auth/external/arrive' ? externalBase : base;
     const pathname = concreteBodyPath(template, fixture, credentials.account);
-    const headers = { origin: new URL(base).origin, 'content-type': 'application/json', accept: 'application/json, text/event-stream',
+    const headers = { origin: new URL(target).origin, 'content-type': 'application/json', accept: 'application/json, text/event-stream',
       ...(!template.startsWith('/api/published/') && !template.startsWith('/api/auth/') ? { authorization: `Bearer ${credentials.token}` } : {}) };
     if (template.startsWith('/api/maps/') || template.startsWith('/api/layers/')) headers['x-edit-revision'] = (await api('GET', `/api/maps/${fixture.mapId}`)).json.editRevision;
     if (template.startsWith('/api/recipes/')) headers['x-edit-revision'] = (await api('GET', `/api/recipes/${fixture.recipeId}`)).json.recipe.editRevision;
     const value = template === '/api/mcp' ? { jsonrpc: '2.0', id: 1, method: 'body_probe_unknown' } : invalidBody;
     const control = Buffer.from(JSON.stringify({ ...value, _padding: '' }));
-    const expected = await exchangeImpl(base + pathname, { method, headers: { ...headers, 'transfer-encoding': 'chunked' }, chunks: [control] });
+    const expected = await exchangeImpl(target + pathname, { method, headers: { ...headers, 'transfer-encoding': 'chunked' }, chunks: [control] });
+    if (template === '/api/auth/external/arrive') {
+      assert.equal(expected.status, 400, 'external arrival needs an enabled instance at --external-origin');
+      assert.equal(expected.json?.error?.code, 'invalid_request', 'external arrival must reach body validation');
+    }
     assert.ok(expected.status >= 400 && expected.status < 500 || template === '/api/mcp' && expected.json?.error, `${method} ${template}: control must refuse without work: ${expected.text}`);
     assert.notEqual(expected.json?.error?.code, 'authentication_required', template);
     assert.notEqual(expected.json?.error?.code, 'assistant_disabled', 'enable the assistant with a synthetic provider key; no provider call is made');
     for (const declared of [true, false]) for (const encoding of ['utf8', 'escaped']) for (const delta of [-1, 0, 1]) {
       const bytes = limit + delta, body = sizedJson(value, bytes, encoding);
-      const result = await exchangeImpl(base + pathname, { method, headers: { ...headers, ...(declared ? { 'content-length': String(bytes) } : { 'transfer-encoding': 'chunked' }) }, chunks: chunksOf(body) });
+      const result = await exchangeImpl(target + pathname, { method, headers: { ...headers, ...(declared ? { 'content-length': String(bytes) } : { 'transfer-encoding': 'chunked' }) }, chunks: chunksOf(body) });
       if (delta <= 0) assertValidation(result, expected);
       else assertByteRefusal(result, limit, { code: operation.requestBody['x-byte-error'], workflow: template.startsWith('/api/recipes') && !template.endsWith('/transfer'),
         ...(template === '/api/assistant/messages' ? { message: 'The assistant submission exceeds 128 KiB.' } : {}) });
@@ -68,8 +73,9 @@ export async function bodyProbe(base, { serverLog, exchangeImpl = exchange, runT
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const args = process.argv.slice(2), at = args.indexOf('--server-log');
-    assert.ok(args[0]?.startsWith('http') && at > 0, 'Usage: body-probe.mjs ORIGIN --server-log PATH');
-    await bodyProbe(args[0], { serverLog: args[at + 1] });
+    const args = process.argv.slice(2), at = args.indexOf('--server-log'), external = args.indexOf('--external-origin');
+    assert.ok(args[0]?.startsWith('http') && at > 0 && external > 0 && args[external + 1]?.startsWith('http'),
+      'Usage: body-probe.mjs ORIGIN --server-log PATH --external-origin EXTERNAL_ORIGIN');
+    await bodyProbe(args[0], { serverLog: args[at + 1], externalBase: args[external + 1] });
   } catch (error) { console.error(JSON.stringify({ label: 'failed', message: error.message }, null, 2)); process.exitCode = 1; }
 }

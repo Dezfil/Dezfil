@@ -22,7 +22,7 @@ it("requires exact refusal envelopes, semantic validation, and unchanged state",
   expect(() => assertNoBodyMutation([], [{ id: "unexpected" }])).toThrow();
 });
 it.each(["utf8", "escaped"])("places complete %s JSON at each tier boundary", encoding => {
-  for (const limit of [65_536, 131_072, 16_777_216]) for (const delta of [-1, 0, 1]) {
+  for (const limit of [8192, 65_536, 131_072, 16_777_216]) for (const delta of [-1, 0, 1]) {
     const bytes = sizedJson({ message: "雪" }, limit + delta, encoding);
     expect(bytes.length).toBe(limit + delta); expect(JSON.parse(bytes.toString()).message).toBe("雪");
     expect(() => JSON.parse(bytes.subarray(0, bytes.length - 1).toString())).toThrow();

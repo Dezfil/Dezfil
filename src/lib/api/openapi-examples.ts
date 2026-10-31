@@ -82,6 +82,30 @@ function serverSentEvent(message: unknown): string {
 }
 
 export const WORKED_EXAMPLES: WorkedExamples = {
+  "POST /api/auth/external/start": {
+    externalSignIn: {
+      summary: "Start a browser sign-in",
+      description: "Needs external sign-in configured. Send Origin from the instance's page. Keep the start cookie and follow Location to the sign-in service, which receives the start value.",
+      parameters: { Origin: "http://localhost:3000" },
+      response: { status: "303" },
+    },
+  },
+  "POST /api/auth/external/arrive": {
+    externalSignIn: {
+      summary: "Exchange the returned ticket for a session",
+      description: "Needs the start cookie from this browser, no active session, and a ticket signed by a trusted service for Ana Diaz's existing account. The ticket names this instance's audience and the start value. Send the compact JWS from the arrival page's fragment. The answer sets the session cookie and clears the start cookie.",
+      parameters: { Origin: "http://localhost:3000" },
+      request: json({ ticket: "<SIGNED_TICKET>" }),
+      response: answer("200", { account: ACCOUNT }),
+    },
+  },
+  "POST /api/instance/sign-out": {
+    everyone: {
+      summary: "End every account's credentials",
+      description: "Needs an admin's token or session and confirmation that every session and API token ends, including the caller's, and running and parked assistant work stops. This instance starts with both generations at zero; the sign-out generation rises to one.",
+      response: answer("200", { signOutGeneration: 1, doorGeneration: 0 }),
+    },
+  },
   "POST /api/auth/sign-in": {
     quickstart: {
       summary: "Sign in as Ana Diaz",

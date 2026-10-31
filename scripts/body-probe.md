@@ -21,17 +21,25 @@ so it can observe upload scratch growth. Use port 3391 for the full arm and
 3392 for the 1 MiB arm. The client install needs the lockfile's stock MCP
 client; the separate probe image supplies it without adding it to production.
 
-Against an already running production standalone on port 3391:
+External arrival needs a second isolated instance on port 3393 with
+[external sign-in configured](../docs/self-host/configuration/external-sign-in.md).
+Give it its own data directory and a synthetic first owner and public key.
+The probe sends malformed bodies without a session or a ticket, so it needs
+no private key and never contacts the sign-in service. Both instances must
+be freshly started to keep the failed-sign-in budget clear. A disabled
+arrival or exhausted budget fails the control instead of skipping its bound.
+
+Against already running production standalones on ports 3391 and 3393:
 
 ```sh
-DEZFIL_DATA_DIR="$PWD/.claude/test-data/body-server" npm run probe:body -- http://127.0.0.1:3391 --server-log "$PWD/.claude/logs/body-server.log"
+DEZFIL_DATA_DIR="$PWD/.claude/test-data/body-server" npm run probe:body -- http://127.0.0.1:3391 --server-log "$PWD/.claude/logs/body-server.log" --external-origin http://127.0.0.1:3393
 ```
 
 Against a container named `dezfil-body`, with its log at
 `/data/body-server.log`, use the separately built `dezfil-mcp-probe:ci` image:
 
 ```sh
-docker run --rm --network=container:dezfil-body --volumes-from dezfil-body -e DEZFIL_DATA_DIR=/data -v "$PWD/scripts:/probe/scripts:ro" dezfil-mcp-probe:ci node /probe/scripts/body-probe.mjs http://127.0.0.1:3391 --server-log /data/body-server.log
+docker run --rm --network=container:dezfil-body --volumes-from dezfil-body -e DEZFIL_DATA_DIR=/data -v "$PWD/scripts:/probe/scripts:ro" dezfil-mcp-probe:ci node /probe/scripts/body-probe.mjs http://127.0.0.1:3391 --server-log /data/body-server.log --external-origin http://127.0.0.1:3393
 ```
 
 On a separate instance configured with `DEZFIL_UPLOAD_MAX_MB=1`:
@@ -40,7 +48,10 @@ On a separate instance configured with `DEZFIL_UPLOAD_MAX_MB=1`:
 DEZFIL_DATA_DIR="$PWD/.claude/test-data/file-limit-server" DEZFIL_UPLOAD_MAX_MB=1 npm run probe:transport -- http://127.0.0.1:3392 --server-log "$PWD/.claude/logs/file-limit-server.log" --file-limit-only
 ```
 
-Green exits zero with `"label":"confirmed"`, 63 JSON operations and 756
+Run the external-sign-in container in the same network namespace, listening
+on 3393 with a separate data volume.
+
+Green exits zero with `"label":"confirmed"`, 70 JSON operations and 840
 boundary checks, the measured fixture bytes, and a counted MCP upload. A red
 exits nonzero with `"label":"failed"` and the failed assertion. Truncation, a
 swallowed refusal, an unbounded MCP handoff, changed resource state, missing
