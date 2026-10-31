@@ -44,12 +44,13 @@ Dezfil sends no email and reports nothing about itself: there is no telemetry. L
 
 | Service | Turn it on with | Reached when | What it receives |
 |---|---|---|---|
+| An external sign-in service, reached by the browser | The [external sign-in variables](configuration/external-sign-in.md) | Someone starts sign-in | The random start value and the visitor's request; the service authenticates them and returns an identity ticket through a fragment and entry POST. Dezfil checks it locally, without a server request. API and MCP calls never contact the door. |
 | An address finder (Nominatim-compatible) | `DEZFIL_GEOCODER_URL`, or **Address** on the **Address finder** card | Someone presses Enter in **Search map & places**, or runs **Geocode addresses** | The search text, or each address in the chosen column |
 | A travel-time service (Valhalla-compatible) | `DEZFIL_ISOCHRONE_URL`, or **Address** on the **Travel time** card | Someone runs **Isochrone / travel-time area** | Each origin's coordinates, the travel mode and the time bands |
 | Satellite imagery | `DEZFIL_SATELLITE_URL`, or **Tile address** on the **Satellite imagery** card of **Settings** > **Libraries** | A map on **Satellite** is drawn, in a browser or in a picture the server makes | Each tile's zoom, column and row, with the key in your template, from your server |
 | The AI provider, `api.anthropic.com` or `api.openai.com` | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` | Someone sends a message to the assistant | The conversation and what the assistant reads: see [What the provider receives](assistant.md#what-the-provider-receives) |
 
-To stop a service again, click **Remove** beside its saved address, then **Remove address**. An address a variable sets is locked in Settings and names its variable: unset the variable and replace the container, as [Set a variable](configuration.md#set-a-variable) shows.
+To stop an address-based data service again, click **Remove** beside its saved address, then **Remove address**. An address a variable sets is locked in Settings and names its variable: unset the variable and replace the container, as [Set a variable](configuration.md#set-a-variable) shows.
 
 A public geocoding service receives every address your people look up, and every distinct address of the column for **Geocode addresses**. Run your own if the addresses are not yours to share.
 

@@ -4,6 +4,8 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { externalSignIn } = await import("@/lib/auth/external-sign-in/config");
+    externalSignIn();
     const { sessionCookieName } = await import("@/lib/auth/session-cookie");
     sessionCookieName();
     const { ensureDataDir } = await import("@/lib/data-dir");
@@ -11,6 +13,10 @@ export async function register() {
     await ensureDataDir(dataDir());
     const { metadataDb } = await import("@/lib/metadata/db");
     metadataDb();
+    const { initializeExternalOwner } = await import("@/lib/auth/external-sign-in/owner");
+    initializeExternalOwner();
+    const { initializeAuthGenerations } = await import("@/lib/auth/generations");
+    initializeAuthGenerations();
     const { discoverAccountDeletions } = await import("@/lib/auth/account-deletion-journal");
     discoverAccountDeletions();
     const { maintainCredentials } = await import("@/lib/auth/credential-maintenance");

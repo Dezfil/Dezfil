@@ -23,7 +23,7 @@ beforeEach(async () => {
   admin = await createFirstAccount({ name: "Admin", email: "admin@example.test", password }, db);
   const context = authenticateSession(admin.secret, db)!;
   const invitation = inviteAccount(context, { name: "Member", email: "member@example.test" }, db);
-  member = await redeemSignInLink(invitation.secret, password, db);
+  member = await redeemSignInLink(invitation.secret!, password, db);
   ownToken = createApiToken(authenticateSession(member.secret, db)!, "Member CLI", db);
   otherToken = createApiToken(context, "Admin CLI", db);
 });

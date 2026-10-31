@@ -1,3 +1,5 @@
+import { externalSignIn } from "./external-sign-in/config";
+import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { readStoredSettings } from "@/lib/settings/store";
 import { settingDefinition } from "@/lib/settings/catalogue";
 import { NextResponse } from "next/server";
@@ -15,9 +17,11 @@ import { assertRequestOrigin, authBody, authFailure, privateResponse, requestIng
 export async function entryInformation(request: Request): Promise<Response> {
   try {
     requestIngress(request);
-    const db = metadataDb(), setupRequired = !setupComplete(db);
+    const mode = externalSignIn();
+    const db = metadataDb(), setupRequired = !mode.enabled && !setupComplete(db);
     const stored = readStoredSettings(db);
     return privateResponse(NextResponse.json({ instanceName: instanceName(db),
+      externalSignIn: { enabled: mode.enabled, doorUrl: mode.enabled ? mode.doorUrl : null },
       signInMessage: stored.signInMessage ?? settingDefinition("signInMessage").defaultValue,
       lostPasswordContact: stored.lostPasswordContact ?? settingDefinition("lostPasswordContact").defaultValue,
       landingPage: stored.landingPage ?? settingDefinition("landingPage").defaultValue,
@@ -28,6 +32,7 @@ export async function entryInformation(request: Request): Promise<Response> {
 }
 export async function enter(request: Request, action: "setup" | "sign-in" | "redeem"): Promise<Response> {
   try {
+    requirePasswordSignIn();
     const ingress = requestIngress(request);
     assertRequestOrigin(request);
     const fields = action === "setup" ? ["name", "email", "password"] : action === "sign-in" ? ["email", "password"] : ["secret", "password"];

@@ -1,3 +1,4 @@
+import { EXTERNAL_SIGN_IN_PATHS, EXTERNAL_SIGN_IN_SCHEMAS } from "./openapi-external-sign-in";
 import { SMALL_JSON_BODY_MAX_BYTES } from "./request-bounds";
 import { withAutomaticMethods } from "./openapi-methods";
 import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_FACT_SCHEMA, EDIT_REVISION_SCHEMA } from "./openapi-document-facts";
@@ -154,6 +155,7 @@ export function buildOpenApiDocument() {
     ],
     paths: {
       ...AUTH_PATHS,
+      ...EXTERNAL_SIGN_IN_PATHS,
       ...ACCOUNT_PATHS,
       ...USERS_PATHS,
       ...INSTANCE_SETTINGS_PATHS,
@@ -869,6 +871,7 @@ export function buildOpenApiDocument() {
       securitySchemes: AUTH_SECURITY_SCHEMES,
       schemas: {
         ...AUTH_SCHEMAS,
+        ...EXTERNAL_SIGN_IN_SCHEMAS,
         ...PROFILE_PICTURE_SCHEMAS,
         ...WRITTEN_IN_SCHEMAS,
         ...ACCOUNT_SCHEMAS,
@@ -1043,6 +1046,7 @@ export function buildOpenApiDocument() {
               },
             },
             rules: instanceRulesSchema(RULE_KEYS),
+            externalSignIn: { type: "object", additionalProperties: false, required: ["enabled"], properties: { enabled: { type: "boolean" } } },
             passwordMin: {
               type: "integer", minimum: 8, maximum: 64,
               description:

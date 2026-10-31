@@ -28,7 +28,7 @@ beforeEach(async () => {
 afterEach(() => { if (db.open) db.close(); rmSync(directory, { recursive: true, force: true }); });
 async function member(email = "lin@example.test") {
   const invited = inviteAccount(admin, { name: "Lin", email }, db, start);
-  const entered = await redeemSignInLink(invited.secret, password, db, start);
+  const entered = await redeemSignInLink(invited.secret!, password, db, start);
   return { ...entered, context: authenticateSession(entered.secret, db, start)! };
 }
 function snapshot() {
@@ -160,7 +160,7 @@ describe("password rules and own-account changes", () => {
         const link = entry === "invite"
           ? inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start)
           : issueSignInLink(admin, (await member()).account.id, db, start);
-        await refusedWithoutChange(() => redeemSignInLink(link.secret, weak, db, start), "weak_password");
+        await refusedWithoutChange(() => redeemSignInLink(link.secret!, weak, db, start), "weak_password");
       }
     });
 
@@ -174,7 +174,7 @@ describe("password rules and own-account changes", () => {
 
   it("accepts eight characters without imposing character classes", async () => {
     const invited = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
-    const entered = await redeemSignInLink(invited.secret, "marigold", db, start);
+    const entered = await redeemSignInLink(invited.secret!, "marigold", db, start);
     expect((await signIn(entered.account.email, "marigold", db, start)).account.id).toBe(entered.account.id);
   });
 

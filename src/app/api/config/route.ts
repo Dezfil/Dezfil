@@ -1,3 +1,4 @@
+import { externalSignIn } from "@/lib/auth/external-sign-in/config";
 import { NextResponse } from "next/server";
 import {
   basemapOverrideUrl,
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
     requireRequestAuth(request);
     const security = securitySettings();
     return privateResponse(NextResponse.json({
+      externalSignIn: { enabled: externalSignIn().enabled },
       basemapUrl: basemapUrl(),
       basemapOverrideUrl: basemapOverrideUrl(),
       // The styles a person may choose: those an admin hid are left out.

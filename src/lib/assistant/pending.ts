@@ -1,4 +1,4 @@
-import { registerAssistantStore } from "./retained-work";
+import { assistantBeginMark, assistantWorkEnded, registerAssistantStore } from "./retained-work";
 import { withoutWriteRevision } from "./edit-revisions";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import type { ResolvedConfirmation } from "./action-metadata";
@@ -24,6 +24,7 @@ import type { ProviderExchange, ToolCall, ToolOutcome } from "./provider";
  */
 
 export interface ParkedRun {
+  beginMark?: number;
   /** Account binding only; the resolving request supplies a fresh credential. */
   accountId: string;
   confirmation?: ResolvedConfirmation;
@@ -80,12 +81,14 @@ export class PendingActionStore {
 
   park(scope: AccountScope, run: Omit<ParkedRun, "accountId">): string {
     const accountId = requireAccountScope(scope);
+    const beginMark = run.beginMark ?? assistantBeginMark();
+    if (assistantWorkEnded(beginMark)) throw new ApiError("authentication_required", "Sign in to continue.", 401);
     if (this.parked.size >= MAX_PARKED) throw new ApiError("assistant_capacity", ERROR_CATALOGUE.assistant_capacity, 409);
     const { exchange, ...data } = run;
     void exchange;
     if (parkedBytes(data) > RECOVERY_LIMITS.liveBytes) recoveryLimit();
     const id = randomUUID();
-    this.parked.set(id, Object.freeze({ ...run, headers: withoutWriteRevision(run.headers), accountId }));
+    this.parked.set(id, Object.freeze({ ...run, beginMark, headers: withoutWriteRevision(run.headers), accountId }));
     return id;
   }
 
@@ -116,6 +119,11 @@ export class PendingActionStore {
   }
 
   holdsExchange(exchange: ProviderExchange): boolean { return [...this.parked.values()].some(run => run.exchange === exchange); }
+  endBefore(mark: number): void {
+    for (const [id, run] of this.parked) if ((run.beginMark ?? 0) < mark) {
+      run.exchange.dispose?.(); this.parked.delete(id); this.remember(id, "superseded", run.accountId);
+    }
+  }
   eraseAccount(accountId: string): void {
     for (const [id, run] of this.parked) if (run.accountId === accountId) { run.exchange.dispose?.(); this.parked.delete(id); }
     for (const [id, trace] of this.trace) if (trace.accountId === accountId) this.trace.delete(id);
@@ -139,4 +147,4 @@ const pendingHost = globalThis as typeof globalThis & { [pendingKey]?: PendingSt
 const pendingState: PendingState = pendingHost[pendingKey] ??= { parked: new Map(), trace: new Map() };
 export const pendingActions = new PendingActionStore(pendingState);
 
-registerAssistantStore({ erase: accountId => pendingActions.eraseAccount(accountId) });
+registerAssistantStore({ endBefore: mark => pendingActions.endBefore(mark), erase: accountId => pendingActions.eraseAccount(accountId) });

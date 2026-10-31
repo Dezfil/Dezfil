@@ -376,6 +376,7 @@ async function* processCalls(
         runPlanRevision: confirmation.runPlanRevision,
         historyMapId: subjectFacts(confirmation.subject)?.mapId,
         runId: ctx.runId,
+        beginMark: ctx.beginMark,
         context: ctx.context,
         policy: ctx.policy,
         offered: [...ctx.offered],
@@ -452,12 +453,12 @@ function errorEvent(error: unknown): AssistantEvent {
 }
 
 export async function* runAssistant(provider: ModelProvider, input: RunInput, deps: LoopDeps): AsyncGenerator<AssistantEvent> {
-  const work = beginAssistantWork(deps.scope);
-  try { yield* runAssistantWork(provider, input, { ...deps, signal: deps.signal ? AbortSignal.any([deps.signal, work.signal]) : work.signal }); }
+  const work = beginAssistantWork(deps.scope, undefined, deps.beginMark ?? (deps.runId ? assistantRuns.beginMark(deps.scope, deps.runId) : undefined));
+  try { yield* runAssistantWork(provider, input, { ...deps, beginMark: work.begun, signal: deps.signal ? AbortSignal.any([deps.signal, work.signal]) : work.signal }); }
   finally { work.finish(); }
 }
 export async function* resumeAssistant(parked: ParkedRun, approved: boolean, deps: LoopDeps): AsyncGenerator<AssistantEvent> {
-  const work = beginAssistantWork(deps.scope);
-  try { yield* resumeAssistantWork(parked, approved, { ...deps, signal: deps.signal ? AbortSignal.any([deps.signal, work.signal]) : work.signal }); }
+  const work = beginAssistantWork(deps.scope, undefined, parked.beginMark);
+  try { yield* resumeAssistantWork(parked, approved, { ...deps, beginMark: work.begun, signal: deps.signal ? AbortSignal.any([deps.signal, work.signal]) : work.signal }); }
   finally { work.finish(); }
 }

@@ -24,8 +24,8 @@ beforeEach(() => {
     db.prepare("INSERT INTO account_preferences VALUES (?, ?, 'time')").run(id, `${id}-preferences`);
     for (const state of ["live", "expired", "revoked", "consumed"]) {
       const tag = `${id}-${state}`;
-      db.prepare("INSERT INTO auth_sessions VALUES (?, ?, ?, 1, ?, 1, ?)").run(tag, `${tag}-session`, id, state === "expired" ? 2 : 99999999, state === "revoked" ? 3 : null);
-      db.prepare("INSERT INTO auth_tokens VALUES (?, ?, ?, ?, 1, NULL, ?, ?)").run(tag, id, tag, `${tag}-token`, state === "revoked" ? 3 : null, state === "expired" ? 2 : null);
+      db.prepare("INSERT INTO auth_sessions (id,secret_hash,account_id,created_at,expires_at,last_used_at,revoked_at) VALUES (?, ?, ?, 1, ?, 1, ?)").run(tag, `${tag}-session`, id, state === "expired" ? 2 : 99999999, state === "revoked" ? 3 : null);
+      db.prepare("INSERT INTO auth_tokens (id,account_id,name,secret_hash,created_at,last_used_at,revoked_at,expires_at) VALUES (?, ?, ?, ?, 1, NULL, ?, ?)").run(tag, id, tag, `${tag}-token`, state === "revoked" ? 3 : null, state === "expired" ? 2 : null);
       for (const kind of ["invite", "reset"]) db.prepare("INSERT INTO auth_links VALUES (?, ?, ?, ?, 1, ?, ?, ?)")
         .run(`${tag}-${kind}`, id, kind, `${tag}-${kind}-hash`, state === "expired" ? 2 : 99999999, state === "consumed" ? 3 : null, state === "revoked" ? 3 : null);
     }

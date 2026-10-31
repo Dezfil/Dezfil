@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { Account } from "@/lib/metadata/accounts";
 import { DISPLAY_NAME_EVENT } from "@/components/UserBadge";
 import { ErrorNote } from "@/components/ui/ErrorNote";
-import { AccountCard } from "./AccountCard";
+import { AccountTab } from "./AccountTab";
 import { TokensCard } from "./TokensCard";
 import { McpCard } from "./McpCard";
 import { AppearanceTab } from "./AppearanceTab";
@@ -283,7 +283,7 @@ function Pending({ children }: { children: ReactNode }) {
  * the configuration read. */
 function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
   switch (tab) {
-    case "account": return <AccountCard account={loaded.account} />;
+    case "account": return <AccountTab account={loaded.account} />;
     case "tokens": return <><TokensCard admin={loaded.account.isAdmin} /><McpCard /></>;
     case "appearance": return <AppearanceTab />;
     case "general": return <GeneralTab admin={loaded.account.isAdmin} />;

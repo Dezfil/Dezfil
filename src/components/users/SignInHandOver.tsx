@@ -6,8 +6,22 @@ import { TextInput } from "@/components/ui/Field";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import styles from "./UsersScreen.module.css";
 
-export interface HandOver { account: Account; signInUrl: string; expiresAt: string; }
+/** A link to pass on, or, with a sign-in service, none at all. */
+export type HandOver = { account: Account; signInUrl: string; expiresAt: string } | { account: Account; signInUrl?: undefined; expiresAt?: undefined };
+type LinkHandOverValue = Extract<HandOver, { signInUrl: string }>;
+
+/** An invited person's way in, with a sign-in service: where, and with which email. */
+export const signsInAtTheService = (email: string) => `They sign in at the sign-in service with ${email}. There is no link to send.`;
+
 export function SignInHandOver({ value, onDone }: { value: HandOver; onDone: () => void }) {
+  if (value.signInUrl) return <LinkHandOver value={value} onDone={onDone} />;
+  return <div className={styles.handOver}>
+    <p className={styles.note}>{signsInAtTheService(value.account.email)}</p>
+    <div className={styles.actions}><Button variant="primary" onClick={onDone}>Done</Button></div>
+  </div>;
+}
+
+function LinkHandOver({ value, onDone }: { value: LinkHandOverValue; onDone: () => void }) {
   const [copied, setCopied] = useState(false), [error, setError] = useState<string | null>(null);
   async function copy() {
     try { await navigator.clipboard.writeText(value.signInUrl); setCopied(true); }

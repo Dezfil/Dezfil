@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
-import { ThemeProvider, ThemeToggle } from "@/components/theme";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { TextInput } from "@/components/ui/Field";
@@ -9,8 +8,14 @@ import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 import styles from "./EntryScreen.module.css";
 import { accountChanged } from "./private-state";
 import { forgotLine, landingRoute } from "./entry-settings";
+import { EntryStage } from "./EntryStage";
+import { StartSignIn } from "./StartSignIn";
 
-type Mode = "setup" | "sign-in" | "redeem";
+type Mode = "setup" | "sign-in" | "redeem" | "external";
+
+/** What a sign-in link opened on an instance with a sign-in service meets:
+ * the server's own refusal of such a link, in its words. */
+export const LINKS_UNAVAILABLE = "This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.";
 interface Entry {
   instanceName: string | null; setupRequired: boolean; prefillName?: string;
   /** What an admin set for this screen: a message on the sign-in page, who
@@ -20,13 +25,13 @@ interface Entry {
   passwordMin?: number;
 }
 interface Failure { code?: string; message?: string; retryAt?: string; }
-export function EntryScreen({ mode }: { mode: Mode }) {
+export function EntryScreen({ mode, linkOpened = false }: { mode: Mode; linkOpened?: boolean }) {
   const [entry, setEntry] = useState<Entry | null>(null);
   const [name, setName] = useState(""); const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); const [secret, setSecret] = useState("");
   const [shown, setShown] = useState(false); const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const setup = mode === "setup", redeem = mode === "redeem";
+  const setup = mode === "setup", redeem = mode === "redeem", external = mode === "external";
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/auth/entry", { cache: "no-store", signal: controller.signal }).then(async response => {
@@ -61,24 +66,15 @@ export function EntryScreen({ mode }: { mode: Mode }) {
   const missingLink = redeem && entry !== null && !secret;
   const rule = mode !== "sign-in" && typeof entry?.passwordMin === "number" ? `At least ${entry.passwordMin} characters.` : null;
   const instance = entry?.instanceName ?? (setup ? "A new instance" : null);
-  const message = mode === "sign-in" ? entry?.signInMessage?.trim() : null;
-  return <ThemeProvider><div className={styles.stage}>
-    <aside className={styles.brandPane} aria-label="Dezfil">
-      <div className={styles.shade} />
-      <span className={styles.wordmark}>Dezfil</span>
-      <div className={styles.foot}>{instance && <span className={styles.instance}>{instance}</span>}
-        <span className={styles.subtitle}>{setup ? "Maps, data and SQL, one container." : "Maps, data and SQL on this instance."}</span>
-      </div>
-      <span className={styles.coordinate} aria-hidden="true">32°23′N · 48°24′E</span>
-    </aside>
-    <div className={styles.theme}><ThemeToggle /></div>
-    <main className={styles.formPane}><div className={styles.column}>
+  const message = mode === "sign-in" || external ? entry?.signInMessage?.trim() : null;
+  return <EntryStage instance={instance} subtitle={setup ? "Maps, data and SQL, one container." : "Maps, data and SQL on this instance."}>
       <div className={styles.heading}><h1>{setup ? "Create the first account" : redeem ? "Choose your password" : "Sign in"}</h1>
         {setup && <p className={styles.help}>It becomes this instance&apos;s admin.</p>}
         {message && <p className={`${styles.help} ${styles.message}`}>{message}</p>}
       </div>
       {(failure || missingLink) && <ErrorNote message={failure ?? "This sign-in link is unavailable. Ask an admin for a new one."} />}
-      <form className={styles.form} onSubmit={submit} noValidate>
+      {external && linkOpened && !failure && <ErrorNote message={LINKS_UNAVAILABLE} />}
+      {external ? <StartSignIn label="Continue to sign in" /> : <form className={styles.form} onSubmit={submit} noValidate>
         {setup && <label className={styles.field}><span>Name</span><TextInput tier="chrome" autoComplete="name" value={name} onChange={event => setName(event.target.value)} required disabled={busy || !entry} /></label>}
         {!redeem && <label className={styles.field}><span>Email</span><TextInput tier="chrome" type="email" autoComplete="email" placeholder="you@example.org" value={email} onChange={event => setEmail(event.target.value)} required disabled={busy || !entry} /></label>}
         <div className={styles.field}><label htmlFor="entry-password">Password</label>
@@ -91,7 +87,6 @@ export function EntryScreen({ mode }: { mode: Mode }) {
         </div>
         <Button type="submit" variant="primary" size="chrome" busy={busy} disabled={!entry || missingLink} className={styles.submit}>{setup ? "Create account" : redeem ? "Set password" : "Sign in"}</Button>
         {mode === "sign-in" && (entry || failure) && <p className={styles.help}>{forgotLine(entry?.lostPasswordContact)}</p>}
-      </form>
-    </div></main>
-  </div></ThemeProvider>;
+      </form>}
+  </EntryStage>;
 }

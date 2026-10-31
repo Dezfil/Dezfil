@@ -42,6 +42,7 @@ const KEPT_SITE = { type: "string", pattern: "^https?://[a-z0-9.-]+(?::[0-9]{1,5
 const ADDRESS = { pattern: "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]" };
 
 function valueSchema(definition: SettingDefinition): Record<string, unknown> {
+  if (definition.key === "externalSignInKeys") return object({ count: { type: "integer", minimum: 0 } });
   if (definition.secret) return definition.key === "secretKey"
     ? object({ status: { type: "string", enum: ["environment", "data-directory", "not-yet-present"] } })
     : object({ set: { type: "boolean" } });
@@ -125,7 +126,7 @@ export const INSTANCE_SETTINGS_SCHEMAS = {
       return [definition.key, { ...schema, description: `${definition.label}. ${definition.purpose} Null clears the stored value. ${note}`.trim() }];
     })),
   },
-  InstanceSettings: object({ settings: object(settings),
+  InstanceSettings: object({ externalSignIn: object({ enabled: { type: "boolean" }, keyCount: { type: "integer", minimum: 0 }, signOutGeneration: { type: "integer", minimum: 0 }, doorGeneration: { type: "integer", minimum: 0 } }), settings: object(settings),
     capacities: object({ geocodeRows: { type: "integer", minimum: 1 }, isochroneOrigins: { type: "integer", minimum: 0 } }),
     maxImageDimension: { type: "integer", const: EXPORT_MAX_DIMENSION }, version: { type: "string" }, startedAt: { type: "string", format: "date-time" },
     warnings: { type: "array", items: { type: "string" }, description: "Effective timeout relationship mismatches, including deployment overrides. These do not block unrelated edits." },
@@ -143,7 +144,7 @@ export const INSTANCE_SETTINGS_PATHS = {
       "source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks " +
       "the setting even when invalid; invalid numeric overrides use the default without returning the override text. " +
       "Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. " +
-      "Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. " +
+      "externalSignIn reports the frozen mode, accepted public-key count, signOutGeneration and doorGeneration. Public key material is never returned. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. " +
       "Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. " +
       "A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's " +
       "encryption key no longer opens it; its storedValue is always null. The satellite tile template in effect, stored or set by DEZFIL_SATELLITE_URL, " +

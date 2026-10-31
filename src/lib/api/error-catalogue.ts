@@ -4,6 +4,11 @@ import type { ErrorCode } from "./errors";
  * error's code appears in the API documentation). Single source, rendered
  * into the docs and the OpenAPI description. */
 export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
+  already_signed_in: "Sign out of the current account before signing in through the sign-in service.",
+  account_not_invited: "There is no account for this email on this instance. Ask its admin for an invitation.",
+  token_outdated: "This token was made before everyone was signed out and no longer works. Create a new one.",
+  invalid_ticket: "This sign-in ticket is invalid or expired. Start sign-in again.",
+  external_sign_in_only: "This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.",
   picture_upload_retired: "Browser picture uploads are retired. Request a server picture with POST /api/maps/{id}/picture/refresh.",
   setting_locked: "An environment variable locks a submitted setting. No settings changed; change or remove the named variable and restart before editing this setting.",
   project_owner_cannot_leave: "The project's owner cannot leave. Transfer or delete the project instead.",

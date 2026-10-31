@@ -65,6 +65,7 @@ After a fix, [replace the container](configuration.md#set-a-variable) if you cha
 | `Data directory <PATH> cannot be created` | `DEZFIL_DATA_DIR` names a folder the container cannot create. Remove the variable: the image keeps its data in `/data`. |
 | `DEZFIL_SESSION_COOKIE must be a non-empty cookie-name token` | Use only letters, digits, `-` and `_` in the name, or remove the variable. |
 | `Invalid trusted proxy network` or `Invalid ingress address` | `DEZFIL_TRUSTED_PROXIES` takes IP addresses and CIDR ranges, as [Trusted proxies](reverse-proxy.md#trusted-proxies) lists. A host name is refused. |
+| A `DEZFIL_EXTERNAL_SIGN_IN_` variable | Supply both public keys and audience, a door address, and the first owner on an empty store. [External sign-in](configuration/external-sign-in.md) gives the formats. |
 | Any other line | Right after an upgrade, go back to the old version as [Upgrade](upgrade.md#go-back-to-the-old-version) describes. Otherwise, or as well, keep the line for a bug report. |
 
 ### "port is already allocated" or "address already in use"
@@ -147,6 +148,19 @@ Two containers on one machine, opened as `localhost` on different ports, use the
 
 Give one of them its own name, such as `-e DEZFIL_SESSION_COOKIE=dezfil_session_b`, and replace that container. A new name signs everyone out of that instance once, so tell its people to sign in again.
 
+### External sign-in refuses arrival
+
+| Code | Fix |
+|---|---|
+| `invalid_ticket` | Start again from the instance. Check the audience, signing key, clock, five-minute ticket lifetime and door generation. A restart ends browser starts in flight. |
+| `already_signed_in` | The browser already holds the account named in the response. Sign out before starting another sign-in. |
+| `account_not_invited` | An admin must invite the verified email. An email bound to another identity cannot be reassigned. |
+| `account_deactivated` | An admin must reactivate the account. |
+| `external_sign_in_only` | Use the sign-in service. Password sign-in, links and local recovery are unavailable in this mode. |
+| `token_outdated` | Sign in again and create a new API token. A generation raise ended the old one. |
+
+The [door guide](sign-in-service.md) lists the ticket claims and browser exchange.
+
 ## Uploads and imports
 
 ### An upload says "Upload exceeds the size cap of … MB."
@@ -201,7 +215,7 @@ After a fix, replace the container: Dezfil looks for the renderer as it starts, 
 
 ### You forgot the admin password
 
-If no other admin can sign in, run the recovery script on the server: it prints a one-time link to choose a new password. [Recover the admin account](users.md#recover-the-admin-account) gives the command, and [its messages](users.md#the-recovery-script-stops-with-a-message) what to do when it stops.
+In password mode, if no other admin can sign in, run the recovery script on the server: it prints a one-time link to choose a new password. [Recover the admin account](users.md#recover-the-admin-account) gives the command, and [its messages](users.md#the-recovery-script-stops-with-a-message) what to do when it stops.
 
 ### A link says "This sign-in link is unavailable."
 

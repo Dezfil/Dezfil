@@ -25,7 +25,7 @@ beforeEach(async () => {
 afterEach(() => { if (db.open) db.close(); rmSync(directory, { recursive: true, force: true }); });
 async function member() {
   const invited = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
-  const entered = await redeemSignInLink(invited.secret, password, db, start);
+  const entered = await redeemSignInLink(invited.secret!, password, db, start);
   return { ...entered, context: authenticateSession(entered.secret, db, start)! };
 }
 function snapshot() {
@@ -73,13 +73,13 @@ describe("first-account transaction", () => {
 describe("sign-in link lifecycle", () => {
   it("refuses a seven-day-expired link independently of replacement", async () => {
     const link = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
-    await refusedWithoutChange(() => redeemSignInLink(link.secret, password, db, start + LINK_LIFETIME_MS), "invalid_link");
+    await refusedWithoutChange(() => redeemSignInLink(link.secret!, password, db, start + LINK_LIFETIME_MS), "invalid_link");
   });
   it("consumes a link once; replay cannot change the password or add a session", async () => {
     const link = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
-    const accepted = await redeemSignInLink(link.secret, password, db, start);
+    const accepted = await redeemSignInLink(link.secret!, password, db, start);
     expect(accepted.account).toMatchObject({ id: link.account.id, status: "active", isAdmin: false });
-    await refusedWithoutChange(() => redeemSignInLink(link.secret, newPassword, db, start), "invalid_link");
+    await refusedWithoutChange(() => redeemSignInLink(link.secret!, newPassword, db, start), "invalid_link");
     expect((await signIn(accepted.account.email, password, db, start)).account.id).toBe(accepted.account.id);
   });
 
@@ -87,7 +87,7 @@ describe("sign-in link lifecycle", () => {
     const link = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
     const other = open(file);
     try {
-      const results = await Promise.allSettled([db, other].map(connection => redeemSignInLink(link.secret, password, connection, start)));
+      const results = await Promise.allSettled([db, other].map(connection => redeemSignInLink(link.secret!, password, connection, start)));
       expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
       expect(results.find(result => result.status === "rejected")).toMatchObject({ reason: { code: "invalid_link" } });
       expect(db.prepare("SELECT count(*) AS count FROM auth_sessions WHERE account_id = ?").get(link.account.id)).toEqual({ count: 1 });
@@ -98,14 +98,14 @@ describe("sign-in link lifecycle", () => {
     await refusedWithoutChange(() => redeemSignInLink("unknown", password, db, start), "invalid_link");
     const old = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
     const replacement = issueSignInLink(admin, old.account.id, db, start);
-    await refusedWithoutChange(() => redeemSignInLink(old.secret, password, db, start), "invalid_link");
+    await refusedWithoutChange(() => redeemSignInLink(old.secret!, password, db, start), "invalid_link");
     expect(replacement.expiresAt).toBe(start + LINK_LIFETIME_MS);
     await refusedWithoutChange(() => redeemSignInLink(replacement.secret, password, db, replacement.expiresAt), "invalid_link");
   });
 
   it("allows a link immediately before its expiry", async () => {
     const link = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
-    expect((await redeemSignInLink(link.secret, password, db, link.expiresAt - 1)).account.id).toBe(link.account.id);
+    expect((await redeemSignInLink(link.secret!, password, db, link.expiresAt! - 1)).account.id).toBe(link.account.id);
   });
 
   it("ends sessions and invalidates the password at reset, retaining tokens and the same account", async () => {
@@ -122,17 +122,17 @@ describe("sign-in link lifecycle", () => {
   it("does not let a link reactivate a deactivated account", async () => {
     const link = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
     changeAccountAccess(admin, link.account.id, { status: "deactivated" }, db, start);
-    await refusedWithoutChange(() => redeemSignInLink(link.secret, password, db, start), "invalid_link");
+    await refusedWithoutChange(() => redeemSignInLink(link.secret!, password, db, start), "invalid_link");
   });
 
   it("rolls back link consumption if session creation fails", async () => {
     const link = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
     const before = snapshot();
     db.exec("CREATE TRIGGER reject_session BEFORE INSERT ON auth_sessions BEGIN SELECT RAISE(ABORT, 'injected failure'); END");
-    await expect(redeemSignInLink(link.secret, password, db, start)).rejects.toThrow("injected failure");
+    await expect(redeemSignInLink(link.secret!, password, db, start)).rejects.toThrow("injected failure");
     expect(snapshot()).toEqual(before);
     db.exec("DROP TRIGGER reject_session");
-    expect((await redeemSignInLink(link.secret, password, db, start)).account.id).toBe(link.account.id);
+    expect((await redeemSignInLink(link.secret!, password, db, start)).account.id).toBe(link.account.id);
   });
 });
 
@@ -214,7 +214,7 @@ describe("administration boundaries", () => {
 
   it.each(["invited", "active", "deactivated"] as const)("reserves normalized duplicate emails for %s accounts", async status => {
     const invited = inviteAccount(admin, { name: "Lin", email: " Lin@Example.Test " }, db, start);
-    if (status !== "invited") await redeemSignInLink(invited.secret, password, db, start);
+    if (status !== "invited") await redeemSignInLink(invited.secret!, password, db, start);
     if (status === "deactivated") changeAccountAccess(admin, invited.account.id, { status }, db, start);
     const action = () => inviteAccount(admin, { name: "Duplicate", email: "LIN@example.test" }, db, start);
     await refusedWithoutChange(action, "email_taken");

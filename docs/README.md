@@ -145,6 +145,12 @@ Install, secure, configure and back up your own instance.
   - read when: the container stops right after it starts, or health answers unready; sign-in fails behind your reverse proxy, or your domain sends the browser to another address; an upload is refused as too large, or ends with the connection dropped; the assistant does not answer, or map cards show no pictures; you forgot the admin password
   - audience: operator
 
+- [Build a sign-in service](self-host/sign-in-service.md)
+  - path: `docs/self-host/sign-in-service.md`
+  - summary: Generate an Ed25519 key, sign a browser-bound ticket and return the person to an instance that trusts your service.
+  - read when: you build a service that signs people into Dezfil; you need the ticket claims, signing format and browser return address
+  - audience: developer, operator, agent
+
 ### Configuration
 
 - [General](self-host/configuration/general.md)
@@ -182,6 +188,12 @@ Install, secure, configure and back up your own instance.
   - summary: Set the data folder, the key that encrypts saved connection passwords and addresses, and the programs that build tiles and render images.
   - read when: you want to keep the data in another folder; you want to set the encryption key yourself; the tile builder or the image renderer is somewhere else on the server
   - audience: operator, agent
+
+- [External sign-in](self-host/configuration/external-sign-in.md)
+  - path: `docs/self-host/configuration/external-sign-in.md`
+  - summary: Configure the public keys, instance identity and first owner for a trusted sign-in service.
+  - read when: you want a trusted service to sign people into your instance; you need the external sign-in variables and their formats
+  - audience: operator, developer
 
 ## API and agents
 

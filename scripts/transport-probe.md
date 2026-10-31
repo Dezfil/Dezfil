@@ -98,7 +98,7 @@ is a test client, not a shipped service.
 | 1 | `check-image-inventory.mjs` | Disposable `dezfil:ci` inspection containers. |
 | 2 | `render-egress-driver.mjs --image dezfil:ci` | One app and three helpers using the built image, recreated per arm; two internal networks, unconditional owned cleanup. |
 | 3 | `result-budget-image.sh dezfil:ci --quick` | Two fresh `dezfil-budget-small-<pid>` and `dezfil-budget-normal-<pid>` servers with 32 MiB and 512 MiB engine budgets, no source container or network; owned containers and anonymous volumes removed on exit. |
-| 4 | `body-probe.mjs` (includes transport, 11/256 MiB uploads, 12 MiB workflow and paced public POSTs), then `transport-probe.mjs --file-limit-only` | Two fresh `dezfil-transport-ci` servers in sequence, 257 MiB then 1 MiB upload caps; stock MCP client beside the first server. |
+| 4 | `body-probe.mjs` (includes transport, 11/256 MiB uploads, 12 MiB workflow and paced public POSTs), then `transport-probe.mjs --file-limit-only` | Two fresh `dezfil-transport-ci` servers in sequence, 257 MiB then 1 MiB upload caps; stock MCP client beside the first server, plus a separately configured external-sign-in instance for the arrival body bound. See [the body procedure](body-probe.md). |
 | 5 | `publication-source-probe.mjs`: direct, trusted, untrusted, missing, without `--capacity` | Four fresh `dezfil-publication-ci` servers in sequence; only the trusted arm trusts loopback and only the missing arm omits ingress. |
 | 6 | `derivation-probe.mjs` | One `dezfil-derivation-ci` server with trusted loopback and the test observer. |
 | 7 | `credential-cleanup-driver.mjs` | Three replacement `dezfil:ci` servers over one fresh named volume, no sidecar. |

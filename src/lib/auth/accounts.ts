@@ -1,3 +1,4 @@
+import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -55,6 +56,7 @@ export function identityFields(name: string, email: string) {
 
 export async function createFirstAccount(input: { name: string; email: string; password: string },
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  requirePasswordSignIn();
   maintainCredentials(db, now);
   // The write transaction repeats this check after asynchronous password work.
   if (setupComplete(db)) throw new AuthError("setup_complete", "This instance is already set up.", 409);
@@ -75,6 +77,7 @@ export async function createFirstAccount(input: { name: string; email: string; p
 }
 
 export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  requirePasswordSignIn();
   maintainCredentials(db, now);
   const account = getAccountByEmail(email, db);
   const hash = account && accountPasswordHash(account.id, db);
@@ -99,6 +102,7 @@ export async function signIn(email: string, password: string, db: Database = met
 
 export async function changeOwnPassword(context: AuthContext, currentPassword: string, password: string,
   db: Database = metadataDb(), now?: number, signal?: AbortSignal): Promise<void> {
+  requirePasswordSignIn();
   const account = requireCurrentActor(context, db, now ?? Date.now());
   const oldHash = await checkCurrentPassword(account.id, currentPassword, db, signal);
   const passwordHash = await hashPassword(password, { class: "protected", signal, minimum: securitySettings(db).passwordMin });
@@ -117,6 +121,7 @@ export async function changeOwnPassword(context: AuthContext, currentPassword: s
 
 export async function updateOwnProfile(context: AuthContext, patch: { name?: string; email?: string; currentPassword?: string },
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  if (patch.email !== undefined) requirePasswordSignIn();
   const account = requireCurrentActor(context, db, now ?? Date.now());
   const oldHash = patch.email === undefined ? null : await checkCurrentPassword(account.id, patch.currentPassword, db, signal);
   return db.transaction(() => {

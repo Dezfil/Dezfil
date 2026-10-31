@@ -11,6 +11,7 @@ import { AssistantRevisions, withoutWriteRevision } from "./edit-revisions";
 import { assistantTools } from "./tool-surface";
 
 export interface LoopDeps {
+  beginMark?: number;
   scope: AccountScope;
   revisions?: AssistantRevisions;
   runId?: string;
@@ -42,6 +43,7 @@ export interface LoopDeps {
 
 /** The per-run context, plus the turn's scheduling facts. */
 export interface ExecutionContext extends ActionContext {
+  beginMark?: number;
   turn: TurnFacts;
   /** Whether the loop schedules a map check after a qualifying turn. */
   autoCheck: boolean;
@@ -62,6 +64,7 @@ export function makeExecutionContext(
     turn,
     autoCheck: deps.autoCheck ?? limits.assistantAutoCheck,
     runId: deps.runId,
+    beginMark: deps.beginMark,
     scope: deps.scope,
     policy,
     admitted: new Set(admittedTools(policy, tools).map((t) => t.name)),

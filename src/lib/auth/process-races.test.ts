@@ -108,7 +108,7 @@ it.each(["role", "deactivate"])("retains an active admin when separate processes
   const first = await createFirstAccount({ name: "Ada", email: "ada@example.test", password }, db, now);
   const admin = authenticateSession(first.secret, db, now)!;
   const invited = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, now);
-  const member = await redeemSignInLink(invited.secret, password, db, now);
+  const member = await redeemSignInLink(invited.secret!, password, db, now);
   changeAccountAccess(admin, member.account.id, { isAdmin: true }, db, now);
   const other = authenticateSession(member.secret, db, now)!;
   const patch = operation === "role" ? { isAdmin: false } : { status: "deactivated" };

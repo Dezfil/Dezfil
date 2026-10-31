@@ -1,11 +1,13 @@
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
+import { generateKeyPairSync } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { getPictureState, requestPicture } from "@/lib/pictures/state";
 import { bodyProbe } from "../../../scripts/body-probe.mjs";
+import { parseExternalSignIn } from "@/lib/auth/external-sign-in/config";
 vi.mock("@/lib/export/render-image", () => ({ renderMapImage: vi.fn(async () => {
   const png = Buffer.alloc(24); png.set([137,80,78,71,13,10,26,10]); png.writeUInt32BE(4096, 16); png.writeUInt32BE(4096, 20);
   return { png, abandoned: [] };
@@ -22,6 +24,10 @@ it("drives every JSON operation with the served probe's requests and assertions"
   const dir = await mkdtemp(path.join(process.env.DEZFIL_DATA_DIR!, "body-probe-"));
   vi.stubEnv("DEZFIL_DATA_DIR", dir); vi.stubEnv("DEZFIL_AI_PROVIDER", "openai"); vi.stubEnv("OPENAI_API_KEY", "scripted-wire");
   closeMetadataDb(); resetQueryInstance(); const log = path.join(dir, "server.log"); await writeFile(log, "");
+  const external = parseExternalSignIn({
+    DEZFIL_EXTERNAL_SIGN_IN_KEYS: generateKeyPairSync("ed25519").publicKey.export({ format: "jwk" }).x!,
+    DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE: "body-probe", DEZFIL_EXTERNAL_SIGN_IN_URL: "https://door.example/sign-in",
+  });
   const dispatch: typeof fetch = async (input, init) => {
     const request = socketRequest(new Request(input, init));
     const pathname = new URL(request.url).pathname;
@@ -29,7 +35,11 @@ it("drives every JSON operation with the served probe's requests and assertions"
       const match = pathname.match(route.pattern); if (!match) continue;
       const handler = (await route.load() as Record<string, Handler>)[request.method];
       if (!handler) return Response.json({ error: { code: "method_not_allowed" } }, { status: 405 });
-      return handler(request, { params: Promise.resolve(Object.fromEntries(route.keys.map((key, i) => [key, decodeURIComponent(match[i + 1])]))) });
+      const modeKey = Symbol.for("dezfil.external-sign-in"), previous = Reflect.get(process, modeKey);
+      // Two deployment modes share the fixture ledger so every refusal's resource state is checked.
+      Reflect.set(process, modeKey, new URL(request.url).hostname === "external.test" ? external : parseExternalSignIn({}));
+      try { return await handler(request, { params: Promise.resolve(Object.fromEntries(route.keys.map((key, i) => [key, decodeURIComponent(match[i + 1])]))) }); }
+      finally { if (previous) Reflect.set(process, modeKey, previous); else Reflect.deleteProperty(process, modeKey); }
     }
     throw new Error("Unexpected request " + request.url);
   };
@@ -38,7 +48,7 @@ it("drives every JSON operation with the served probe's requests and assertions"
   const methods = new Set<string>();
   let workerSettled = false;
   try {
-    const result = await bodyProbe("http://instance.test", { serverLog: log, runTransport: false,
+    const result = await bodyProbe("http://instance.test", { serverLog: log, externalBase: "http://external.test", runTransport: false,
       exchangeImpl: async (url: string, { method = "POST", headers = {}, chunks = [] }: { method?: string; headers?: Record<string, string>; chunks?: Iterable<Uint8Array> | AsyncIterable<Uint8Array> } = {}) => {
         methods.add(method);
         // The picture worker fails every map's picture whatever request is refused meanwhile.
@@ -57,6 +67,7 @@ it("drives every JSON operation with the served probe's requests and assertions"
       },
     });
     expect(result.operations).toBeGreaterThan(50); expect(result.checks).toBe(result.operations * 12);
+    expect(result.evidence.filter((check: { template: string }) => check.template === "/api/auth/external/arrive")).toHaveLength(12);
     expect(methods.has("DELETE")).toBe(true);
     expect(result.mcp.rows).toBe(12_288);
     printed.mockRestore(); console.log(JSON.stringify({ label: "confirmed", scope: "route-level; renderer stubbed; no socket or framework copy", operations: result.operations, checks: result.checks, fixtures: result.fixtures, mcp: result.mcp }));

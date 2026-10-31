@@ -47,7 +47,8 @@ export async function deletionBody(request: Request) {
   return { confirm: true, confirmation: body.confirmation, ...(body.email === undefined ? {} : { email: body.email as string }) };
 }
 
-export function handOver(request: Request, issued: { account: unknown; secret: string; expiresAt: number }) {
+export function handOver(request: Request, issued: { account: unknown; secret?: string; expiresAt?: number }) {
+  if (issued.secret === undefined || issued.expiresAt === undefined) return { account: issued.account };
   const url = new URL("/accept", requestIngress(request).origin);
   url.hash = new URLSearchParams({ secret: issued.secret }).toString();
   return { account: issued.account, signInUrl: url.href, expiresAt: new Date(issued.expiresAt).toISOString() };

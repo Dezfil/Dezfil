@@ -81,7 +81,7 @@ it.each(["invited", "deactivated"] as const)("removes a never-redeemed %s invita
 it("refuses an invitation redemption already hashing when deletion is accepted", async () => {
   const db = metadataDb(); const invitation = inviteAccount(admin, { name: "Waiting", email: "waiting@example.test" });
   const hold = Promise.withResolvers<string>(); vi.spyOn(passwords, "hashPassword").mockReturnValueOnce(hold.promise);
-  const redeemed = redeemSignInLink(invitation.secret, "field notebooks at dawn").then(() => null, error => error);
+  const redeemed = redeemSignInLink(invitation.secret!, "field notebooks at dawn").then(() => null, error => error);
   const accepted = acceptAccountDeletion(admin, invitation.account.id, () => {});
   hold.resolve("not-committed-hash"); expect(await redeemed).toMatchObject({ code: "invalid_link" });
   expect(db.prepare("SELECT status,password_hash FROM accounts WHERE id=?").get(invitation.account.id)).toEqual({ status: "deleting", password_hash: null });

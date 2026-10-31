@@ -55,16 +55,11 @@ function account(id: string, status = "active", admin = false) {
     VALUES (?, ?, ?, ?, ?, ?, ?)`).run(id, id, `${id}@example.test`, Number(admin), status, now, now);
 }
 function reopen() { db.close(); db = open(file); }
-// Later entries add their own stamps derived from ownership (SQL names and
-// homes, run initiators, lineage runners) and their own tables (the
-// basemap library's among them); their tests hold those. This one holds
-// everything the ownership entry received.
-const laterTables = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs", "basemap_styles", "map_pictures"]);
+// Hold every table and column the ownership entry received. Selecting the
+// recorded columns also refuses a missing legacy table or column after upgrade.
 function snapshot() {
-  const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
-    .map(row => row.name).filter(name => !laterTables.has(name));
-  return Object.fromEntries(names.map(name => [name, db.prepare(`SELECT * FROM "${name}"`).all()
-    .map(row => Object.fromEntries(Object.entries(row as object).filter(([key]) => priorColumns[name].includes(key))))]));
+  return Object.fromEntries(Object.entries(priorColumns).map(([table, columns]) =>
+    [table, db.prepare(`SELECT ${columns.map(name => `"${name}"`).join(", ")} FROM "${table}"`).all()]));
 }
 function expectOwners(id: string | null) {
   for (const table of owned) expect(db.prepare(`SELECT DISTINCT owner_id FROM ${table}`).all(), table).toEqual([{ owner_id: id }]);

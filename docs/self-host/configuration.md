@@ -109,6 +109,7 @@ Every setting has one row, in the table of its area. A row gives the variable an
 
 | Table | What it covers | Where to change it |
 |---|---|---|
+| [External sign-in](configuration/external-sign-in.md) | The trusted sign-in service, public keys, audience, first owner and door generation floor | A variable |
 | [General](configuration/general.md) | The instance's name, the sign-in message, the lost-password contact and the landing page | **General** |
 | [Instance defaults](configuration/defaults.md) | What new maps, layers, workflow canvases, SQL consoles and image exports start with | **Maps**, **Workflows & SQL**, **Publishing** |
 | [Basemaps and imagery](configuration/libraries.md) | The basemaps on offer, satellite imagery and the deployment's own basemap | **Libraries**, or a variable |

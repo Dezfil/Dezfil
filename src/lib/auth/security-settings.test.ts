@@ -118,9 +118,9 @@ describe("invitation and reset links", () => {
     expect([after.expiresAt, reset.expiresAt]).toEqual([saved + day, saved + day]);
     expect(db.prepare("SELECT expires_at FROM auth_links WHERE revoked_at IS NULL ORDER BY expires_at").all())
       .toEqual([{ expires_at: saved + day }, { expires_at: saved + day }, { expires_at: start + 7 * day }]);
-    await expect(redeemSignInLink(after.secret, password, db, saved + day)).rejects.toMatchObject({ code: "invalid_link" });
+    await expect(redeemSignInLink(after.secret!, password, db, saved + day)).rejects.toMatchObject({ code: "invalid_link" });
     await expect(redeemSignInLink(reset.secret, password, db, saved + day)).rejects.toMatchObject({ code: "invalid_link" });
-    expect((await redeemSignInLink(before.secret, password, db, start + 7 * day - 1)).account.id).toBe(before.account.id);
+    expect((await redeemSignInLink(before.secret!, password, db, start + 7 * day - 1)).account.id).toBe(before.account.id);
   });
 
   it("issues a fourteen-day link once fourteen days are stored", () => {
@@ -144,13 +144,13 @@ describe("the shortest password", () => {
     const invited = inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start);
     const member = account("grace");
     const reset = issueSignInLink(admin, member.id, db, start);
-    for (const attempt of [() => redeemSignInLink(invited.secret, eleven, db, start), () => redeemSignInLink(reset.secret, eleven, db, start),
+    for (const attempt of [() => redeemSignInLink(invited.secret!, eleven, db, start), () => redeemSignInLink(reset.secret!, eleven, db, start),
       () => changeOwnPassword(admin, eight, eleven, db, start)]) {
       const before = snapshot();
       await expect(attempt()).rejects.toMatchObject({ code: "weak_password", status: 400, message: "Use at least 12 characters." });
       expect(snapshot()).toEqual(before);
     }
-    expect((await redeemSignInLink(invited.secret, twelve, db, start)).account.id).toBe(invited.account.id);
+    expect((await redeemSignInLink(invited.secret!, twelve, db, start)).account.id).toBe(invited.account.id);
     expect((await redeemSignInLink(reset.secret, twelve, db, start)).account.id).toBe(member.id);
     await changeOwnPassword(admin, eight, twelve, db, start);
     expect((await signIn("ada@example.test", twelve, db, start)).account.id).toBe(admin.account.id);
@@ -161,7 +161,7 @@ describe("the shortest password", () => {
       writeStoredSettings({ "security.passwordMin": 8 }, db);
       const link = road === "an invitation's redemption" ? inviteAccount(admin, { name: "Lin", email: "lin@example.test" }, db, start)
         : road === "a reset's redemption" ? issueSignInLink(admin, account("grace").id, db, start) : null;
-      const attempt = () => link ? redeemSignInLink(link.secret, eleven, db, start) : changeOwnPassword(admin, eight, eleven, db, start);
+      const attempt = () => link ? redeemSignInLink(link.secret!, eleven, db, start) : changeOwnPassword(admin, eight, eleven, db, start);
       const before = snapshot();
       let saved = 0;
       // Eleven characters pass the early check at 8; the save lands after the hash and before the write.

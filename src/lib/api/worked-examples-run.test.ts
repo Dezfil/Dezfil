@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
+import { parseExternalSignIn } from "@/lib/auth/external-sign-in/config";
 import { laneSettled } from "@/lib/operations/lane";
 import { SETTING_CATALOGUE } from "@/lib/settings/catalogue";
 import { ownInstance, type OwnInstance } from "@/lib/test-support/page-calls";
@@ -97,6 +99,9 @@ const SEQUENCE: [key: string, name: string, how?: "cookie" | "mcp"][] = [
   ["PATCH /api/settings", "mapsAsList"],
   ["GET /api/openapi.json", "excerpt"],
   ["DELETE /api/publications/{token}", "deactivatedOwner"],
+  ["POST /api/instance/sign-out", "everyone"],
+  ["POST /api/auth/external/start", "externalSignIn", "cookie"],
+  ["POST /api/auth/external/arrive", "externalSignIn", "cookie"],
 ];
 /** The variables set for one call only, as its example's description says
  * the instance has them. A placeholder stands for the key: reading the
@@ -273,9 +278,18 @@ interface Answered { key: string; name: string; status: number; type: string; bo
 /** Every example of the sequence, sent to the instance in order. */
 async function sendAll(doc: Description): Promise<Answered[]> {
   const bindings: Bindings = new Map(), answered: Answered[] = [];
+  const signer = generateKeyPairSync("ed25519");
   let cookie = "", token = "";
   for (const [key, name, how] of SEQUENCE) {
     const [method, template] = key.split(" "), operation = lookup(doc, key);
+    if (key === "POST /api/auth/external/start") {
+      // Model the operator enabling external sign-in after the password-mode examples.
+      Reflect.set(process, Symbol.for("dezfil.external-sign-in"), parseExternalSignIn({
+        DEZFIL_EXTERNAL_SIGN_IN_KEYS: signer.publicKey.export({ format: "jwk" }).x!,
+        DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE: "worked-example",
+        DEZFIL_EXTERNAL_SIGN_IN_URL: "https://door.example/sign-in",
+      }));
+    }
     if (key === "DELETE /api/publications/{token}") {
       // The example's token stands for the link of the map made for it.
       const shown = operation.parameters!.find((parameter) => parameter.name === "token")!.examples![name].value as string;
@@ -288,7 +302,7 @@ async function sendAll(doc: Description): Promise<Answered[]> {
       if (!example) continue;
       const value = String(filled(example.value, bindings));
       if (parameter.in === "path") path = path.replace(`{${parameter.name}}`, encodeURIComponent(value));
-      else if (parameter.in === "header") headers[parameter.name] = value;
+      else if (parameter.in === "header") headers[parameter.name.toLowerCase()] = value;
       else if (parameter.in === "query") query.set(parameter.name, value);
     }
     if (how === "cookie") Object.assign(headers, { cookie, origin: ADDRESS });
@@ -314,6 +328,17 @@ async function sendAll(doc: Description): Promise<Answered[]> {
     const variables = Object.entries(SET_FOR[`${key} ${name}`] ?? {});
     for (const [variable, value] of variables) vi.stubEnv(variable, value);
     const response = await fetch(`${ADDRESS}${path}${query.size ? `?${query}` : ""}`, { method, headers, body });
+    if (key === "POST /api/auth/external/start") {
+      expect(response.status).toBe(303);
+      const redirect = new URL(response.headers.get("location")!);
+      expect(redirect.origin + redirect.pathname).toBe("https://door.example/sign-in");
+      const start = redirect.searchParams.get("start"); expect(start).toBeTruthy();
+      const now = Math.floor(Date.now() / 1000);
+      const payload = [{ alg: "EdDSA" }, { aud: "worked-example", sub: "ana-diaz", email: READER.email,
+        email_verified: true, start, iat: now, exp: now + 300, jti: randomUUID(), door_generation: 0 }]
+        .map(value => Buffer.from(JSON.stringify(value)).toString("base64url")).join(".");
+      bindings.set("<SIGNED_TICKET>", `${payload}.${sign(null, Buffer.from(payload), signer.privateKey).toString("base64url")}`);
+    }
     for (const [variable] of variables) vi.stubEnv(variable, undefined);
     if (response.headers.getSetCookie().length) cookie = response.headers.getSetCookie().map((set) => set.split(";")[0]).join("; ");
     const type = response.headers.get("content-type") ?? "", text = await response.text();
@@ -347,7 +372,10 @@ function problems(doc: Description, answered: Answered[], ran: RunWith): string[
 }
 
 let instance: OwnInstance | undefined;
-afterEach(async () => { await instance?.close(); instance = undefined; vi.unstubAllEnvs(); });
+afterEach(async () => {
+  await instance?.close(); instance = undefined; vi.unstubAllEnvs();
+  Reflect.deleteProperty(process, Symbol.for("dezfil.external-sign-in"));
+});
 
 describe("the worked examples, sent to an instance in the quickstart's order", () => {
   it("sends every example the description places", () => {

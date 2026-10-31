@@ -14,7 +14,7 @@ import { gateRequest } from "./gate";
 let db: Database;
 const origin = "http://instance.test";
 const publicOperations = new Set([
-  "GET /api/health", "GET /api/auth/entry", "POST /api/auth/setup", "POST /api/auth/sign-in", "POST /api/auth/redeem",
+  "GET /api/health", "GET /api/auth/entry", "POST /api/auth/setup", "POST /api/auth/sign-in", "POST /api/auth/redeem", "POST /api/auth/external/start", "POST /api/auth/external/arrive",
   "GET /api/published/{token}", "POST /api/published/{token}/extent/{layerId}", "POST /api/published/{token}/widget-values",
   "POST /api/published/{token}/render/{layerId}", "GET /api/published/{token}/tiles/{layerId}/{z}/{x}/{y}",
   // A published page's satellite style and its tiles, under the token, as its layer tiles are.
@@ -52,7 +52,7 @@ it.each(["anonymous", "invalid", "revoked-token", "revoked-cookie"])("refuses %s
 it("redirects every private application page before and after setup, including unknown future routes", async () => {
   const pages = walk(path.join(process.cwd(), "src/app")).filter(file => file.endsWith("/page.tsx"))
     .map(file => "/" + path.relative("src/app", path.dirname(file)).split(path.sep).filter(segment => !segment.startsWith("(")).map(segment => segment.startsWith("[") ? "fixture" : segment).join("/"))
-    .filter(page => !["/setup", "/sign-in", "/accept"].includes(page) && page !== "/v" && !page.startsWith("/v/"));
+    .filter(page => !["/setup", "/sign-in", "/accept", "/arrive"].includes(page) && page !== "/v" && !page.startsWith("/v/"));
   // The render root's own addresses are private like a map's render page.
   expect(pages).toEqual(expect.arrayContaining(["/render", "/render/fixture", "/render/fixture/fixture"]));
   pages.push("/future-feature", "/private.json", "/_next/data/build/maps.json", "/_next/image?url=/api/maps");
@@ -79,7 +79,7 @@ it("refuses cross-site cookie mutations across the protected inventory without r
 });
 
 it("allows only explicit anonymous methods and data-free assets, even with an invalid cookie", () => {
-  const publicPaths = ["/api/health", "/api/auth/entry", "/accept", "/v/token", "/v/token?embed=1", "/v", "/v/token/extra", "/v/token/extra/more", "/_next/static/chunks/app.js", "/_next/static/media/font.woff2", "/icon.svg", "/shell-sheet-light.svg", "/entry/river-delta.webp", "/maki/marker.svg", "/workers/maplibre-gl-6.14.0/maplibre-gl-worker.mjs", "/workers/loaders.gl-mvt-worker-4.5.4.js"];
+  const publicPaths = ["/api/health", "/api/auth/entry", "/accept", "/arrive", "/v/token", "/v/token?embed=1", "/v", "/v/token/extra", "/v/token/extra/more", "/_next/static/chunks/app.js", "/_next/static/media/font.woff2", "/icon.svg", "/shell-sheet-light.svg", "/entry/river-delta.webp", "/maki/marker.svg", "/workers/maplibre-gl-6.14.0/maplibre-gl-worker.mjs", "/workers/loaders.gl-mvt-worker-4.5.4.js"];
   for (const pathname of publicPaths) {
     const response = gateRequest(input(pathname, "GET", { cookie: "dezfil_session=invalid" }));
     expect.soft(response.headers.get("x-middleware-next"), pathname).toBe("1");

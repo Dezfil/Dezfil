@@ -1,3 +1,4 @@
+import { EXTERNAL_SIGN_IN_MIGRATION } from "./migrations-external-sign-in";
 import { DATASET_CONNECTION_MIGRATIONS } from "./migrations-datasets-connections";
 import { OWNERSHIP_MIGRATION, CONNECTION_NAMES_MIGRATION, DATASET_NAMES_MIGRATION } from "./migrations-ownership";
 import { REVISIONS_MIGRATION } from "./migrations-revisions";
@@ -560,4 +561,5 @@ export const MIGRATIONS: string[] = [
   // failed for the third time: kept on disk, served to no one, until a
   // new picture lands.
   `ALTER TABLE map_pictures ADD COLUMN retired INTEGER NOT NULL DEFAULT 0;`,
+  EXTERNAL_SIGN_IN_MIGRATION,
 ];

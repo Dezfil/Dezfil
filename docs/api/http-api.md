@@ -59,9 +59,29 @@ Both act as your account, with its rights. A change sent with the session cookie
 
 A token works from any script or program that reaches the instance. A web page on another site can't call the API, since the instance allows no cross-origin requests.
 
-A few calls need no sign-in: `GET /api/health`; `GET /api/auth/entry`, which reads what the sign-in screen shows; signing in, creating the first account and redeeming a sign-in link; and a published map's calls under `/api/published/<PUBLISH_TOKEN>`.
+A few calls need no sign-in: `GET /api/health`; `GET /api/auth/entry`, which reads what the sign-in screen shows; signing in, creating the first account and redeeming a sign-in link; the external sign-in start and arrival POSTs; and a published map's calls under `/api/published/<PUBLISH_TOKEN>`.
 
 [Security and rules](../self-host/configuration/rules.md) lists **Stay signed in for** and the token rules below, with their defaults.
+
+### External sign-in
+
+The [door guide](../self-host/sign-in-service.md) gives the signing format and browser exchange.
+
+| Read or refusal | Meaning |
+|---|---|
+| `GET /api/auth/entry` | Reports `externalSignIn.enabled` and `externalSignIn.doorUrl`. |
+| `403 external_sign_in_only` | Setup, password sign-in, link issuance and redemption, password changes and email changes are unavailable in this mode. |
+| `409 already_signed_in` | Arrival names the browser's current account in `error.account`, without changing or renewing its session. |
+| `401 token_outdated` | Either generation rose. Sign in again and create a new token. |
+
+| Operation | Result |
+|---|---|
+| `POST /api/auth/external/start` | Sets the browser's ten-minute start cookie and redirects to the door. Requires the instance's `Origin`. |
+| `POST /api/auth/external/arrive` | Accepts `{"ticket":"<COMPACT_JWS>"}` with that cookie and `Origin`. The body is bounded to 8,192 bytes. Returns the account and session cookie. |
+| `POST /api/users` | An admin's invitation returns only `account` in external mode. In password mode it also returns `signInUrl` and `expiresAt`. Clients must allow these link fields to be absent. |
+| `POST /api/instance/sign-out` | An admin raises the sign-out generation in either mode, ending all earlier sessions and tokens, including their own, and older assistant work. |
+
+Start and arrival have no MCP tool. Tickets never authenticate API or MCP calls.
 
 ### Make a token
 

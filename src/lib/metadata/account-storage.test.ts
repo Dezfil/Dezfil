@@ -129,8 +129,8 @@ describe("account storage upgrade", () => {
     account();
     db.exec(`INSERT INTO original_account VALUES (1, 'first');
       INSERT INTO account_preferences VALUES ('first', '{"maps":{"sort":"name"}}', '${now}');
-      INSERT INTO auth_sessions VALUES ('session', 'session-digest', 'first', 100, 200, 100, NULL);
-      INSERT INTO auth_tokens VALUES ('token', 'first', 'CLI', 'token-digest', 100, NULL, 150, 300);
+      INSERT INTO auth_sessions (id,secret_hash,account_id,created_at,expires_at,last_used_at,revoked_at) VALUES ('session', 'session-digest', 'first', 100, 200, 100, NULL);
+      INSERT INTO auth_tokens (id,account_id,name,secret_hash,created_at,last_used_at,revoked_at,expires_at) VALUES ('token', 'first', 'CLI', 'token-digest', 100, NULL, 150, 300);
       INSERT INTO auth_links VALUES ('link', 'first', 'reset', 'link-digest', 100, 200, NULL, 150);`);
     const names = ["accounts", "original_account", "account_preferences", "auth_sessions", "auth_tokens", "auth_links"];
     const snapshot = () => names.map(name => db.prepare(`SELECT * FROM ${name}`).all());
@@ -160,9 +160,9 @@ describe("account storage upgrade", () => {
     expect(() => account("duplicate")).toThrow(/UNIQUE/);
     expect(() => db.exec("UPDATE accounts SET status = 'deleted'")).toThrow();
     expect(() => db.exec("UPDATE accounts SET is_admin = 2")).toThrow();
-    expect(() => db.exec(`INSERT INTO auth_sessions VALUES ('session', 'digest', 'absent', 1, 2, 1, NULL)`)).toThrow();
-    db.exec(`INSERT INTO auth_sessions VALUES ('session', 'digest', 'first', 1, 2, 1, NULL)`);
-    expect(() => db.exec(`INSERT INTO auth_sessions VALUES ('other', 'digest', 'first', 1, 2, 1, NULL)`)).toThrow();
+    expect(() => db.exec(`INSERT INTO auth_sessions (id,secret_hash,account_id,created_at,expires_at,last_used_at,revoked_at) VALUES ('session', 'digest', 'absent', 1, 2, 1, NULL)`)).toThrow();
+    db.exec(`INSERT INTO auth_sessions (id,secret_hash,account_id,created_at,expires_at,last_used_at,revoked_at) VALUES ('session', 'digest', 'first', 1, 2, 1, NULL)`);
+    expect(() => db.exec(`INSERT INTO auth_sessions (id,secret_hash,account_id,created_at,expires_at,last_used_at,revoked_at) VALUES ('other', 'digest', 'first', 1, 2, 1, NULL)`)).toThrow();
     expect(db.prepare("SELECT count(*) AS count FROM auth_sessions").get()).toEqual({ count: 1 });
   });
 });

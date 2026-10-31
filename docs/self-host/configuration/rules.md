@@ -36,4 +36,30 @@ An admin sets these on the **Security**, **Publishing** and **Data & services** 
 - A rule refuses new actions and takes nothing away. A refused action answers `403 rule_refused`, with `error.rule` naming the rule, and the screens show that action disabled.
 - Every signed-in account and agent reads the rules it follows as `rules` in `GET /api/config`, with the shortest password as `passwordMin`.
 
+## Sign everyone out
+
+An admin can end every account's sessions and API tokens in either sign-in mode.
+
+1. In **Settings**, under **Instance**, open **Security** and click **Sign everyone out**. You should see **Sign everyone out?** and what ends.
+2. Click **Sign everyone out** again. You should see the sign-in page: your own session ended too.
+
+Through the API:
+
+```sh title="Terminal"
+curl -s -X POST https://maps.example.com/api/instance/sign-out \
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
+
+```json title="Output"
+{"signOutGeneration":1,"doorGeneration":0}
+```
+
+The numbers are the stored generations after the raise. Each call increases `signOutGeneration`; `doorGeneration` stays unchanged. Over MCP, `sign_everyone_out` requires confirmation and names the caller's credentials too.
+
+Every session and token made before either generation rose loses access, including yours. Older assistant work is interrupted and parked runs end. Accounts, roles, memberships and identity bindings stay unchanged.
+
+Sign in again and make new tokens. Old tokens answer `401 token_outdated`. An external ticket's higher door generation, or a raised startup floor, has the same effect on earlier credentials.
+
+In [external sign-in mode](external-sign-in.md), session and token lifetimes still apply. Password and link settings stay stored but those sign-in methods are unavailable. Failed arrivals use the per-address allowance.
+
 [Configuration](../configuration.md) shows how a change in Settings applies.

@@ -56,10 +56,10 @@ it("exposes only entry metadata and removes the legacy prefill once setup exists
   setSetting("view_prefs", '{"maps":{"view":"list"}}', db);
   const before = await entryInformation(request("/api/auth/entry"));
   expect(before.headers.get("cache-control")).toBe("private, no-store");
-  expect(await before.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: true, prefillName: "Legacy name" });
+  expect(await before.json()).toEqual({ externalSignIn: { enabled: false, doorUrl: null }, instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: true, prefillName: "Legacy name" });
   const signed = await first();
   const after = await entryInformation(request("/api/auth/entry", undefined, { cookie: cookie(signed.secret) }));
-  expect(await after.json()).toEqual({ instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: false });
+  expect(await after.json()).toEqual({ externalSignIn: { enabled: false, doorUrl: null }, instanceName: "Field atlas", signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8, setupRequired: false });
 });
 it("names the shortest password the entry screens take: 8 for the first account, then the stored one", async () => {
   writeStoredSettings({ "security.passwordMin": 12 }, db);
@@ -172,9 +172,9 @@ it("serves stored General values anonymously and restores defaults after clearin
   const response = await entryInformation(request("/api/auth/entry"));
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
-  expect(await response.json()).toEqual({ instanceName: null, setupRequired: false,
+  expect(await response.json()).toEqual({ externalSignIn: { enabled: false, doorUrl: null }, instanceName: null, setupRequired: false,
     signInMessage: "Welcome aboard", lostPasswordContact: "Ask the steward", landingPage: "sql", passwordMin: 8 });
   writeStoredSettings({ signInMessage: null, lostPasswordContact: null, landingPage: null }, db);
-  expect(await (await entryInformation(request("/api/auth/entry"))).json()).toEqual({ instanceName: null,
+  expect(await (await entryInformation(request("/api/auth/entry"))).json()).toEqual({ externalSignIn: { enabled: false, doorUrl: null }, instanceName: null,
     setupRequired: false, signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8 });
 });

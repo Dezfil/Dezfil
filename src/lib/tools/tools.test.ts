@@ -99,6 +99,8 @@ describe("tool parity", () => {
       "POST /api/assistant/messages",
       "POST /api/assistant/runs",
       "POST /api/assistant/runs/{id}/cancel",
+      "POST /api/auth/external/arrive",
+      "POST /api/auth/external/start",
       "POST /api/auth/redeem",
       "POST /api/auth/setup",
       "POST /api/auth/sign-in",
@@ -304,6 +306,7 @@ describe("tool parity", () => {
       "revoke_inactive_publication",
       "set_basemap_style_offered",
       "set_project_person",
+      "sign_everyone_out",
       // Changes nothing and stays on this server, but it runs work on a part
       // of it, asked for as every instance-wide action is.
       "test_part",

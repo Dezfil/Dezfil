@@ -20,7 +20,7 @@ const TOKENS = [
 
 function sources(overrides: Partial<IndexSources> = {}): IndexSources {
   return {
-    account: ACCOUNT, tokens: TOKENS, look: { ...defaultLook(), color: "heather", rail: "icons" },
+    account: ACCOUNT, external: false, tokens: TOKENS, look: { ...defaultLook(), color: "heather", rail: "icons" },
     instance: instanceReadFixture({
       instanceName: { value: "Atlas North", source: "stored", storedValue: "Atlas North" },
       landingPage: { value: "maps", source: "stored", storedValue: "maps" },
@@ -487,7 +487,7 @@ describe("Security and Public links in the search", () => {
       expect(hit!.target, label).toEqual({ tab: id, anchor });
     }
     expect(paths(searchSettings(index(), "security")).slice(0, 1)).toEqual(["Instance / Security"]);
-    expect(searchSettings(index(), "security")[0].meta).toBe("Sign-in, API tokens");
+    expect(searchSettings(index(), "security")[0].meta).toBe("Sign-in, API tokens, Sign everyone out");
     expect(searchSettings(index(), "publishing")[0].meta).toBe("Public links, Image export");
     const links = searchSettings(index(), "public links").find(hit => hit.entry.kind === "card");
     expect(hitPath(links!)).toBe("Instance / Publishing · Public links");

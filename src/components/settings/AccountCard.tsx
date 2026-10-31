@@ -19,16 +19,18 @@ const normal = (email: Value | undefined) => String(email ?? "").trim().toLowerC
 
 /** The account as a save unit: every field is typed text, kept on Save. A
  * changed email takes the current password with it; the password is never
- * kept. The server's refusals are written for the whole card. */
-function accountUnit(account: Account): SaveUnit {
+ * kept. The server's refusals are written for the whole card. With a sign-in
+ * service the name is all there is to type: the email is the service's. */
+function accountUnit(account: Account, external: boolean): SaveUnit {
   const unit: SaveUnit = new SaveUnit({
     title: "Account",
-    controls: [{ key: "name", kind: "text" }, { key: "email", kind: "text" }, { key: "currentPassword", kind: "text" }],
-    kept: { name: account.name, email: account.email, currentPassword: "" },
+    controls: external ? [{ key: "name", kind: "text" }] : [{ key: "name", kind: "text" }, { key: "email", kind: "text" }, { key: "currentPassword", kind: "text" }],
+    kept: external ? { name: account.name } : { name: account.name, email: account.email, currentPassword: "" },
     refusalRows: false,
     validate: values => {
       const problems: Record<string, string> = {};
       if (!String(values.name ?? "").trim()) problems.name = "Enter a display name.";
+      if (external) return problems;
       const email = String(values.email ?? "").trim();
       if (!email) problems.email = "Enter your email address.";
       else if (!EMAIL.test(email)) problems.email = "Enter an email address like name@example.com.";
@@ -44,7 +46,8 @@ function accountUnit(account: Account): SaveUnit {
         name: String(values.name ?? ""), ...(changingEmail ? { email: String(values.email ?? ""), currentPassword: String(patch.currentPassword ?? values.currentPassword ?? "") } : {}),
       });
       window.dispatchEvent(new CustomEvent(DISPLAY_NAME_EVENT, { detail: updated.name }));
-      return { name: updated.name, email: updated.email, currentPassword: "" };
+      const saved: Record<string, Value> = external ? { name: updated.name } : { name: updated.name, email: updated.email, currentPassword: "" };
+      return saved;
     },
   });
   return unit;
@@ -54,17 +57,18 @@ function accountUnit(account: Account): SaveUnit {
  * and apart from the typed fields; display name, the SQL name, email (a
  * changed email asks for the current password), then Change password on
  * its own button. Save and Cancel show only while a field differs from
- * what was saved; no Reset, since an account has no defaults. */
-export function AccountCard({ account }: { account: Account }) {
+ * what was saved; no Reset, since an account has no defaults. With a sign-in
+ * service the email is read-only and there is no password to change. */
+export function AccountCard({ account, external = false }: { account: Account; external?: boolean }) {
   const ids = useId();
   const form = useRef<HTMLFormElement>(null);
-  const [unit, card] = useSaveUnit("account", () => accountUnit(account));
+  const [unit, card] = useSaveUnit("account", () => accountUnit(account, external));
   useUnitFocus(form, card.focus);
-  const changingEmail = normal(card.values.email) !== normal(card.kept.email);
+  const changingEmail = !external && normal(card.values.email) !== normal(card.kept.email);
   const text = (key: string) => String(card.values[key] ?? "");
   // The search finds these rows by what the fields hold now; the passwords never report.
   useLiveValue("set-display-name", text("name"));
-  useLiveValue("set-email", text("email"));
+  useLiveValue("set-email", external ? account.email : text("email"));
   const invalid = (key: string) => card.errors[key] ? { "aria-invalid": true, "aria-describedby": `${ids}-${key}-error` } : {};
   return <SettingsCard id="account" title="Account" headingId="account-heading">
     <AccountPicture account={account} />
@@ -76,7 +80,9 @@ export function AccountCard({ account }: { account: Account }) {
       </LabelledField>
       <p id="set-sql-name" className={styles.sqlName}><span>SQL name</span><code>{account.sqlName}</code></p>
       <Note>Your SQL name stays the same when you change your name or email.</Note>
-      <LabelledField id="set-email" label="Email" inputId={`${ids}-email`} saved={card.saved.includes("email")}
+      {external ? <LabelledField id="set-email" label="Email" inputId={`${ids}-email`} rule="Your email comes from the sign-in service.">
+        <TextInput id={`${ids}-email`} type="email" value={account.email} readOnly autoComplete="email" />
+      </LabelledField> : <LabelledField id="set-email" label="Email" inputId={`${ids}-email`} saved={card.saved.includes("email")}
         error={card.errors.email} errorId={`${ids}-email-error`}>
         <TextInput id={`${ids}-email`} data-unit-key="email" type="email" value={text("email")} required autoComplete="email"
           disabled={card.busy} {...invalid("email")} onChange={event => {
@@ -84,12 +90,12 @@ export function AccountCard({ account }: { account: Account }) {
             if (normal(event.target.value) === normal(card.kept.email) && text("currentPassword")) unit.edit("currentPassword", "");
             unit.edit("email", event.target.value);
           }} />
-      </LabelledField>
+      </LabelledField>}
       {changingEmail && <PasswordField label="Current password to change email" unitKey="currentPassword" value={text("currentPassword")}
         onChange={value => unit.edit("currentPassword", value)} disabled={card.busy} error={card.errors.currentPassword} />}
       {card.note && <ErrorNote message={card.note.message} onRetry={card.note.retry ? () => unit.retry() : undefined} onDismiss={() => unit.dismiss()} />}
       {card.saveLine && <SaveLine busy={card.busy} onCancel={() => unit.cancel()} />}
     </form>
-    <PasswordCard />
+    {!external && <PasswordCard />}
   </SettingsCard>;
 }

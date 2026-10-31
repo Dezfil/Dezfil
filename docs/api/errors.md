@@ -78,6 +78,8 @@ Some codes add a field beside the two:
 | `setting` | `basemap_not_offered` | The basemap switch that refused it, such as `basemaps.satellite`. |
 | `issues` | `geometry_choice_invalid`, and `invalid_request` for a tool's arguments over MCP | Each reason the request fails: a `code` and a `message` for a geometry choice, a `message` and the argument's `path` for a tool call. |
 
+One operation adds a field of its own: the `already_signed_in` answer from an external sign-in arrival also holds `account`, the account already signed in to that browser. Its session stays unchanged.
+
 > [!NOTE]
 > Over MCP, a failed tool call is marked as an error. Its result holds an `error` object with `code`, `message` and, where they apply, `position` and `issues`. A tool takes the edit revision as its `expected_revision` argument. [Connect an AI agent](mcp.md#troubleshooting) helps with the client.
 
@@ -96,6 +98,11 @@ Agents can read the same list from the [API description](openapi.json):
 | Code | Status | What happened | What to do |
 |---|---|---|---|
 | `authentication_required` | 401 | The request has no token, or one Dezfil doesn't accept: mistyped, revoked, or its account deactivated. | Send the header `Authorization: Bearer <YOUR_TOKEN>`. If it still fails, create a new token. |
+| `token_outdated` | 401 | **This token was made before everyone was signed out and no longer works. Create a new one.** | Sign in again and create a new API token. |
+| `invalid_ticket` | 401 | The external ticket, browser start, audience, time, generation or signature is invalid, or the ticket id was already accepted. | Begin again from the instance. See the [door guide](../self-host/sign-in-service.md). |
+| `already_signed_in` | 409 | The browser already holds the account in `error.account`. Nothing changed. | Sign out before starting another sign-in. |
+| `account_not_invited` | 403 | No account matches the verified identity, or that email is bound to another identity. | Ask an admin for an invitation using the verified email. |
+| `external_sign_in_only` | 403 | **This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.** | Use the sign-in service; email changes also come from it. |
 | `token_expired` | 401 | The token reached the expiry it was created with. | Create a new token and use it instead. |
 | `forbidden` | 403 | The operation is for admins, you can view the item but not change it, or a request signed in with the session cookie lacks the instance's `Origin`. Nothing changed. | Use an admin's token for admin operations. For an item you can't change, see [Who may do what](http-api.md#who-may-do-what); for the `Origin`, [Sign in](http-api.md#sign-in). |
 | `rule_refused` | 403 | An instance rule leaves you out, such as **Who may publish**. The `rule` field names it. Nothing changed. | Ask an admin to change the rule in **Settings**. |

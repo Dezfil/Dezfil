@@ -17,7 +17,7 @@ beforeEach(async () => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   admin = await createFirstAccount({ name: "Admin", email: "admin@example.test", password }, db);
   const invite = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Member", email: "member@example.test" }, db);
-  member = await redeemSignInLink(invite.secret, password, db);
+  member = await redeemSignInLink(invite.secret!, password, db);
   setInstanceName("Field atlas", db);
   setAccountViewPrefs(admin.account.id, { maps: { view: "list", sort: "name" } }, db);
   setAccountViewPrefs(member.account.id, { maps: { view: "grid", sort: "created" } }, db);

@@ -63,7 +63,7 @@
     "/api/auth/entry": {
       "get": {
         "summary": "Authentication entry information",
-        "description": "The instance name, sign-in message, lost-password contact, landing page, the shortest password a password chosen on these screens needs, and setup availability. The landing page value does not change navigation. Before setup, the legacy display name may prefill Name. Never returns a signed-in person's identity or account preferences. Private, no-store.",
+        "description": "The instance name, sign-in message, lost-password contact, landing page, the shortest password a password chosen on these screens needs, and setup availability. externalSignIn reports enabled and the configured doorUrl, null while disabled; setupRequired is false in external sign-in mode. The landing page value does not change navigation. Before setup, the legacy display name may prefill Name. Never returns a signed-in person's identity or account preferences. Private, no-store.",
         "tags": [
           "Accounts"
         ],
@@ -265,7 +265,7 @@
     "/api/auth/setup": {
       "post": {
         "summary": "Create the first account",
-        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. Atomically creates the sole initial admin, adopts legacy preferences and establishes a cookie session. Once any account exists, setup_complete refuses further creation. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing.",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. Atomically creates the sole initial admin, adopts legacy preferences and establishes a cookie session. Once any account exists, setup_complete refuses further creation. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing. In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged.",
         "tags": [
           "Accounts"
         ],
@@ -533,7 +533,7 @@
     "/api/auth/sign-in": {
       "post": {
         "summary": "Sign in",
-        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. Unknown email and wrong password share invalid_credentials. Valid credentials for a deactivated account return account_deactivated. Account failure limits apply only to sources with recent failures; a correct password from a source without recent failures can sign in even when the account budget is exhausted. Failures from every source count against the account, and source limits always apply. Cancellation after derivation starts retains the source reservation against its per-address budget (the instance setting, twenty attempts by default) until the fifteen-minute window expires, refunds the account reservation and adds no failures, preserving the clean-source exception. Limits return rate_limited with Retry-After, retryAfter seconds and retryAt (ISO timestamp); waiting restores admission. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing.",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. Unknown email and wrong password share invalid_credentials. Valid credentials for a deactivated account return account_deactivated. Account failure limits apply only to sources with recent failures; a correct password from a source without recent failures can sign in even when the account budget is exhausted. Failures from every source count against the account, and source limits always apply. Cancellation after derivation starts retains the source reservation against its per-address budget (the instance setting, twenty attempts by default) until the fifteen-minute window expires, refunds the account reservation and adds no failures, preserving the clean-source exception. Limits return rate_limited with Retry-After, retryAfter seconds and retryAt (ISO timestamp); waiting restores admission. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing. In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged.",
         "tags": [
           "Accounts"
         ],
@@ -840,7 +840,7 @@
     "/api/auth/redeem": {
       "post": {
         "summary": "Redeem a sign-in link",
-        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. An ordinary admin-issued link expires after the instance's link lifetime it was issued with, security.linkDays, seven days by default; local filesystem recovery issues a fifteen-minute link. Both are consumed once. Invalid, expired, replaced and reused links return invalid_link without changing the password or session. Success replaces the browser's cookie with the recipient's session, even when another account was signed in. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing.",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie mutations and entry submissions require an Origin matching the trusted request origin. Explicit bearer authentication does not use cookies. Responses are private, no-store. An ordinary admin-issued link expires after the instance's link lifetime it was issued with, security.linkDays, seven days by default; local filesystem recovery issues a fifteen-minute link. Both are consumed once. Invalid, expired, replaced and reused links return invalid_link without changing the password or session. Success replaces the browser's cookie with the recipient's session, even when another account was signed in. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing. In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged.",
         "tags": [
           "Accounts"
         ],
@@ -1555,6 +1555,759 @@
         ]
       }
     },
+    "/api/auth/external/start": {
+      "post": {
+        "summary": "Start external sign-in",
+        "description": "Requires external sign-in mode and the trusted Origin. Sets an HttpOnly, SameSite=Lax, port-scoped start cookie for ten minutes and redirects the browser to the configured sign-in service with a start query parameter. Uses a process-signed value without allocating store rows; a restart invalidates starts in flight. Private, no-store, no-referrer.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must match the trusted instance origin.",
+            "examples": {
+              "externalSignIn": {
+                "summary": "Start a browser sign-in",
+                "value": "http://localhost:3000"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Continue at the configured sign-in service.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-examples": {
+              "externalSignIn": {
+                "summary": "Start a browser sign-in",
+                "description": "Needs external sign-in configured. Send Origin from the instance's page. Keep the start cookie and follow Location to the sign-in service, which receives the start value."
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
+    "/api/auth/external/arrive": {
+      "post": {
+        "summary": "Arrive with an external sign-in ticket",
+        "description": "At most 8,192 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Redeems a compact Ed25519 JWS whose payload follows ExternalSignInTicketClaims. Its header permits only alg: EdDSA and optional typ: JWT; every configured public key is tried. The ticket is bound to this browser's ten-minute start cookie and this instance's audience. A valid browser session is refused with already_signed_in and its account before any mutation or renewal. Accepted ticket ids are durable and single-use. Refusals charge only the source-address budget; account, budget, session and accepted id commit together on success. A higher door generation invalidates older credentials and interrupts older assistant work. The start cookie is cleared on success and refusal. Requires the trusted Origin and external sign-in mode. Private, no-store. The ticket is never an API or MCP credential.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            },
+            {
+              "resource": "assistant",
+              "collection": true
+            }
+          ]
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must match the trusted instance origin.",
+            "examples": {
+              "externalSignIn": {
+                "summary": "Exchange the returned ticket for a session",
+                "value": "http://localhost:3000"
+              }
+            }
+          }
+        ],
+        "requestBody": {
+          "x-byte-limit": 8192,
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ticket"
+                ],
+                "properties": {
+                  "ticket": {
+                    "type": "string",
+                    "maxLength": 6144,
+                    "writeOnly": true
+                  }
+                }
+              },
+              "examples": {
+                "externalSignIn": {
+                  "summary": "Exchange the returned ticket for a session",
+                  "description": "Needs the start cookie from this browser, no active session, and a ticket signed by a trusted service for Ana Diaz's existing account. The ticket names this instance's audience and the start value. Send the compact JWS from the arrival page's fragment. The answer sets the session cookie and clears the start cookie.",
+                  "value": {
+                    "ticket": "<SIGNED_TICKET>"
+                  }
+                }
+              }
+            }
+          },
+          "x-byte-error": "request_body_too_large"
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSession"
+                },
+                "examples": {
+                  "externalSignIn": {
+                    "summary": "Exchange the returned ticket for a session",
+                    "description": "Needs the start cookie from this browser, no active session, and a ticket signed by a trusted service for Ana Diaz's existing account. The ticket names this instance's audience and the start value. Send the compact JWS from the arrival page's fragment. The answer sets the session cookie and clears the start cookie.",
+                    "value": {
+                      "account": {
+                        "id": "5f0c2d9e-8a41-4b7e-9c3a-2e6f1b8d7a40",
+                        "name": "Ana Diaz",
+                        "email": "ana@example.com",
+                        "sqlName": "ana_diaz",
+                        "isAdmin": true,
+                        "status": "active",
+                        "isOriginal": true,
+                        "createdAt": "2026-10-20T09:00:00.626Z",
+                        "updatedAt": "2026-10-20T09:00:00.626Z",
+                        "lastSignInAt": "2026-10-20T09:00:00.787Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already signed in, or the verified email belongs to another account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalArrivalConflict"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Source-address failures exceeded security.failedPerAddress in fifteen minutes; retryAfter and retryAt describe the retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
+    "/api/instance/sign-out": {
+      "post": {
+        "summary": "Sign everyone out",
+        "description": "Requires a current admin. Raises the sign-out generation, ending every account's browser sessions, API tokens and delegated credentials, including the caller's. Interrupts older assistant work and ends parked runs. Accounts, roles, memberships and identity bindings stay unchanged. Cookie requests require the same trusted Origin. Returns private, no-store.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "sign_everyone_out",
+        "x-tool-input": {
+          "closed": true
+        },
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            },
+            {
+              "resource": "assistant",
+              "collection": true
+            }
+          ]
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "repeatability": "Identical calls may update retained working state."
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-confirmation": {
+          "target": "Sign everyone out?",
+          "consequence": "Every session and API token of every account ends, your own included. Running assistant work stops and parked runs end.",
+          "subject": {
+            "path": null,
+            "argument": "",
+            "name": ""
+          }
+        },
+        "x-display": {
+          "verb": "Signed everyone out"
+        },
+        "x-confirm": true,
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthGenerations"
+                },
+                "examples": {
+                  "everyone": {
+                    "summary": "End every account's credentials",
+                    "description": "Needs an admin's token or session and confirmation that every session and API token ends, including the caller's, and running and parked assistant work stops. This instance starts with both generations at zero; the sign-out generation rises to one.",
+                    "value": {
+                      "signOutGeneration": 1,
+                      "doorGeneration": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "OPTIONS, POST"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
     "/api/account": {
       "get": {
         "summary": "Read your account",
@@ -1690,7 +2443,7 @@
       },
       "patch": {
         "summary": "Update your account",
-        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing.  Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing.Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Changes only your own name or email. An email change requires currentPassword and replaces the sign-in email. Duplicate emails return email_taken, regardless of case or surrounding whitespace. Missing or incorrect current passwords return current_password_required. Current-password checks on password and email changes share one allowance per account, apart from sign-in accounting: the Failed sign-ins per account count (security.failedPerAccount, five by default) within a fixed fifteen minutes. Missing or incorrect current passwords count; busy refusals, failing password work and a caller who leaves before the check starts do not; a caller who leaves after it starts keeps that place taken until the window ends. Concurrent checks never exceed what is left. Past the count, checks return rate_limited with Retry-After, retryAfter seconds and retryAt (ISO timestamp) before any password work. A correct current password clears this count and leaves sign-in's untouched; a sign-in clears only its own. The complete patch is validated before any write; account identity, role and status cannot be submitted.",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing.  Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing.Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Changes only your own name or email. In external sign-in mode, an email patch returns 403 external_sign_in_only; name changes remain available. An email change requires currentPassword and replaces the sign-in email. Duplicate emails return email_taken, regardless of case or surrounding whitespace. Missing or incorrect current passwords return current_password_required. Current-password checks on password and email changes share one allowance per account, apart from sign-in accounting: the Failed sign-ins per account count (security.failedPerAccount, five by default) within a fixed fifteen minutes. Missing or incorrect current passwords count; busy refusals, failing password work and a caller who leaves before the check starts do not; a caller who leaves after it starts keeps that place taken until the window ends. Concurrent checks never exceed what is left. Past the count, checks return rate_limited with Retry-After, retryAfter seconds and retryAt (ISO timestamp) before any password work. A correct current password clears this count and leaves sign-in's untouched; a sign-in clears only its own. The complete patch is validated before any write; account identity, role and status cannot be submitted.",
         "tags": [
           "Accounts"
         ],
@@ -2062,7 +2815,7 @@
     "/api/account/password": {
       "post": {
         "summary": "Change your password",
-        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing.  Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing.Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Requires currentPassword. The new password needs at least eight characters and cannot be very common; no character classes are required. Wrong current passwords return current_password_required; weak new passwords return weak_password. Current-password checks on password and email changes share one allowance per account, apart from sign-in accounting: the Failed sign-ins per account count (security.failedPerAccount, five by default) within a fixed fifteen minutes. Missing or incorrect current passwords count; busy refusals, failing password work and a caller who leaves before the check starts do not; a caller who leaves after it starts keeps that place taken until the window ends. Concurrent checks never exceed what is left. Past the count, checks return rate_limited with Retry-After, retryAfter seconds and retryAt (ISO timestamp) before any password work. A correct current password clears this count and leaves sign-in's untouched; a sign-in clears only its own. Keeps the calling browser session, ends your other sessions and leaves API tokens valid. A bearer caller has no browser session to preserve.",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing.  In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged. Password derivations share two active slots and at most eight waiters: six ordinary and two reserved protected, each waiting at most five seconds. FIFO within each class; validated links and signed-in current-password work are protected, including the second password-change derivation. Protected work takes the next free slot but at most one active slot, even with ordinary slots idle. Ordinary work may use both; running work is never pre-empted. A fourth simultaneous protected caller is refused at once and may retry immediately without a login lockout; the busy response advises a one-second retry. Known and unknown sign-ins are ordinary. Overflow or deadline answers authentication_busy. Cancellation removes waiters; native work owns its slot until it settles. Recovery issuance derives nothing.Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Requires currentPassword. The new password needs at least eight characters and cannot be very common; no character classes are required. Wrong current passwords return current_password_required; weak new passwords return weak_password. Current-password checks on password and email changes share one allowance per account, apart from sign-in accounting: the Failed sign-ins per account count (security.failedPerAccount, five by default) within a fixed fifteen minutes. Missing or incorrect current passwords count; busy refusals, failing password work and a caller who leaves before the check starts do not; a caller who leaves after it starts keeps that place taken until the window ends. Concurrent checks never exceed what is left. Past the count, checks return rate_limited with Retry-After, retryAfter seconds and retryAt (ISO timestamp) before any password work. A correct current password clears this count and leaves sign-in's untouched; a sign-in clears only its own. Keeps the calling browser session, ends your other sessions and leaves API tokens valid. A bearer caller has no browser session to preserve.",
         "tags": [
           "Accounts"
         ],
@@ -2480,7 +3233,7 @@
       },
       "post": {
         "summary": "Create an API token",
-        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Creates a named API/MCP token for your own account. The secret is returned only on creation. It authenticates with your current account permissions and is refused while the account is deactivated. It lasts as long as the instance's rule for new tokens said at its creation, or never expires; expiresAt says when, a later change of the rule moves no token's expiry, and once it passes the token is refused with token_expired.",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Creates a named API/MCP token for your own account. The secret is returned only on creation. It records the current sign-out and door generations and returns token_outdated after either generation rises. It authenticates with your current account permissions and is refused while the account is deactivated. It lasts as long as the instance's rule for new tokens said at its creation, or never expires; expiresAt says when, a later change of the rule moves no token's expiry, and once it passes the token is refused with token_expired.",
         "tags": [
           "Accounts"
         ],
@@ -4255,7 +5008,7 @@
       },
       "post": {
         "summary": "Invite a user",
-        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Reserves a name and normalized email and returns a signInUrl once. The recipient chooses a password when opening the link; this instance sends no email. The link expires after the instance's link lifetime, security.linkDays, seven days by default, and keeps the lifetime it was issued with. isAdmin defaults to false and an admin may explicitly grant it. Duplicate emails return email_taken regardless of case or surrounding whitespace, including invited and deactivated accounts. An email awaiting deletion completion remains reserved, including after its profile is removed, and never offers reactivation. For a deactivated duplicate the error carries accountId and canReactivate: true; reactivate that account instead of creating another.",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Reserves a name and normalized email. In external sign-in mode it returns only account and creates no link, session or token; the recipient signs in through the sign-in service. Otherwise it returns a signInUrl once. The recipient chooses a password when opening the link; this instance sends no email. The link expires after the instance's link lifetime, security.linkDays, seven days by default, and keeps the lifetime it was issued with. isAdmin defaults to false and an admin may explicitly grant it. Duplicate emails return email_taken regardless of case or surrounding whitespace, including invited and deactivated accounts. An email awaiting deletion completion remains reserved, including after its profile is removed, and never offers reactivation. For a deactivated duplicate the error carries accountId and canReactivate: true; reactivate that account instead of creating another.",
         "tags": [
           "Accounts"
         ],
@@ -4280,7 +5033,7 @@
         },
         "x-confirmation": {
           "target": "Invite this person to the instance?",
-          "consequence": "They can sign in with the permissions you grant when they choose a password.",
+          "consequence": "They can sign in with the permissions you grant through the configured sign-in method.",
           "subject": {
             "path": "/api/account",
             "argument": "",
@@ -4335,7 +5088,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IssuedSignInLink"
+                  "$ref": "#/components/schemas/UserInvitation"
                 }
               }
             }
@@ -5186,7 +5939,7 @@
     "/api/users/{id}/sign-in-link": {
       "post": {
         "summary": "Issue a new sign-in link",
-        "description": "Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns a one-time signInUrl expiring after the instance's link lifetime, security.linkDays, seven days by default; the link keeps the lifetime it was issued with. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
+        "description": " In external sign-in mode, this operation returns 403 external_sign_in_only before reading its body. Stored passwords and links are unchanged.Requires a current admin account through a cookie session or bearer token. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. Returns a one-time signInUrl expiring after the instance's link lifetime, security.linkDays, seven days by default; the link keeps the lifetime it was issued with. Replaces every earlier unused link, invalidates the current password and ends browser sessions while API tokens stay valid. The recipient chooses their password and enters as this account even if another account was signed in. An expired, replaced or consumed link grants no access. This instance sends no email; share the returned link with its recipient.",
         "tags": [
           "Accounts"
         ],
@@ -5457,7 +6210,7 @@
     "/api/instance/settings": {
       "get": {
         "summary": "Read instance configuration",
-        "description": "Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The satellite tile template in effect, stored or set by DEZFIL_SATELLITE_URL, also reads with userInformation true while it carries a user name or password, which is never given: the imagery is not drawn from such an address. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION is unset, and as the variable's, with the stored credit as storedValue, while it is set. The template catalogue's address (templatesCatalogueUrl) reads as a service address does; while DEZFIL_TEMPLATES_CATALOGUE names a folder on this server instead of an http or https address, it reads as set with folder true, and the folder's path is never given. Trusted engine memory (trustedMemoryMb) defaults to 3072 MB and Bytes drawn per layer (renderCapBytes) to 134217728 bytes; both are deployment-controlled and reject writes. Data processing time limit (dataProcessingTimeoutS) defaults to 3600 seconds, accepts stored whole seconds from 60 to 21600, and resets with null. Trusted imports, refreshes, geometry and sketch changes, template installation and export conversion use the Data processing time limit. Trusted work shares the configured memory budget and a dedicated scratch allowance of four times that value; restart clears abandoned spill. Exhaustion answers engine_memory_exceeded, naming memory or scratch and DEZFIL_TRUSTED_MEMORY_MB. Upload reception and processing each use the value admitted when reception begins, with separate deadlines. Layer renders and dataset map features count their complete inline answer against Bytes drawn per layer as it is built; above it a layer takes its tile road or answers the errored layer render_bytes_exceeded, and dataset map features answer ok:false with a reason. Slider, Overture and OpenStreetMap previews and the sketch features read count theirs too and answer 422 render_bytes_exceeded above it. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet. Parts report each part of this server, starting nothing and running no program: the query engine's library version, whether the engine has started and the extensions it loaded; whether the tile builder and the image renderer's browser are executable files where their settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name. basemapStyles is the basemap library, oldest first, hidden styles included: each style's id, name, address, credit, whether it is offered and when it was added.",
+        "description": "Requires a current admin account through a cookie session or bearer token, rechecked on every call. Responses, including refusals, are private, no-store. Returns every instance and platform definition with its effective value, source, stored value (including a shadowed value), lock and invalid-override state. A non-empty environment variable locks the setting even when invalid; invalid numeric overrides use the default without returning the override text. Empty numeric overrides are absent; a set empty assistant model list retains its default model alone. Environment changes require a restart. externalSignIn reports the frozen mode, accepted public-key count, signOutGeneration and doorGeneration. Public key material is never returned. Provider keys report set or not set; the encryption key reports environment, data-directory or not-yet-present. Address value and defaultValue expose scheme and host only, never user information, paths, queries or fragments; malformed addresses report set and unreadable. A service address or the satellite tile template an admin stored reads as set with its scheme and host, or as set and unreadable once the instance's encryption key no longer opens it; its storedValue is always null. The satellite tile template in effect, stored or set by DEZFIL_SATELLITE_URL, also reads with userInformation true while it carries a user name or password, which is never given: the imagery is not drawn from such an address. The satellite credit an admin stored reads as stored while DEZFIL_SATELLITE_ATTRIBUTION is unset, and as the variable's, with the stored credit as storedValue, while it is set. The template catalogue's address (templatesCatalogueUrl) reads as a service address does; while DEZFIL_TEMPLATES_CATALOGUE names a folder on this server instead of an http or https address, it reads as set with folder true, and the folder's path is never given. Trusted engine memory (trustedMemoryMb) defaults to 3072 MB and Bytes drawn per layer (renderCapBytes) to 134217728 bytes; both are deployment-controlled and reject writes. Data processing time limit (dataProcessingTimeoutS) defaults to 3600 seconds, accepts stored whole seconds from 60 to 21600, and resets with null. Trusted imports, refreshes, geometry and sketch changes, template installation and export conversion use the Data processing time limit. Trusted work shares the configured memory budget and a dedicated scratch allowance of four times that value; restart clears abandoned spill. Exhaustion answers engine_memory_exceeded, naming memory or scratch and DEZFIL_TRUSTED_MEMORY_MB. Upload reception and processing each use the value admitted when reception begins, with separate deadlines. Layer renders and dataset map features count their complete inline answer against Bytes drawn per layer as it is built; above it a layer takes its tile road or answers the errored layer render_bytes_exceeded, and dataset map features answer ok:false with a reason. Slider, Overture and OpenStreetMap previews and the sketch features read count theirs too and answer 422 render_bytes_exceeded above it. The built-in documentedDefault stays as documented, including any path. Contextual defaults carry a rule when there is no single address or value. The read generates no key, writes no configuration file, contacts no service and initializes no engine. Capacities report admitted geocode rows and travel-time origins per run, without promising a configured provider. Also returns the fixed maximum image dimension, package version, stable process start time and warnings when the effective query timeout is at or above the run timeout. Services report each provider cache (geocode, isochrone, overpass) with the bytes its answers take, how many it holds and its budget in MB, and the Overture release list this process keeps: how many releases, the newest and when it was listed, or not listed yet. Parts report each part of this server, starting nothing and running no program: the query engine's library version, whether the engine has started and the extensions it loaded; whether the tile builder and the image renderer's browser are executable files where their settings point, by a file check, the tile builder's version once this server has run it, and Images at once; the metadata database's file name. basemapStyles is the basemap library, oldest first, hidden styles included: each style's id, name, address, credit, whether it is offered and when it was added.",
         "tags": [
           "System"
         ],
@@ -5493,6 +6246,12 @@
                     "summary": "Read the instance's settings",
                     "description": "Needs an admin's token. On a new instance run from a checkout with DEZFIL_DATA_DIR=/data and PORT=3000.",
                     "value": {
+                      "externalSignIn": {
+                        "enabled": false,
+                        "keyCount": 0,
+                        "signOutGeneration": 0,
+                        "doorGeneration": 0
+                      },
                       "settings": {
                         "uploadMaxMb": {
                           "key": "uploadMaxMb",
@@ -6570,6 +7329,157 @@
                           "secret": false,
                           "editable": true,
                           "value": 600,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInKeys": {
+                          "key": "externalSignInKeys",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_KEYS",
+                          "kind": "secret",
+                          "label": "Sign-in public keys",
+                          "purpose": "Public keys trusted for external sign-in; reads disclose only the count.",
+                          "defaultValue": {
+                            "set": false
+                          },
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": true,
+                          "editable": false,
+                          "value": {
+                            "count": 0
+                          },
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInAudience": {
+                          "key": "externalSignInAudience",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE",
+                          "kind": "text",
+                          "label": "Sign-in audience",
+                          "purpose": "This instance's identity, required in every sign-in ticket.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInUrl": {
+                          "key": "externalSignInUrl",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_URL",
+                          "kind": "text",
+                          "label": "Sign-in service",
+                          "purpose": "The address the browser visits to sign in.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInOwnerId": {
+                          "key": "externalSignInOwnerId",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_ID",
+                          "kind": "text",
+                          "label": "First owner's identity",
+                          "purpose": "Stable identity of the first admin, read only on an empty store.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInOwnerEmail": {
+                          "key": "externalSignInOwnerEmail",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL",
+                          "kind": "text",
+                          "label": "First owner's email",
+                          "purpose": "Email of the first admin, read only on an empty store.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInOwnerName": {
+                          "key": "externalSignInOwnerName",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_NAME",
+                          "kind": "text",
+                          "label": "First owner's name",
+                          "purpose": "Optional name of the first admin, read only on an empty store.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInGenerationFloor": {
+                          "key": "externalSignInGenerationFloor",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR",
+                          "kind": "text",
+                          "label": "Door generation floor",
+                          "purpose": "Minimum door generation, applied at start. Lowering it never lowers the stored generation.",
+                          "defaultValue": "0",
+                          "documentedDefault": "0",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": "0",
                           "source": "default",
                           "locked": false,
                           "invalidOverride": false,
@@ -8497,6 +9407,12 @@
                     "summary": "Show 2,000 rows in results",
                     "description": "Needs an admin's token. previewRows is the key of Rows shown in results; the answer is every setting, as reading them answers, with the new value stored.",
                     "value": {
+                      "externalSignIn": {
+                        "enabled": false,
+                        "keyCount": 0,
+                        "signOutGeneration": 0,
+                        "doorGeneration": 0
+                      },
                       "settings": {
                         "uploadMaxMb": {
                           "key": "uploadMaxMb",
@@ -9574,6 +10490,157 @@
                           "secret": false,
                           "editable": true,
                           "value": 600,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInKeys": {
+                          "key": "externalSignInKeys",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_KEYS",
+                          "kind": "secret",
+                          "label": "Sign-in public keys",
+                          "purpose": "Public keys trusted for external sign-in; reads disclose only the count.",
+                          "defaultValue": {
+                            "set": false
+                          },
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": true,
+                          "editable": false,
+                          "value": {
+                            "count": 0
+                          },
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInAudience": {
+                          "key": "externalSignInAudience",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE",
+                          "kind": "text",
+                          "label": "Sign-in audience",
+                          "purpose": "This instance's identity, required in every sign-in ticket.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInUrl": {
+                          "key": "externalSignInUrl",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_URL",
+                          "kind": "text",
+                          "label": "Sign-in service",
+                          "purpose": "The address the browser visits to sign in.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInOwnerId": {
+                          "key": "externalSignInOwnerId",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_ID",
+                          "kind": "text",
+                          "label": "First owner's identity",
+                          "purpose": "Stable identity of the first admin, read only on an empty store.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInOwnerEmail": {
+                          "key": "externalSignInOwnerEmail",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL",
+                          "kind": "text",
+                          "label": "First owner's email",
+                          "purpose": "Email of the first admin, read only on an empty store.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInOwnerName": {
+                          "key": "externalSignInOwnerName",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_NAME",
+                          "kind": "text",
+                          "label": "First owner's name",
+                          "purpose": "Optional name of the first admin, read only on an empty store.",
+                          "defaultValue": null,
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": null,
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInGenerationFloor": {
+                          "key": "externalSignInGenerationFloor",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR",
+                          "kind": "text",
+                          "label": "Door generation floor",
+                          "purpose": "Minimum door generation, applied at start. Lowering it never lowers the stored generation.",
+                          "defaultValue": "0",
+                          "documentedDefault": "0",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": false,
+                          "editable": false,
+                          "value": "0",
                           "source": "default",
                           "locked": false,
                           "invalidOverride": false,
@@ -17163,6 +18230,9 @@
                     "summary": "Read the values in effect",
                     "description": "Needs a token. On a new instance, with its palettes trimmed to two of the twenty-three.",
                     "value": {
+                      "externalSignIn": {
+                        "enabled": false
+                      },
                       "basemapUrl": "https://tiles.openfreemap.org/styles/dark",
                       "basemapOverrideUrl": null,
                       "basemaps": [
@@ -60036,12 +61106,12 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "dezfil_session",
-        "description": "HttpOnly, SameSite=Lax session. Secure over HTTPS. On a listening port other than 3000 the name carries the port suffix, and DEZFIL_SESSION_COOKIE sets the name. Lasts the instance's session length, security.sessionDays, thirty days by default; each use renews it by the length stored then. Optional X-Dezfil-Account asserts the credential's expected account ID. A mismatch returns 401 authentication_required before dispatch. This transport precondition never supplies identity or changes ownership."
+        "description": "HttpOnly, SameSite=Lax session. Secure over HTTPS. On a listening port other than 3000 the name carries the port suffix, and DEZFIL_SESSION_COOKIE sets the name. Lasts the instance's session length, security.sessionDays, thirty days by default; each use renews it by the length stored then. Every session and token records both the sign-out and door generations. An admin sign-out or higher door generation invalidates older credentials and their delegations; sessions are signed out and tokens return 401 token_outdated. A fresh sign-in can create working credentials. Optional X-Dezfil-Account asserts the credential's expected account ID. A mismatch returns 401 authentication_required before dispatch. This transport precondition never supplies identity or changes ownership."
       },
       "BearerToken": {
         "type": "http",
         "scheme": "bearer",
-        "description": "An account's API token. Its current account status and privileges are checked on every request; once a token's expiry passes it is refused with token_expired. Optional X-Dezfil-Account asserts the credential's expected account ID. A mismatch returns 401 authentication_required before dispatch. This transport precondition never supplies identity or changes ownership."
+        "description": "An account's API token. Its current account status and privileges are checked on every request; once a token's expiry passes it is refused with token_expired. Every session and token records both the sign-out and door generations. An admin sign-out or higher door generation invalidates older credentials and their delegations; sessions are signed out and tokens return 401 token_outdated. A fresh sign-in can create working credentials. Optional X-Dezfil-Account asserts the credential's expected account ID. A mismatch returns 401 authentication_required before dispatch. This transport precondition never supplies identity or changes ownership."
       }
     },
     "schemas": {
@@ -60156,6 +61226,26 @@
             "maximum": 64,
             "description": "The fewest characters a password chosen on these screens needs: 8 for the first account, then the instance's shortest password, which admins set from 8 to 64."
           },
+          "externalSignIn": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "enabled",
+              "doorUrl"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "doorUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The configured sign-in service address while enabled, otherwise null. Start through POST /api/auth/external/start to bind the browser."
+              }
+            }
+          },
           "setupRequired": {
             "type": "boolean"
           },
@@ -60185,6 +61275,130 @@
           "signedOut"
         ],
         "additionalProperties": false
+      },
+      "ExternalArrivalConflict": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "error"
+            ],
+            "properties": {
+              "error": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "message",
+                  "account"
+                ],
+                "properties": {
+                  "code": {
+                    "const": "already_signed_in"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "account": {
+                    "$ref": "#/components/schemas/Account"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/UserInvitationConflict"
+          }
+        ]
+      },
+      "ExternalSignInTicketClaims": {
+        "type": "object",
+        "required": [
+          "aud",
+          "sub",
+          "email",
+          "email_verified",
+          "iat",
+          "exp",
+          "jti",
+          "start",
+          "door_generation"
+        ],
+        "description": "Payload inside the compact signed JWS, never a JSON body sent directly. Strings reject control characters. The signature and every required claim are checked before resolving identity. Additional claims grant no permissions.",
+        "properties": {
+          "aud": {
+            "type": "string",
+            "description": "Exact configured audience, not an array."
+          },
+          "sub": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Stable identity. It is bound once to an invited or active account whose normalized verified email matches; subsequent arrivals use that identity. Accounts are never merged."
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320,
+            "description": "Verified email, normalized on acceptance. A changed email cannot take another account's address."
+          },
+          "email_verified": {
+            "const": true
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Optional nonblank name. Fills only the configured first owner's initially absent name; other names are preserved."
+          },
+          "iat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Issued-at Unix seconds; at most sixty seconds ahead of the server clock."
+          },
+          "exp": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740,
+            "description": "Expiry Unix seconds, strictly after iat, at most iat + 300 and strictly after the server clock. No expiry grace."
+          },
+          "jti": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Unique ticket id, durably consumed on acceptance until expiry, including across restart and restore."
+          },
+          "start": {
+            "type": "string",
+            "description": "Exact start value received on the door redirect, matched against the unexpired cookie in this browser. Cleared cookies and process restarts refuse it."
+          },
+          "door_generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "At least the stored door generation. A higher accepted value raises it before minting the new session; a lower value is refused."
+          }
+        }
+      },
+      "AuthGenerations": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "signOutGeneration",
+          "doorGeneration"
+        ],
+        "properties": {
+          "signOutGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "doorGeneration": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       },
       "Person": {
         "type": "object",
@@ -60617,6 +61831,35 @@
           "users",
           "deletions"
         ]
+      },
+      "UserInvitation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "signInUrl": {
+            "type": "string",
+            "description": "Present only in password mode. One-time link with its credential in the fragment."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Present only with signInUrl."
+          }
+        },
+        "required": [
+          "account"
+        ],
+        "dependentRequired": {
+          "signInUrl": [
+            "expiresAt"
+          ],
+          "expiresAt": [
+            "signInUrl"
+          ]
+        }
       },
       "IssuedSignInLink": {
         "type": "object",
@@ -61339,6 +62582,33 @@
       "InstanceSettings": {
         "type": "object",
         "properties": {
+          "externalSignIn": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "keyCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "signOutGeneration": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "doorGeneration": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "enabled",
+              "keyCount",
+              "signOutGeneration",
+              "doorGeneration"
+            ],
+            "additionalProperties": false
+          },
           "settings": {
             "type": "object",
             "properties": {
@@ -66789,6 +68059,755 @@
                   "readBy",
                   "changedBy",
                   "documentedDefault",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInKeys": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInKeys"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_KEYS"
+                  },
+                  "kind": {
+                    "const": "secret"
+                  },
+                  "label": {
+                    "const": "Sign-in public keys"
+                  },
+                  "purpose": {
+                    "const": "Public keys trusted for external sign-in; reads disclose only the count."
+                  },
+                  "defaultValue": {
+                    "const": {
+                      "set": false
+                    }
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": true
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "type": "object",
+                    "properties": {
+                      "count": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "count"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInAudience": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInAudience"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "Sign-in audience"
+                  },
+                  "purpose": {
+                    "const": "This instance's identity, required in every sign-in ticket."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInUrl": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInUrl"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_URL"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "Sign-in service"
+                  },
+                  "purpose": {
+                    "const": "The address the browser visits to sign in."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInOwnerId": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInOwnerId"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_ID"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "First owner's identity"
+                  },
+                  "purpose": {
+                    "const": "Stable identity of the first admin, read only on an empty store."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInOwnerEmail": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInOwnerEmail"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "First owner's email"
+                  },
+                  "purpose": {
+                    "const": "Email of the first admin, read only on an empty store."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInOwnerName": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInOwnerName"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_NAME"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "First owner's name"
+                  },
+                  "purpose": {
+                    "const": "Optional name of the first admin, read only on an empty store."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInGenerationFloor": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInGenerationFloor"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "Door generation floor"
+                  },
+                  "purpose": {
+                    "const": "Minimum door generation, applied at start. Lowering it never lowers the stored generation."
+                  },
+                  "defaultValue": {
+                    "const": "0"
+                  },
+                  "documentedDefault": {
+                    "const": "0"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
                   "environmentTiming",
                   "timing",
                   "secret",
@@ -75664,6 +77683,13 @@
               "operationHistoryPerSubject",
               "publicRateLimit",
               "publicTileRateLimit",
+              "externalSignInKeys",
+              "externalSignInAudience",
+              "externalSignInUrl",
+              "externalSignInOwnerId",
+              "externalSignInOwnerEmail",
+              "externalSignInOwnerName",
+              "externalSignInGenerationFloor",
               "assistantAutoCheck",
               "dataDir",
               "secretKey",
@@ -76023,6 +78049,7 @@
           }
         },
         "required": [
+          "externalSignIn",
           "settings",
           "capacities",
           "maxImageDimension",
@@ -78270,6 +80297,11 @@
               "code": {
                 "type": "string",
                 "enum": [
+                  "already_signed_in",
+                  "account_not_invited",
+                  "token_outdated",
+                  "invalid_ticket",
+                  "external_sign_in_only",
                   "picture_upload_retired",
                   "setting_locked",
                   "project_owner_cannot_leave",
@@ -79382,6 +81414,18 @@
                   "admins"
                 ],
                 "description": "Whether every account or only admins may import from web addresses and cloud storage. Link datasets keep refreshing."
+              }
+            }
+          },
+          "externalSignIn": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "enabled"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
               }
             }
           },
@@ -86466,6 +88510,11 @@
           "code": {
             "type": "string",
             "enum": [
+              "already_signed_in",
+              "account_not_invited",
+              "token_outdated",
+              "invalid_ticket",
+              "external_sign_in_only",
               "picture_upload_retired",
               "setting_locked",
               "project_owner_cannot_leave",
@@ -86635,6 +88684,11 @@
     }
   },
   "x-error-codes": {
+    "already_signed_in": "Sign out of the current account before signing in through the sign-in service.",
+    "account_not_invited": "There is no account for this email on this instance. Ask its admin for an invitation.",
+    "token_outdated": "This token was made before everyone was signed out and no longer works. Create a new one.",
+    "invalid_ticket": "This sign-in ticket is invalid or expired. Start sign-in again.",
+    "external_sign_in_only": "This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.",
     "picture_upload_retired": "Browser picture uploads are retired. Request a server picture with POST /api/maps/{id}/picture/refresh.",
     "setting_locked": "An environment variable locks a submitted setting. No settings changed; change or remove the named variable and restart before editing this setting.",
     "project_owner_cannot_leave": "The project's owner cannot leave. Transfer or delete the project instead.",

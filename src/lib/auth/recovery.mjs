@@ -1,10 +1,15 @@
 import { issueLink, revokeSignInCredentials } from "./link-issuance.mjs";
 import { openRecoveryStore, recoveryOrigin, validateRecoveryStore, selectRecoveryAdmin,
-  recoveryFailure, recoveryWaitRemaining, RECOVERY_BUSY_TIMEOUT_MS } from "./recovery-store.mjs";
+  recoveryFailure, recoveryWaitRemaining, RECOVERY_BUSY_TIMEOUT_MS, RecoveryError } from "./recovery-store.mjs";
 
 export const RECOVERY_LIFETIME_MS = 15 * 60 * 1000;
 
 export function recoverAdmin({ dataDir, origin, email }, now) {
+  // Recovery is standalone ESM. Refuse even a half configuration before
+  // opening a store, just as startup refuses to serve a half configuration.
+  if (process.env.DEZFIL_EXTERNAL_SIGN_IN_KEYS?.trim() || process.env.DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE?.trim()) {
+    throw new RecoveryError("This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.");
+  }
   const instanceOrigin = recoveryOrigin(origin);
   const deadline = performance.now() + RECOVERY_BUSY_TIMEOUT_MS;
   const db = openRecoveryStore(dataDir, deadline);
