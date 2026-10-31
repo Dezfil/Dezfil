@@ -5148,6 +5148,11 @@
         "memory:assistant-work"
       ]
     },
+    "memory:src/lib/assistant/retained-work.ts#accountEnds": {
+      "stores": [
+        "memory:assistant-work"
+      ]
+    },
     "memory:src/lib/assistant/retained-work.ts#holder.cleanups": {
       "stores": [
         "memory:assistant-cleanups"

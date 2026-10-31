@@ -1,13 +1,18 @@
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 interface Work { begun: number; controller: AbortController; done: Promise<void>; finish(): void; abort?: () => void }
 interface Cleanup { begun: number; cleanup(): void }
-interface Store { interrupt?(accountId: string): void; erase(accountId: string): void; endBefore?(mark: number): void }
+interface Store { interrupt?(accountId: string): void; erase(accountId: string): void; endBefore?(mark: number): void; endAccountBefore?(accountId: string, mark: number, reason: AccountEndReason): void }
+/** Why one account's older work ended: its assistant key changed, or its credentials did. */
+export type AccountEndReason = "key_changed" | "credentials";
 const key = Symbol.for("dezfil.assistant-retained-work");
-const host = globalThis as typeof globalThis & { [key]?: { sequence: number; endedBefore: number; work: Map<string, Set<Work>>; cleanups: Map<string, Set<Cleanup>>; stores: Set<Store> } };
+const host = globalThis as typeof globalThis & { [key]?: { sequence: number; endedBefore: number; accountEndedBefore?: Map<string, number>; work: Map<string, Set<Work>>; cleanups: Map<string, Set<Cleanup>>; stores: Set<Store> } };
 const holder = host[key] ??= { sequence: 0, endedBefore: 0, work: new Map<string, Set<Work>>(), cleanups: new Map<string, Set<Cleanup>>(), stores: new Set<Store>() };
+const accountEnds = holder.accountEndedBefore ??= new Map<string, number>();
 /** A process-local ordering, independent of wall-clock changes and shared by bundles. */
 export function assistantBeginMark(): number { return ++holder.sequence; }
-export function assistantWorkEnded(mark: number): boolean { return mark < holder.endedBefore; }
+export function assistantWorkEnded(mark: number, accountId?: string): boolean {
+  return mark < holder.endedBefore || (accountId !== undefined && mark < (accountEnds.get(accountId) ?? 0));
+}
 /** Stores retain their own module's scope validator. Only raw cleanup identities
  * and completion promises cross compiled module graphs. */
 export function registerAssistantStore(store: Store): void { holder.stores.add(store); }
@@ -21,7 +26,7 @@ export function beginAssistantWork(scope: AccountScope, abort?: () => void, begu
   let entries = holder.work.get(accountId); if (!entries) holder.work.set(accountId, entries = new Set());
   const entry: Work = { begun, controller, done: settled.promise, abort, finish() { entries.delete(entry); if (!entries.size) holder.work.delete(accountId); settled.resolve(); } };
   entries.add(entry);
-  if (assistantWorkEnded(begun)) { controller.abort(new DOMException("Credentials ended", "AbortError")); abort?.(); }
+  if (assistantWorkEnded(begun, accountId)) { controller.abort(new DOMException("Credentials ended", "AbortError")); abort?.(); }
   return { begun, signal: controller.signal, finish: entry.finish };
 }
 /** Interrupt synchronously; settlement waits only for the captured older work.
@@ -37,6 +42,20 @@ export async function endAssistantWorkBefore(mark: number): Promise<void> {
     if (!entries.size) holder.cleanups.delete(id);
   }
 }
+/** One account's older work, as a raise ends everyone's: running and parked
+ * end, what begins after the mark is untouched. Its streams end as a cancel
+ * ends them, with the interruption they report, because the person is still
+ * signed in and may be the one who changed the key. */
+export async function endAccountAssistantWorkBefore(accountId: string, mark: number, reason: AccountEndReason): Promise<void> {
+  accountEnds.set(accountId, Math.max(accountEnds.get(accountId) ?? 0, mark));
+  const work = [...(holder.work.get(accountId) ?? [])].filter(entry => entry.begun < mark);
+  for (const store of holder.stores) store.endAccountBefore?.(accountId, mark, reason);
+  for (const entry of work) entry.controller.abort(new DOMException("The account's work ended", "AbortError"));
+  await Promise.all(work.map(entry => entry.done));
+  const cleanups = holder.cleanups.get(accountId);
+  for (const entry of cleanups ?? []) if (entry.begun < mark) { entry.cleanup(); cleanups!.delete(entry); }
+  if (!cleanups?.size) holder.cleanups.delete(accountId);
+}
 export async function drainAssistantWork(accountId: string): Promise<void> {
   for (const store of holder.stores) store.interrupt?.(accountId);
   for (;;) {
@@ -46,6 +65,8 @@ export async function drainAssistantWork(accountId: string): Promise<void> {
   }
   for (const entry of holder.cleanups.get(accountId) ?? []) entry.cleanup();
   holder.cleanups.delete(accountId);
+  accountEnds.delete(accountId);
   for (const store of holder.stores) store.erase(accountId);
 }
+export function assistantAccountEndForTests(accountId: string) { return accountEnds.get(accountId); }
 export function assistantWorkForTests(accountId: string) { return { work: holder.work.get(accountId)?.size ?? 0, cleanups: holder.cleanups.get(accountId)?.size ?? 0 }; }

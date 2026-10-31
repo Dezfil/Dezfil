@@ -107,6 +107,7 @@ export async function POST(request: Request) {
       );
       if (!parked) {
         const how = pendingActions.resolutionOf(scope, pending);
+        if (how === "key_changed") throw new ApiError("assistant_key_changed", ERROR_CATALOGUE.assistant_key_changed, 409);
         if (how === "superseded") {
           throw new ApiError(
             "pending_superseded",
@@ -186,7 +187,7 @@ export async function POST(request: Request) {
     }
 
     const provider = payer.kind === "own"
-      ? createOwnKeyProvider(payer, { model: choice.model, effort: choice.effort })
+      ? createOwnKeyProvider(scope.accountId, payer, { model: choice.model, effort: choice.effort })
       : createProvider({ model: choice.model, effort: choice.effort });
     if (!provider) {
       // Unreachable in practice (availability just checked enabled), but keep

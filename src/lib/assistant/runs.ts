@@ -1,4 +1,4 @@
-import { assistantBeginMark, registerAssistantStore } from "./retained-work";
+import { assistantBeginMark, registerAssistantStore, type AccountEndReason } from "./retained-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { getAccount } from "@/lib/metadata/accounts";
 import type { ActionEffects, ResolvedConfirmation } from "./action-metadata";
@@ -186,6 +186,9 @@ export class AssistantRunStore {
     if (entry.receipt.state !== "reserved") throw new ApiError("assistant_run_unavailable", ERROR_CATALOGUE.assistant_run_unavailable, 404);
     // Refused here, nothing has bound: the reservation stays for a retry.
     this.requirePlace(entry.accountId);
+    // The turn begins here, not at its reservation: a key changed while it was
+    // only reserved has nothing to end, and the turn rides the key it reads now.
+    entry.begun = assistantBeginMark();
     entry.fingerprint = fingerprint; entry.receipt.state = "running"; entry.controller = new AbortController();
     return true;
   }
@@ -311,15 +314,26 @@ export class AssistantRunStore {
     }
     return true;
   }
+  private end(id: string, entry: RunEntry, error: { code: string; message: string }) {
+    entry.invalidated = true;
+    entry.controller?.abort(new DOMException("Credentials ended", "AbortError"));
+    entry.receipt.state = "interrupted";
+    entry.receipt.error = error;
+    for (const action of entry.receipt.actions) if (action.observation?.state === "awaited") action.observation = { ...action.observation, state: "interrupted", reason: "cancelled" };
+    this.settle(entry.receipt, "superseded"); this.retainTerminal(id);
+  }
   endBefore(mark: number): void {
     for (const [id, entry] of this.entries) if (entry.begun < mark && ["reserved", "running", "awaiting_confirmation"].includes(entry.receipt.state)) {
-      entry.invalidated = true;
-      entry.controller?.abort(new DOMException("Credentials ended", "AbortError"));
-      entry.receipt.state = "interrupted";
-      entry.receipt.error = { code: "authentication_required", message: "Sign in to continue." };
-      for (const action of entry.receipt.actions) if (action.observation?.state === "awaited") action.observation = { ...action.observation, state: "interrupted", reason: "cancelled" };
-      this.settle(entry.receipt, "superseded"); this.retainTerminal(id);
+      this.end(id, entry, { code: "authentication_required", message: "Sign in to continue." });
     }
+  }
+  /** One account's turns begun before the mark. A reservation is no turn yet:
+   * it keeps its place in the account's two and reads the key when it binds. */
+  endAccountBefore(accountId: string, mark: number, reason: AccountEndReason): void {
+    const error = reason === "key_changed"
+      ? { code: "assistant_key_changed", message: ERROR_CATALOGUE.assistant_key_changed }
+      : { code: "authentication_required", message: "Sign in to continue." };
+    for (const [id, entry] of this.entries) if (entry.accountId === accountId && entry.begun < mark && ["running", "awaiting_confirmation"].includes(entry.receipt.state)) this.end(id, entry, error);
   }
   interruptAccount(accountId: string): void { for (const entry of this.entries.values()) if (entry.accountId === accountId) entry.controller?.abort(new DOMException("Account is inactive", "AbortError")); }
   eraseAccount(accountId: string): void {
@@ -336,4 +350,4 @@ const runsHost = globalThis as typeof globalThis & { [runsKey]?: RunStoreState }
 const runsState: RunStoreState = runsHost[runsKey] ??= { entries: new Map(), terminals: [] as string[] };
 export const assistantRuns = new AssistantRunStore(Date.now, runsState);
 
-registerAssistantStore({ endBefore: mark => assistantRuns.endBefore(mark), interrupt: id => assistantRuns.interruptAccount(id), erase: id => assistantRuns.eraseAccount(id) });
+registerAssistantStore({ endBefore: mark => assistantRuns.endBefore(mark), endAccountBefore: (accountId, mark, reason) => assistantRuns.endAccountBefore(accountId, mark, reason), interrupt: id => assistantRuns.interruptAccount(id), erase: id => assistantRuns.eraseAccount(id) });

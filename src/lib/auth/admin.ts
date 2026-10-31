@@ -12,6 +12,7 @@ import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import { AuthError } from "./errors";
 import { issueLink, revokeSignInCredentials } from "./link-issuance.mjs";
 import { securitySettings } from "./security-settings";
+import { stopTurnsOnOwnKey } from "@/lib/assistant/keys/change";
 
 export function requireAdmin(context: AuthContext, db: Database, now: number) {
   const account = requireCurrentActor(context, db, now);
@@ -42,13 +43,16 @@ export function inviteAccount(context: AuthContext, input: { name: string; email
 
 export function issueSignInLink(context: AuthContext, accountId: string, db: Database = metadataDb(), now = Date.now()) {
   requirePasswordSignIn();
-  return db.transaction(() => {
+  const { link, keyRemoved } = db.transaction(() => {
     requireAdmin(context, db, now);
     const account = getAccount(accountId, db);
     if (!account) throw new AuthError("not_found", "Account not found.", 404);
-    revokeSignInCredentials(accountId, db, now);
-    return makeLink(accountId, account.status === "invited" ? "invite" : "reset", db, now);
+    const { keyRemoved } = revokeSignInCredentials(accountId, db, now);
+    return { link: makeLink(accountId, account.status === "invited" ? "invite" : "reset", db, now), keyRemoved };
   }).immediate();
+  // A key that went stops paying at once, not at the next redemption.
+  if (keyRemoved) stopTurnsOnOwnKey(accountId);
+  return link;
 }
 
 export function changeAccountAccess(context: AuthContext, accountId: string,

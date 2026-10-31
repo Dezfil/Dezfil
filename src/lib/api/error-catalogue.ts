@@ -175,6 +175,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   assistant_context_unavailable: "The page context could not be read from this instance.",
   assistant_disabled:
     "The assistant is not enabled; no model credential is configured.",
+  assistant_key_changed: "Your API key changed since this turn began. Send a new message.",
   assistant_auth:
     "The configured model credential was rejected by the provider.",
   assistant_provider:

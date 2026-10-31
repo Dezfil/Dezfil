@@ -100,6 +100,7 @@ export type ErrorCode =
   | "assistant_context_too_large"
   | "assistant_context_unavailable"
   | "assistant_disabled"
+  | "assistant_key_changed"
   | "assistant_auth"
   | "assistant_provider"
   | "pending_unknown"
