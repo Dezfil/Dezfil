@@ -15,11 +15,11 @@ export function seedCleanupBacklog(db, accountId, now, count = 1201) {
   db.transaction(() => {
     for (let i = 0; i < count; i++) {
       const id = oldPrefix + String(i).padStart(5, '0'), flag = i % 3;
-      db.prepare('INSERT INTO auth_sessions VALUES (?, ?, ?, ?, ?, ?, ?)')
+      db.prepare('INSERT INTO auth_sessions (id, secret_hash, account_id, created_at, expires_at, last_used_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .run(id, hash(id), accountId, now - 40 * day, now - 2 * day, now - 40 * day, flag ? now - 3 * day : null);
       db.prepare('INSERT INTO auth_links VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(id, accountId, flag ? 'reset' : 'invite', hash(id), now - 40 * day, now - 2 * day, flag === 1 ? now - 3 * day : null, flag === 2 ? now - 3 * day : null);
-      db.prepare('INSERT INTO auth_tokens VALUES (?, ?, ?, ?, ?, ?, ?, NULL)')
+      db.prepare('INSERT INTO auth_tokens (id, account_id, name, secret_hash, created_at, last_used_at, revoked_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)')
         .run(id, accountId, id, hash(id), now - 40 * day, null, now - 31 * day);
     }
   })();
@@ -29,7 +29,7 @@ export function seedCleanupControls(db, accountId, recipientId, now) {
     for (const [label, expiry] of [['margin', now - day / 2], ['future', now + 7 * day]]) {
       for (let flag = 0; flag < 3; flag++) {
         const id = `cleanup-${label}-${flag}`;
-        db.prepare('INSERT INTO auth_sessions VALUES (?, ?, ?, ?, ?, ?, ?)')
+        db.prepare('INSERT INTO auth_sessions (id, secret_hash, account_id, created_at, expires_at, last_used_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
           .run(id, hash(id), accountId, now - 40 * day, expiry, now - 40 * day, flag ? now - 35 * day : null);
         db.prepare('INSERT INTO auth_links VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
           .run(id, accountId, flag ? 'reset' : 'invite', hash(id), now - 40 * day, expiry, flag === 1 ? now - 35 * day : null, flag === 2 ? now - 35 * day : null);
@@ -39,7 +39,7 @@ export function seedCleanupControls(db, accountId, recipientId, now) {
       db.prepare('INSERT INTO auth_links VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(id, recipientId, 'reset', hash(id), now, expiry, null, null);
     }
-    db.prepare('INSERT INTO auth_tokens VALUES (?, ?, ?, ?, ?, ?, ?, NULL)')
+    db.prepare('INSERT INTO auth_tokens (id, account_id, name, secret_hash, created_at, last_used_at, revoked_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)')
       .run('cleanup-recent-token', accountId, 'Recent revocation', hash('cleanup-recent-token'), now - 40 * day, null, now - day);
   })();
 }
