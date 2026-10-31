@@ -46,6 +46,13 @@ it.each(["delete", "upgrade"])("removes workflow runs and members on %s while th
     const cleanup = MIGRATIONS.findIndex(sql => /DELETE FROM cascade_runs WHERE NOT EXISTS/.test(sql));
     expect(cleanup).toBeGreaterThanOrEqual(0);
     db.exec("DROP TRIGGER revoke_picture_work_on_inactive_owner; DROP TABLE map_pictures; ALTER TABLE accounts DROP COLUMN picture_version");
+    db.exec(`DROP INDEX idx_accounts_external_identity;
+      ALTER TABLE accounts DROP COLUMN external_identity;
+      DROP TABLE auth_ticket_ids; DROP TABLE auth_generations;
+      ALTER TABLE auth_sessions DROP COLUMN sign_out_generation;
+      ALTER TABLE auth_sessions DROP COLUMN door_generation;
+      ALTER TABLE auth_tokens DROP COLUMN sign_out_generation;
+      ALTER TABLE auth_tokens DROP COLUMN door_generation;`);
     db.pragma(`user_version = ${cleanup}`);
     expect(getCascade(run.id)).not.toBeNull();
     closeMetadataDb();

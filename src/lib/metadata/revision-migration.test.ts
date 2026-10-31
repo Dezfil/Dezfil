@@ -4,8 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MIGRATIONS, open } from "./db";
 import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
-import { issueSession } from "@/lib/auth/credentials";
-import { markOriginalAccount, type Account } from "./accounts";
+import { markOriginalAccount } from "./accounts";
 import { getMap, updateMapFields } from "./maps";
 import { getRecipe } from "./recipes";
 import { createCascade } from "./cascades";
@@ -37,7 +36,8 @@ function seed() {
   for (const id of ["ada", "bea"]) {
     db.prepare(`INSERT INTO accounts (id, name, email, password_hash, is_admin, status, created_at, updated_at, sql_name)
       VALUES (?, ?, ?, NULL, 0, 'active', ?, ?, ?)`).run(id, id, `${id}@example.test`, time, time, id);
-    issueSession({ id } as Account, db, Date.now());
+    db.prepare(`INSERT INTO auth_sessions (id, secret_hash, account_id, created_at, expires_at, last_used_at)
+      VALUES (?, ?, ?, ?, ?, ?)`).run(`${id}-session`, `${id}-hash`, id, 1, 99, 1);
   }
   markOriginalAccount("ada", db);
   db.exec(`

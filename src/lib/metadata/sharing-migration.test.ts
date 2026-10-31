@@ -11,9 +11,6 @@ const ENTRY = MIGRATIONS.findIndex(sql => sql.includes("CREATE TABLE project_peo
 const FINAL_STATEMENT = "CREATE INDEX idx_lineage_edges_runner ON lineage_edges(step_id, runner_id);";
 /** Columns the entry adds, each a stamp derived from existing rows. */
 let priorColumns: Record<string, string[]>;
-/** The tables this entry adds, and the basemap library's, which a later
- * entry adds with nothing in it. */
-const ADDED_TABLES = new Set(["project_people", "ownership_transfer_gate", "step_runner_outputs", "basemap_styles", "map_pictures"]);
 const now = "2026-01-01T00:00:00.000Z";
 let directory: string, file: string, db: Database.Database;
 
@@ -78,10 +75,8 @@ function raw() { db.close(); db = new Database(file); db.pragma("foreign_keys = 
 /** Every row of every table the store had before the entry, without the
  * columns and tables the entry adds. */
 function rows() {
-  const names = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
-    .map(row => row.name).filter(name => !ADDED_TABLES.has(name));
-  return Object.fromEntries(names.map(name => [name, db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all()
-    .map(row => Object.fromEntries(Object.entries(row as object).filter(([key]) => priorColumns[name].includes(key))))]));
+  return Object.fromEntries(Object.entries(priorColumns).map(([table, columns]) =>
+    [table, db.prepare(`SELECT ${columns.map(name => `"${name}"`).join(", ")} FROM "${table}" ORDER BY rowid`).all()]));
 }
 /** The whole store: schema objects (tables, indexes, triggers with their
  * SQL), every row and the migration version. */

@@ -6,6 +6,44 @@ import { IDENTITIES_MIGRATION, rebuildIdentities } from "./migrations-identities
 import { MIGRATIONS, open } from "./db";
 import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
 
+it.each(Array.from({ length: MIGRATIONS.length }, (_, version) => version))(
+  "upgrades the store at version %i through external sign-in without replaying an applied entry", version => {
+    const dir = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "every-version-"));
+    const file = path.join(dir, "metadata.sqlite");
+    let db = new Database(file);
+    try {
+      db.pragma("foreign_keys = ON");
+      db.function("allocate_sql_names", (input: unknown) => JSON.stringify(allocateSqlNames(JSON.parse(String(input)) as SqlNameIdentity[])));
+      for (const [index, sql] of MIGRATIONS.slice(0, version).entries()) {
+        if (sql === IDENTITIES_MIGRATION) rebuildIdentities(db, sql, index + 1); else db.exec(sql);
+        db.pragma(`user_version = ${index + 1}`);
+      }
+      if (version >= 40) {
+        const hasSqlName = (db.pragma("table_info(accounts)") as { name: string }[]).some(c => c.name === "sql_name");
+        db.exec(`INSERT INTO accounts(id,name,email,is_admin,status,created_at,updated_at${hasSqlName ? ",sql_name" : ""})
+          VALUES('ada','Ada','ada@example.test',1,'active','time','time'${hasSqlName ? ",'ada'" : ""});
+          INSERT INTO original_account VALUES(1,'ada');
+          INSERT INTO auth_sessions(id,secret_hash,account_id,created_at,expires_at,last_used_at) VALUES('s','s-hash','ada',1,99,1);
+          INSERT INTO auth_tokens(id,account_id,name,secret_hash,created_at) VALUES('t','ada','Token','t-hash',1);`);
+      }
+      db.close(); db = open(file);
+      expect(db.pragma("user_version", { simple: true })).toBe(MIGRATIONS.length);
+      expect(db.pragma("foreign_key_check")).toEqual([]);
+      expect(db.prepare("SELECT * FROM auth_generations").all()).toEqual([{ singleton: 1, sign_out_generation: 0, door_generation: 0 }]);
+      expect(db.prepare("SELECT * FROM auth_ticket_ids").all()).toEqual([]);
+      if (version >= 40) {
+        expect(db.prepare("SELECT id,email,external_identity FROM accounts").all()).toEqual([{ id: "ada", email: "ada@example.test", external_identity: null }]);
+        for (const table of ["auth_sessions", "auth_tokens"]) {
+          expect(db.prepare(`SELECT account_id,sign_out_generation,door_generation FROM ${table}`).all())
+            .toEqual([{ account_id: "ada", sign_out_generation: 0, door_generation: 0 }]);
+        }
+      }
+      db.close(); db = open(file);
+      expect(db.prepare("SELECT * FROM auth_generations").all()).toHaveLength(1);
+    } finally { if (db.open) db.close(); rmSync(dir, { recursive: true, force: true }); }
+  },
+);
+
 it("upgrades existing accounts and credentials at zero, then keeps identities, ids and generations across restart and restore", () => {
   const dir = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "external-migration-"));
   const file = path.join(dir, "metadata.sqlite");
