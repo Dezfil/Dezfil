@@ -90,6 +90,8 @@ You sign in with the new email from then on.
 
 Your **SQL name** stays as it is. Other people's queries name your datasets with it, as [Query with SQL](sql.md#other-peoples-datasets) shows.
 
+If your Dezfil signs people in through a sign-in service, **Email** is read-only, with the line **Your email comes from the sign-in service.** Change it at that service; Dezfil takes the new email the next time you sign in. **Display name** works as above.
+
 ## Set your picture
 
 1. On **Account**, click **Change** beside your initials.
@@ -110,6 +112,8 @@ To go back to your initials, click **Remove**.
 3. Click **Change password**. You should see **Password changed**.
 
 Your other browser sessions end, so those browsers ask you to sign in again. Your API tokens keep working.
+
+If your Dezfil signs people in through a sign-in service, **Account** has no **Change password**. Your password, if you have one, belongs to that service.
 
 ## The other tabs
 
@@ -147,7 +151,7 @@ Your SQL draft and query history stay in each browser too, as [Query with SQL](s
 
 **The card says "The file is over the 10 MB limit for a picture, which is fixed."** Choose a smaller file. [Limits](../api/limits.md) lists the picture's limits.
 
-**You forgot your password.** Ask an admin to open your account in **Users** and click **Reset password**. They get a sign-in link to pass to you. [Users](../self-host/users.md) has the details.
+**You forgot your password.** Ask an admin to open your account in **Users** and click **Reset password**. They get a sign-in link to pass to you. [Users](../self-host/users.md) has the details. If your Dezfil signs people in through a sign-in service, recover it at that service.
 
 ## Next steps
 

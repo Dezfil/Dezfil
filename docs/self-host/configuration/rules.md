@@ -38,7 +38,12 @@ An admin sets these on the **Security**, **Publishing** and **Data & services** 
 
 ## Sign everyone out
 
-An admin can end every account's sessions and API tokens in either sign-in mode:
+An admin can end every account's sessions and API tokens in either sign-in mode.
+
+1. In **Settings**, under **Instance**, open **Security** and click **Sign everyone out**. You should see **Sign everyone out?** and what ends.
+2. Click **Sign everyone out** again. You should see the sign-in page: your own session ended too.
+
+Through the API:
 
 ```sh title="Terminal"
 curl -s -X POST https://maps.example.com/api/instance/sign-out \

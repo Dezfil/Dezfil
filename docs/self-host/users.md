@@ -32,7 +32,7 @@ Admins manage every account on the **Users** page, in the side menu; members do 
 | Mode | Invitation and recovery |
 |---|---|
 | Password | Follow the steps below. |
-| [External sign-in](configuration/external-sign-in.md) | Invite by verified email. The account gets no link or credential; its first ticket activates it and makes it available in the sharing directory. Password changes, links and local recovery are refused with `external_sign_in_only`. |
+| [External sign-in](configuration/external-sign-in.md) | Invite by verified email. The account gets no link or credential: its row says **They sign in at the sign-in service with ana@example.org. There is no link to send.** Its first ticket activates it and makes it available in the sharing directory. Rows offer no **Reset password**, **New sign-in link** or **Change password**. Password changes, links and local recovery are refused with `external_sign_in_only`. |
 
 1. On **Users**, click **Invite**. A row opens at the top of the list, with **Name** and **Email** fields.
 2. Type the person's name and email address. To make them an admin from the start, tick **Admin**.

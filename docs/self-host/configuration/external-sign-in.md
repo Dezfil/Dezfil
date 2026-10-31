@@ -60,11 +60,12 @@ On a store with accounts, the owner variables do nothing. An existing account wi
 
 | Action | With external sign-in |
 |---|---|
-| Invite by name and email | Creates an invited account with no link or credential. The person signs in at the door using that email. |
+| Sign in | The sign-in page shows the message from **Settings** and **Continue to sign in**, with no fields and no lost-password line. |
+| Invite by name and email | Creates an invited account with no link or credential. The person signs in at the door using that email, and their row on **Users** says so. |
 | Create the first account, sign in with a password, redeem or issue a sign-in link, change a password | Refused with `403 external_sign_in_only`. Local recovery also refuses before opening the store. |
-| Change your email | Refused with the same code. The door supplies the verified email at arrival. Your name remains editable. |
+| Change your email | Refused with the same code, and **Email** is read-only on **Account**. The door supplies the verified email at arrival. Your name remains editable. |
 | Use the API or MCP | Uses ordinary API tokens. Tickets never authenticate API or MCP calls. |
-| Admin configuration read | `GET /api/instance/settings` reports the mode, key count and both generations, without key material. The deployment rows include the door address. |
+| Admin configuration read | `GET /api/instance/settings` reports the mode, key count and both generations, without key material. The deployment rows include the door address. **Settings** > **System** > **External sign-in** shows the same. |
 
 The refusal reads: **This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.**
 
@@ -89,7 +90,8 @@ The independent sign-out generation rises through the admin operation [Sign ever
 | Startup names a missing audience or public key | Supply both, or remove both to disable the mode. |
 | Startup names the door address or key format | Use the formats in the table. |
 | Startup names the first owner's id or email | An empty store needs both. Check that the intended data volume is mounted. |
-| A ticket is invalid after restart | Start again from the instance. Starts last ten minutes and do not survive restart. |
+| A ticket is invalid after restart | Click **Start again** on the page. Starts last ten minutes and do not survive restart. |
+| The page says **You are already signed in** | The browser holds a session, which the ticket does not replace. Click **Sign out**, then sign in again, or **Stay signed in**. |
 | A valid identity cannot enter | An admin must invite its verified email first. A deactivated account must be reactivated. Bound identities cannot be reassigned. |
 
 ## Next steps
