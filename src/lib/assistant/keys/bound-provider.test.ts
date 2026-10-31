@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ModelProvider, ProviderCallOptions, ProviderReply } from "../provider";
+import { ProviderError, type ModelProvider, type ProviderCallOptions, type ProviderReply } from "../provider";
 import { boundToSave } from "./bound-provider";
 
 vi.mock("./store", () => ({ isCurrentSave: () => true }));
@@ -75,17 +75,25 @@ describe("a provider's stream on a person's key", () => {
 });
 
 describe("a provider's reply on a person's key", () => {
-  it("loses the key from everything it carries, not only its words", async () => {
-    const { reply } = await streamed([], {
-      messageId: `message-${KEY}`, model: `model-${KEY}`, text: `words ${KEY}`,
-      toolCalls: [{ id: `call-${KEY}`, name: "create_map", args: { name: KEY, nested: { list: [`one ${KEY}`, 7, null, true] } } }],
-      usage: { inputTokens: 3, outputTokens: 4 },
-    });
-    expect(JSON.stringify(reply)).not.toContain(KEY);
-    expect(reply).toEqual({
-      messageId: `message-${MASK}`, model: `model-${MASK}`, text: `words ${MASK}`,
-      toolCalls: [{ id: `call-${MASK}`, name: "create_map", args: { name: MASK, nested: { list: [`one ${MASK}`, 7, null, true] } } }],
-      usage: { inputTokens: 3, outputTokens: 4 },
-    });
+  it("loses the key from its words, keeping everything else as it came", async () => {
+    const toolCalls = [{ id: "call-1", name: "create_map", args: { name: "Parks" } }];
+    const { reply } = await streamed([], { messageId: "message-1", model: "stand-in-model", text: `words ${KEY}`, toolCalls, usage: { inputTokens: 3, outputTokens: 4 } });
+    expect(reply).toEqual({ messageId: "message-1", model: "stand-in-model", text: `words ${MASK}`, toolCalls, usage: { inputTokens: 3, outputTokens: 4 } });
+  });
+
+  // Masking would change what a call does, and break the match between a call
+  // and its outcome in the next request, so the turn stops instead.
+  it.each([
+    ["a tool's arguments", { text: "", toolCalls: [{ id: "call-1", name: "update_layer", args: { sql: `SELECT '${KEY}'` } }] }],
+    ["nested arguments", { text: "", toolCalls: [{ id: "call-1", name: "create_map", args: { nested: { list: [7, encodeURIComponent(KEY)] } } }] }],
+    ["an argument's name", { text: "", toolCalls: [{ id: "call-1", name: "create_map", args: { [KEY]: 1 } }] }],
+    ["a call's identity", { text: "", toolCalls: [{ id: `call-${KEY}`, name: "create_map", args: {} }] }],
+    ["the reported model", { text: "", toolCalls: [], model: `model-${KEY}` }],
+    ["the message identity", { text: "", toolCalls: [], messageId: `message-${KEY}` }],
+  ])("stops the turn when %s carries the key", async (_where, reply) => {
+    const { reply: refused } = await streamed([], reply);
+    expect(refused).toBeInstanceOf(ProviderError);
+    expect((refused as ProviderError).kind).toBe("provider");
+    expect(String((refused as ProviderError).message) + String((refused as ProviderError).detail)).not.toContain(KEY);
   });
 });
