@@ -3,7 +3,7 @@ import * as metadata from "@/lib/metadata/db";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { drainAccountWork } from "@/lib/auth/account-deletion-admission";
 import { EvaluationCancelled } from "@/lib/api/errors";
-import { renderMapImage, renderQueueState, type RenderBrowser } from "./render-image";
+import { renderMapImage, renderQueueState, type RenderBrowser, type RenderDriver } from "./render-image";
 import { drainAccountRenders, renderWorkForTests, trackRenderWork } from "./render-work";
 import type { ExportImageDefinition } from "./image-definition";
 
@@ -27,7 +27,7 @@ it.each(["timeout", "cancellation"])("deletion waits for a launch abandoned by %
   const browser: RenderBrowser = {
     render: vi.fn(async () => ({ png: new Uint8Array([137]) })), close: vi.fn(async () => {}), kill: vi.fn(),
   };
-  const launch = vi.fn(() => { entered.resolve(); return late.promise; });
+  const launch = vi.fn<RenderDriver["launch"]>(() => { entered.resolve(); return late.promise; });
   const deadline = Date.now() + 300;
   const pending = renderMapImage(scope, {
     mapId: "pending", definition, credential: "fixture", baseUrl: "http://127.0.0.1:3216/",
@@ -36,11 +36,18 @@ it.each(["timeout", "cancellation"])("deletion waits for a launch abandoned by %
   try {
     await entered.promise;
     expect(launch).toHaveBeenCalledWith(expect.any(String), expect.any(Array), {
-      appOrigin: "http://127.0.0.1:3216", deadline, requestBoundMs: 100, signal: abort.signal,
+      appOrigin: "http://127.0.0.1:3216", deadline, requestBoundMs: 100, signal: expect.any(AbortSignal),
       launchTimeoutMs: 300, stop: expect.any(AbortSignal), exited: expect.any(Function),
     });
+    const launchSignal = launch.mock.calls[0][2].signal!;
+    expect(launchSignal.aborted).toBe(false);
     db.exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
-    if (ending === "cancellation") abort.abort();
+    if (ending === "cancellation") {
+      abort.abort();
+      // The composed signal must still carry the caller's cancellation.
+      expect(launchSignal.aborted).toBe(true);
+      expect(launchSignal.reason).toBe(abort.signal.reason);
+    }
     else await vi.advanceTimersByTimeAsync(300);
     const error = await pending;
     if (ending === "cancellation") expect(error).toBeInstanceOf(EvaluationCancelled);
