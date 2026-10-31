@@ -18,7 +18,7 @@ const release = name => fs.rmSync(mark(`${name}.hold`), { force: true });
 const good = result => { assert.ok(result.status >= 200 && result.status < 300, JSON.stringify(result)); return result.json; };
 const controlStarted = name => until(() => jsonFile(mark(`${name}.started`)), Boolean, `${name} never reached its held native work`);
 const writerState = () => jsonFile(mark('writers.json'), { live: -1 });
-const expanded = "SELECT repeat('storage_probe_conversion', 5000) AS payload FROM range(20000)";
+const expanded = "SELECT repeat('storage_probe_conversion', 500) AS payload FROM range(200000)";
 try {
   assert.ok(base && new URL(base).hostname === '127.0.0.1' && new URL(base).port !== '3000', 'Use the owned loopback instance');
   assert.ok(folder && control && !path.resolve(control).startsWith(path.resolve(folder) + path.sep), 'Controls must be outside the bounded volume');

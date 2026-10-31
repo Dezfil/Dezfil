@@ -5,6 +5,8 @@ import { createRequire } from 'node:module';
 import { setTimeout as pause } from 'node:timers/promises';
 const directory = process.env.DEZFIL_PROOF_CONTROL_DIR;
 if (!directory) throw new Error('Set a scratch control directory.');
+fs.mkdirSync(directory, { recursive: true });
+if (process.env.SQLITE_TMPDIR) fs.mkdirSync(process.env.SQLITE_TMPDIR, { recursive: true });
 const require = createRequire(path.join(process.cwd(), 'package.json'));
 const { DuckDBConnection } = require('@duckdb/node-api');
 const append = (file, entry) => fs.appendFileSync(path.join(directory, file), JSON.stringify(entry) + '\n');

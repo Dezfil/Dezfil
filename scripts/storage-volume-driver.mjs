@@ -10,12 +10,16 @@ const args = process.argv.slice(2), option = name => args.includes(name) ? args[
 const standalone = option('--standalone'), port = Number(option('--port') ?? 3409);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratch = process.env.DEZFIL_DATA_DIR;
+if (option('--container')) {
+  const { runContainer } = await import('./storage-volume-container.mjs');
+  await runContainer({ image: option('--container'), standalone, port, root, scratch });
+} else {
 let server, serverExit, attached = false, owned = false, image, volume, result, log = '';
 const command = (bin, args, options = {}) => execFileSync(bin, args, { encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'], ...options });
 try {
-  assert.equal(process.platform, 'darwin', 'The disk-image driver runs on macOS');
   assert.ok(standalone, 'Choose --standalone BUILD_DIR');
   assert.ok(Number.isInteger(port) && port >= 3300 && port <= 65535, 'Use an owned port from 3300 to 65535');
+  assert.equal(process.platform, 'darwin', 'The disk-image driver runs on macOS');
   assert.ok(scratch && path.isAbsolute(scratch), 'Set DEZFIL_DATA_DIR to a fresh absolute scratch directory');
   fs.mkdirSync(scratch, { recursive: true }); assert.deepEqual(fs.readdirSync(scratch), [], 'Scratch directory must be empty'); owned = true;
   const disk = fs.statfsSync(scratch); assert.ok(disk.bavail * disk.bsize >= 3 * 1024 ** 3, 'At least 3 GB free is required');
@@ -57,4 +61,6 @@ finally {
     fs.writeFileSync(path.join(scratch, 'storage-result.json'), JSON.stringify(result, null, 2));
   }
   console.log(JSON.stringify(result));
+}
+
 }

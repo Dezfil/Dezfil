@@ -14,6 +14,20 @@ DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/storage-volume-XXXXXX") \
   --standalone "$PWD/.next/standalone" --port 3409
 ```
 
+The image job on `main` runs the same probe with a bounded `tmpfs`:
+
+```sh
+DEZFIL_DATA_DIR=$(mktemp -d "$PWD/.claude/test-data/storage-image-XXXXXX") \
+  fnm exec --using=24 node scripts/storage-volume-driver.mjs \
+  --container dezfil:ci --port 3409
+```
+
+The container has no external network, no published host port and runs as the
+image's unprivileged user. `/data` is a 1.5 GB tmpfs; `/proof` is a separate
+64 MB tmpfs. The scripts are mounted read-only. The driver copies evidence out
+before removing its exact container and volumes, including on failure. HFS+
+and tmpfs may fail at different byte counts; assertions concern outcomes.
+
 Allow four minutes after readiness. The driver requires at least 3 GB free on
 the host and refuses port 3000. A disk image outside 1–2 GB cannot be filled by
 the probe. If `hdiutil` cannot create or attach the image, the result is failed,

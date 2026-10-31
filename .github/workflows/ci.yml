@@ -141,6 +141,8 @@ jobs:
           # explicit scratch data directory, so no suite can ever touch
           # a real one. The runner provides a throwaway path.
           DEZFIL_DATA_DIR: ${{ runner.temp }}/dezfil-test-data
+      - name: Storage proof driver controls
+        run: node --test scripts/storage-volume.test.mjs
       - name: Native socket provenance and missing-preload refusal
         run: |
           DEZFIL_TRUSTED_PROXIES=127.0.0.1 node --import=./scripts/ingress-preload.mjs scripts/ingress-probe.mjs
@@ -304,6 +306,11 @@ jobs:
           docker exec dezfil-derivation-ci node /probes/derivation-probe.mjs \
             http://127.0.0.1:3397 --state-log /data/derivations.ndjson
           docker stop dezfil-derivation-ci
+      - name: Full-volume admission, fencing and recovery on bounded tmpfs
+        timeout-minutes: 6
+        run: |
+          DEZFIL_DATA_DIR=$(mktemp -d "$RUNNER_TEMP/dezfil-storage-XXXXXX") \
+            node scripts/storage-volume-driver.mjs --container dezfil:ci --port 3409
       - name: Credential cleanup, live authentication and replacement containers
         run: |
           DEZFIL_DATA_DIR=$(mktemp -d "$RUNNER_TEMP/dezfil-cleanup-XXXXXX") \
