@@ -43,6 +43,18 @@ function authenticateWithRenewal(db: Database, read: (renew: boolean) => AuthCon
   }
 }
 
+/** Read a browser session without renewal or maintenance. Arrival must refuse
+ * an already signed-in browser before any mutation, bookkeeping included. */
+export function inspectSession(secret: string | null, db: Database, now = Date.now()): AuthContext | null {
+  if (!secret) return null;
+  return db.transaction(() => {
+    const record = sessionByHash(secretHash(secret), db);
+    const account = record && getAccount(record.account_id, db);
+    if (!record || !account || record.revoked_at !== null || record.expires_at <= now || account.status !== "active") return null;
+    return { account, credential: { kind: "session" as const, id: record.id } };
+  })();
+}
+
 /** A session is judged by the expiry it holds, never by its last use, so
  * storing a shorter length ends no session: its next use renews it by the
  * length stored now. */

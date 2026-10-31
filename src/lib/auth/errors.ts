@@ -1,6 +1,6 @@
 export type AuthErrorCode =
   | "authentication_busy" | "authentication_required" | "invalid_credentials" | "account_deactivated"
-  | "invalid_ticket" | "external_sign_in_only" | "setup_complete" | "weak_password" | "email_taken" | "self_change_refused"
+  | "already_signed_in" | "account_not_invited" | "invalid_ticket" | "external_sign_in_only" | "setup_complete" | "weak_password" | "email_taken" | "self_change_refused"
   | "account_not_deactivated" | "deletion_in_progress" | "deletion_changed" | "deletion_unreadable"
   | "last_admin" | "forbidden" | "invalid_link" | "current_password_required"
   | "invalid_request" | "not_found" | "ingress_unavailable" | "rate_limited" | "token_expired"
