@@ -1,6 +1,7 @@
 import { readAnthropicStream } from "./anthropic-stream";
 import { anthropicTool } from "./anthropic-tool-schema";
 import { apiFailureSentence } from "./api-failure";
+import { bareAnthropicOptions, type KeyPayer } from "./bare-client";
 import { effortToSend } from "../model-knowledge";
 import Anthropic from "@anthropic-ai/sdk";
 import type { ToolDef } from "@/lib/tools/tools";
@@ -64,9 +65,10 @@ export function anthropicProvider(
   model: string,
   fetchImpl?: typeof fetch,
   effort?: string,
+  payer: KeyPayer = "instance",
 ): ModelProvider {
   const client = new Anthropic({
-    apiKey,
+    ...(payer === "own" ? bareAnthropicOptions(apiKey) : { apiKey }),
     maxRetries: 0,
     ...(fetchImpl ? { fetch: fetchImpl } : {}),
   });

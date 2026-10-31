@@ -10,10 +10,10 @@ import { ApiError, EvaluationCancelled } from "@/lib/api/errors";
 import { assistantRuns } from "@/lib/assistant/runs";
 import { runStream } from "@/lib/assistant/run-stream";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
-import { assistantAvailability } from "@/lib/assistant/config";
-import { currentAssistantChoices } from "@/lib/assistant/catalogue-choices";
+import { currentAssistantChoices, ownKeyChoices } from "@/lib/assistant/catalogue-choices";
 import { chooseForRequest } from "@/lib/assistant/choice";
-import { createProvider } from "@/lib/assistant/factory";
+import { createOwnKeyProvider, createProvider } from "@/lib/assistant/factory";
+import { resolvePayer } from "@/lib/assistant/keys/resolve";
 import {
   resumeAssistant,
   runAssistant,
@@ -85,10 +85,6 @@ export async function POST(request: Request) {
     const fetchImpl = instanceFetch(baseUrl, actor);
     const revisions = new AssistantRevisions();
     const observeRevision = (path: string, value: unknown) => revisions.observe(path, value);
-    const availability = assistantAvailability();
-    if (!availability.enabled) {
-      throw new ApiError("assistant_disabled", availability.reason, 404);
-    }
 
     const body: RequestBody = await readSubmission(request);
     requireCurrentActor(actor);
@@ -125,6 +121,8 @@ export async function POST(request: Request) {
             409,
           );
         }
+        const nobody = resolvePayer(scope.accountId);
+        if (nobody.kind === "none") throw new ApiError("assistant_disabled", nobody.reason, 404);
         throw new ApiError(
           "pending_unknown",
           "No such pending action. It may have expired with the server's working state.",
@@ -145,6 +143,10 @@ export async function POST(request: Request) {
       ));
     }
 
+    // Who pays for a new message, read once: a turn's whole life rides this.
+    const payer = resolvePayer(scope.accountId);
+    if (payer.kind === "none") throw new ApiError("assistant_disabled", payer.reason, 404);
+
     if (typeof body.message !== "string" || body.message.trim() === "") {
       throw new ApiError(
         "invalid_request",
@@ -160,7 +162,7 @@ export async function POST(request: Request) {
     // The choice this run will be bound to. Resolved and judged before the
     // run binds, so a refused submission spends nothing and the
     // submission the identity is taken over carries it.
-    const current = currentAssistantChoices();
+    const current = payer.kind === "own" ? ownKeyChoices(payer.provider) : currentAssistantChoices();
     if (!current.enabled) throw new ApiError("assistant_disabled", current.reason, 404);
     const choice = chooseForRequest(body.choice, current);
     const { runId, ...submission } = body;
@@ -183,7 +185,9 @@ export async function POST(request: Request) {
       pendingActions.supersede(scope, body.supersedes);
     }
 
-    const provider = createProvider({ model: choice.model, effort: choice.effort });
+    const provider = payer.kind === "own"
+      ? createOwnKeyProvider(payer, { model: choice.model, effort: choice.effort })
+      : createProvider({ model: choice.model, effort: choice.effort });
     if (!provider) {
       // Unreachable in practice (availability just checked enabled), but keep
       // the loop from ever running without a provider.

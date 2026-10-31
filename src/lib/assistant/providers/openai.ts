@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { ProviderError, type ModelProvider } from "../provider";
+import { bareOpenAIOptions, type KeyPayer } from "./bare-client";
 import { openaiFailureSentence } from "./openai-error";
 import { responsesExchange } from "./openai-responses";
 
@@ -19,8 +20,8 @@ function mapError(error: unknown): never {
   throw error;
 }
 
-export function openaiProvider(apiKey: string, model: string, fetchImpl?: typeof fetch, effort?: string): ModelProvider {
-  const client = new OpenAI({ apiKey, maxRetries: 0, ...(fetchImpl ? { fetch: fetchImpl } : {}) });
+export function openaiProvider(apiKey: string, model: string, fetchImpl?: typeof fetch, effort?: string, payer: KeyPayer = "instance"): ModelProvider {
+  const client = new OpenAI({ ...(payer === "own" ? bareOpenAIOptions(apiKey) : { apiKey }), maxRetries: 0, ...(fetchImpl ? { fetch: fetchImpl } : {}) });
   return { id: "openai", model, effort, exchange(options) {
     const exchange = responsesExchange(client, model, options, effort);
     return {
