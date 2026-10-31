@@ -1,3 +1,4 @@
+import { admitStorageWrite } from "@/lib/system/storage-admission";
 import { StorageWriter, assertStorageWritersOpen } from "@/lib/system/storage-fence";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
@@ -340,6 +341,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
 function start(access: TileAccess, input: TileBuildInput): void {
   requireTileAccess(access, input.layerId);
   assertStorageWritersOpen();
+  admitStorageWrite();
   const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, requestInputs(input, getTileRecord(input.layerId)));
   const attempt: BuildAttempt = {
     access,

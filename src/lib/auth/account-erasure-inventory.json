@@ -1892,7 +1892,7 @@
         "tables/*.parquet"
       ]
     },
-    "location:src/lib/operations/materialize.ts#materialize:dataDir": {
+    "location:src/lib/operations/materialize.ts#materializeWork:dataDir": {
       "stores": [
         "file:tables"
       ],
@@ -1900,7 +1900,7 @@
         "."
       ]
     },
-    "location:src/lib/operations/materialize.ts#materialize:path.join": {
+    "location:src/lib/operations/materialize.ts#materializeWork:path.join": {
       "stores": [
         "file:tables"
       ],
@@ -4893,14 +4893,6 @@
       ],
       "roots": [
         "tables/*.parquet"
-      ]
-    },
-    "writer:src/lib/ingest/remote.ts#downloadToScratch:registerAccountFile": {
-      "stores": [
-        "file:account-files"
-      ],
-      "roots": [
-        "tmp/**"
       ]
     },
     "writer:src/lib/ingest/remote.ts#resolveCredentialedObjectSource:registerAccountFile": {

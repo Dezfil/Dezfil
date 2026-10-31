@@ -1,3 +1,4 @@
+import path from "node:path";
 import { statfsSync } from "node:fs";
 import { dataDir } from "@/lib/config";
 
@@ -12,8 +13,14 @@ export interface StorageState {
 export type StorageReading = (folder: string) => { free: number; total: number };
 
 function volumeReading(folder: string): { free: number; total: number } {
-  const volume = statfsSync(folder);
-  return { free: volume.bavail * volume.bsize, total: volume.blocks * volume.bsize };
+  for (let at = folder; ; at = path.dirname(at)) {
+    try {
+      const volume = statfsSync(at);
+      return { free: volume.bavail * volume.bsize, total: volume.blocks * volume.bsize };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT" || path.dirname(at) === at) throw error;
+    }
+  }
 }
 
 /** Only the transition bit is retained, never names or account content. */

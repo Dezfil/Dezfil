@@ -223,5 +223,5 @@ export async function sweepProfilePictures(db: Database = metadataDb()): Promise
 }
 
 export function publishPicture(...args: Parameters<typeof publishPictureWork>): Promise<PictureOutcome> {
-  return args[1] === null ? publishPictureWork(...args) : withStorageWrite(() => publishPictureWork(...args));
+  return args[1] === null ? publishPictureWork(...args) : withStorageWrite(() => publishPictureWork(...args), args[1].byteLength);
 }

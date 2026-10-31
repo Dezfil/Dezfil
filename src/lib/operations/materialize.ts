@@ -1,3 +1,5 @@
+import { withStorageWrite, currentStorageWriter } from "@/lib/system/storage-fence";
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { admitEvaluationWork } from "@/lib/query/work-admission";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import type { StagingInput } from "@/lib/query/staging";
@@ -208,6 +210,7 @@ export interface DryRun {
 const ENGINE_CLASS_PREFIX = /^[A-Z][A-Za-z ]{0,40} Error:\s*/;
 
 function asSqlError(error: unknown, operation?: string): never {
+  rethrowStorageFailure(error);
   const refusal = engineRefusal(error);
   if (refusal) throw refusal;
   if (error instanceof ApiError) throw error;
@@ -353,7 +356,7 @@ async function describeResult(
     return { rowCount, geometryType, geometryColumn, geometry };
 }
 
-export async function materialize(
+async function materializeWork(
   scope: AccountScope,
   request: MaterializeRequest,
 ): Promise<DataTable> {
@@ -483,6 +486,7 @@ export async function materialize(
         // reports its last run, so it is not the one row with no age.
         importedAt: now,
       };
+      currentStorageWriter()?.assertCanCommit();
       deletionWork.assertCommit();
       const replaced = publishDataset(scope, table, bound, request);
       committed = true;
@@ -541,4 +545,8 @@ function inputChanged(name: string, measured: boolean): ApiError {
           `written. Run it again against the current data.`,
         409,
       );
+}
+
+export function materialize(scope: AccountScope, request: MaterializeRequest): Promise<DataTable> {
+  return withStorageWrite(writer => materializeWork(scope, { ...request, signal: AbortSignal.any([writer.signal, ...(request.signal ? [request.signal] : [])]) }));
 }

@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { ApiError } from "@/lib/api/errors";
 import { projectionRejection } from "./projection-policy";
 
@@ -137,6 +138,7 @@ export function engineRefusal(error: unknown): ApiError | null {
 /** One coded failure at the evaluation boundary, including consumers that do
  * not have their own catch. Existing input positions survive only as numbers. */
 export function normalizeEngineError(error: unknown): unknown {
+  rethrowStorageFailure(error);
   if (error instanceof DatasetUnavailable) return error;
   const projection = projectionRejection(error);
   if (projection) return projection;

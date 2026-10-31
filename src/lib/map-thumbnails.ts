@@ -774,10 +774,13 @@ export async function publishedPictureInputs(mapId: string): Promise<ArtifactInp
   });
 }
 
-export function saveThumbnail(...args: Parameters<typeof saveThumbnailWork>) { return withStorageWrite(() => saveThumbnailWork(...args)); }
+export function saveThumbnail(...args: Parameters<typeof saveThumbnailWork>) { return withStorageWrite(() => saveThumbnailWork(...args), args[2].byteLength); }
 
-export function saveThemedThumbnail(...args: Parameters<typeof saveThemedThumbnailWork>) { return withStorageWrite(() => saveThemedThumbnailWork(...args)); }
+export function saveThemedThumbnail(...args: Parameters<typeof saveThemedThumbnailWork>) { return withStorageWrite(() => saveThemedThumbnailWork(...args), args[4].byteLength); }
 
-export function savePictureSet(...args: Parameters<typeof savePictureSetWork>) { return withStorageWrite(() => savePictureSetWork(...args)); }
+export function savePictureSet(...args: Parameters<typeof savePictureSetWork>) {
+  const bytes = Object.values(args[2]).reduce((sum, image) => sum + (image instanceof Uint8Array ? image.byteLength : image.png.byteLength + image.sized.reduce((n, size) => n + size.bytes.byteLength, 0)), 0);
+  return withStorageWrite(() => savePictureSetWork(...args), bytes);
+}
 
 export function copyThumbnail(...args: Parameters<typeof copyThumbnailWork>) { return withStorageWrite(() => copyThumbnailWork(...args)); }

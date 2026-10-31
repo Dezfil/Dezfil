@@ -1,3 +1,4 @@
+import { admitStorageWrite } from "./storage-admission";
 import type { ApiError } from "@/lib/api/errors";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { storageExhausted } from "./storage-errors";
@@ -18,8 +19,9 @@ export class StorageWriter {
   readonly settled = this.completion.promise;
   readonly signal = this.controller.signal;
 
-  constructor(private readonly stop?: (error: ApiError) => void) {
+  constructor(private readonly stop?: (error: ApiError) => void, declaredBytes = 0) {
     assertStorageWritersOpen();
+    admitStorageWrite(declaredBytes);
     state.writers.add(this);
   }
   assertCanCommit(): void {
@@ -34,10 +36,10 @@ export class StorageWriter {
   close(): void { state.writers.delete(this); this.completion.resolve(); }
 }
 
-export async function withStorageWrite<T>(work: (writer: StorageWriter) => Promise<T>): Promise<T> {
+export async function withStorageWrite<T>(work: (writer: StorageWriter) => Promise<T>, declaredBytes = 0): Promise<T> {
   const inherited = currentStorageWriter();
   if (inherited) { inherited.assertCanCommit(); return work(inherited); }
-  const writer = new StorageWriter();
+  const writer = new StorageWriter(undefined, declaredBytes);
   try {
     const value = await context.run(writer, () => work(writer));
     writer.assertCanCommit();

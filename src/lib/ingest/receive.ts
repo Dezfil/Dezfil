@@ -1,3 +1,4 @@
+import { checkUndeclaredStorage } from "@/lib/system/storage-admission";
 import { StorageWriter } from "@/lib/system/storage-fence";
 import { isStorageExhausted, storageExhausted } from "@/lib/system/storage-errors";
 import { createUploadClock, nativeUploadReception, type UploadReception, type ReceptionRefusal } from "@/lib/auth/reception.mjs";
@@ -105,7 +106,8 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     observe(finished(stream, { cleanup: true }), classify);
     return stream;
   };
-  const writer = new StorageWriter(fail);
+  const declared = Number(request.headers.get("content-length") ?? Number.NaN);
+  const writer = new StorageWriter(fail, declared);
   const abort = () => fail(new EvaluationCancelled());
   request.signal.addEventListener("abort", abort, { once: true });
 
@@ -120,7 +122,6 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     if (request.signal.aborted) abort();
     const contentType = request.headers.get("content-type") ?? "";
     // A body declared over its bound is refused before any of it is read.
-    const declared = Number(request.headers.get("content-length") ?? Number.NaN);
     if (limit.bodyBytes !== undefined && declared > limit.bodyBytes) throw tooLarge();
     const source = request.body
       ? own(Readable.fromWeb(request.body as import("stream/web").ReadableStream), interrupted)
@@ -190,6 +191,8 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     source.on("data", (chunk: Buffer) => {
       reception?.progress();
       arrived += chunk.byteLength;
+      try { checkUndeclaredStorage(arrived, chunk.byteLength, declared); }
+      catch (error) { fail(error as ApiError); }
       if (limit.bodyBytes !== undefined && arrived > limit.bodyBytes) fail(tooLarge());
     });
     source.once("end", () => reception?.endBody());

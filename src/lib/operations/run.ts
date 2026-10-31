@@ -1,3 +1,5 @@
+import { StorageWriter, assertStorageWritersOpen } from "@/lib/system/storage-fence";
+import { admitStorageWrite } from "@/lib/system/storage-admission";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { admitEvaluationWork } from "@/lib/query/work-admission";
 import type { AccountWorkLease } from "@/lib/auth/account-deletion-admission";
@@ -123,6 +125,7 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
     const deadlineAt = Date.now() + budgetMs;
     const timeoutError = () => operationTimeout(budgetMs);
 
+    let writer: StorageWriter | undefined;
     let prepared: PreparedPublication | null = null;
     let deletionWork: AccountWorkLease | undefined;
 
@@ -146,6 +149,8 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
       );
 
     try {
+      writer = new StorageWriter();
+      signal = AbortSignal.any([signal, writer.signal]);
       deletionWork = admitEvaluationWork(options.evaluation ?? scope);
       // Check the durable owner before a queued job can contact a source.
       if (!markRunning(scope, job.id, new Date().toISOString())) return;
@@ -177,12 +182,12 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
         ...(options.onPublished ? { onPublished: options.onPublished } : {}),
       });
     } catch (error) {
-      settleFailure(scope, job, error);
+      settleFailure(scope, job, writer?.signal.aborted ? writer.signal.reason : error);
     } finally {
       // **Whatever happened.** The staging a preparation owns is removed on
       // success, failure, cancellation and timeout alike — the boot sweep is
       // the backstop for a process that dies, not the ordinary path.
-      try { if (prepared) await prepared.cleanup(); } finally { deletionWork?.release(); }
+      try { if (prepared) await prepared.cleanup(); } finally { deletionWork?.release(); writer?.close(); }
       try { options.onSettled?.(job.id); }
       catch (error) { console.warn(`[operations] run ${job.id} could not retain its attempt:`, error); }
       pruneAfterJob(job.id);
@@ -199,6 +204,8 @@ function workFor(scope: AccountScope, job: OperationJob, options: SubmitOptions)
 export function submitRun(scope: AccountScope, options: SubmitOptions): OperationJob {
   requireAccountScope(scope);
   if (options.replaceTable) requireOwnedTableReference(scope, options.replaceTable);
+  assertStorageWritersOpen();
+  admitStorageWrite();
   const id = randomUUID();
   const job: OperationJob = {
     id,
@@ -290,6 +297,7 @@ function settleFailure(scope: AccountScope, job: OperationJob, error: unknown): 
  */
 export async function startRun(scope: AccountScope, request: RunRequest): Promise<OperationJob> {
   requireAccountScope(scope);
+  admitStorageWrite();
   // No `owns` argument: a one-off run never holds the admission exception, so
   // a caller cannot reach it by imitating a step.
   const admitted = await admit(scope, request);

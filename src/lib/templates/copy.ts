@@ -1,3 +1,4 @@
+import { admitStorageWrite } from "@/lib/system/storage-admission";
 import { withStorageWrite, currentStorageWriter } from "@/lib/system/storage-fence";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import type { Database } from "better-sqlite3";
@@ -263,6 +264,7 @@ async function makeCopy(scope: AccountScope, accountId: string, source: CopySour
   checkInstanceCreationLimit("projects", db);
   checkInstanceCreationLimit("maps", db);
   const installed = await readInstalledVersion(source.folder);
+  admitStorageWrite(Object.values(installed.record.files).reduce((total, file) => total + file.bytes, 0));
   const { admitted, record } = installed;
   if (admitted.facts.id !== source.id || admitted.facts.version !== source.version) {
     refuse("template_record_mismatch", `The installed folder of ${source.id} version ${source.version} holds another version.`);

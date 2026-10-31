@@ -1,3 +1,4 @@
+import { admitStorageWrite, checkUndeclaredStorage } from "@/lib/system/storage-admission";
 import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
@@ -88,7 +89,7 @@ function capMb(budget: IngestBudget): number {
  * reached at, which may be an admin's with a key in it. Then a transport
  * failure says only that the store could not be reached, since the engine's
  * own sentence repeats the address it tried. */
-async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, shown = url): Promise<void> {
+async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, shown = url, accountId?: string): Promise<void> {
   const reached = shown === url;
   let response: Awaited<ReturnType<typeof openRemote>>;
   try {
@@ -118,7 +119,8 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, 
       502,
     );
   }
-  const declared = Number(response.headers["content-length"] ?? 0);
+  const declared = Number(response.headers["content-length"] ?? Number.NaN);
+  try { admitStorageWrite(declared); } catch (error) { response.body.destroy(); throw error; }
   if (declared > budget.remoteMaxBytes) {
     response.body.destroy();
     throw new ApiError(
@@ -131,6 +133,8 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, 
   const counter = new Transform({
     transform(chunk: Buffer, _enc, cb) {
       seen += chunk.length;
+      try { checkUndeclaredStorage(seen, chunk.length, declared); }
+      catch (error) { cb(error as Error); return; }
       if (seen > budget.remoteMaxBytes) {
         cb(
           new ApiError(
@@ -145,11 +149,14 @@ async function downloadHttp(url: string, tmpPath: string, budget: IngestBudget, 
     },
   });
   try {
+    if (accountId) registerAccountFile(accountId, tmpPath);
     await pipeline(response.body, counter, createWriteStream(tmpPath), { signal: currentTrustedOperation()?.signal });
   } catch (error) {
+    response.body.destroy();
     currentTrustedOperation()?.assertCanCommit();
     rethrowStorageFailure(error);
-      if (isTrustedOperationRefusal(error)) throw error;
+    if (error instanceof ApiError && error.code === "storage_full") throw error;
+    if (isTrustedOperationRefusal(error)) throw error;
     throw new ApiError(
       "remote_fetch_failed",
       `The download from ${shown} was interrupted${
@@ -296,10 +303,9 @@ async function downloadToScratch(
   const tmpDir = path.join(dataDir(), "tmp");
   await mkdir(tmpDir, { recursive: true });
   const tmpPath = path.join(tmpDir, `${randomUUID()}${path.extname(filename)}`);
-  if (accountId) registerAccountFile(accountId, tmpPath);
   currentTrustedOperation()?.defer(() => removeAccountFile(tmpPath, { force: true }));
   try {
-    await downloadHttp(url, tmpPath, budget, shown);
+    await downloadHttp(url, tmpPath, budget, shown, accountId);
   } catch (error) {
     currentTrustedOperation()?.refuseIfFinal(error);
     await removeAccountFile(tmpPath, { force: true });
@@ -397,6 +403,7 @@ async function resolveCredentialedObjectSource(
   budget: IngestBudget,
 ): Promise<ResolvedRemoteSource> {
   const probed = await probeObjectSize(ref);
+  admitStorageWrite(probed ?? Number.NaN);
   if (probed !== null && probed > budget.remoteMaxBytes) {
     throw new ApiError(
       "remote_too_large",
@@ -448,6 +455,7 @@ async function resolveCredentialedObjectSource(
     // write — the documented residual of the credentialed opt-in road
     // (registry: the anonymous road streams; this one buffers up to the
     // remote cap). Written without an extra Buffer copy.
+    admitStorageWrite(Number(blob.size));
     await writeFile(tmpPath, blob.content.bytes);
     return {
       sourcePath: tmpPath,

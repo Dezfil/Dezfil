@@ -1,4 +1,4 @@
-import { StorageWriter, assertStorageWritersOpen } from "./system/storage-fence";
+import { StorageWriter } from "./system/storage-fence";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ApiError, EvaluationCancelled, type ErrorCode } from "./api/errors";
 import { RESOURCE_ERROR_STATUSES } from "./api/error-catalogue";
@@ -317,12 +317,11 @@ export class TrustedOperation {
 
 export function admitTrustedOperation(options: TrustedOperationOptions): TrustedOperation {
   const writes = options.storage ?? options.kind !== "interactive-read";
-  if (writes) assertStorageWritersOpen();
-  const operation = new TrustedOperation(options);
-  if (writes) {
-    const writer = new StorageWriter(error => operation.refuse(error));
-    void operation.drained.then(() => writer.close());
-  }
+  let operation: TrustedOperation;
+  const writer = writes ? new StorageWriter(error => operation.refuse(error)) : undefined;
+  try { operation = new TrustedOperation(options); }
+  catch (error) { writer?.close(); throw error; }
+  if (writer) void operation.drained.then(() => writer.close());
   return operation;
 }
 

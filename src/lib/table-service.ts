@@ -406,7 +406,7 @@ export async function removeTable(scope: AccountScope, address: string): Promise
 }
 
 export function exportTable(scope: AccountScope, name: string, format: ExportFormat, signal?: AbortSignal): Promise<TableExport> {
-  return withTrustedMutation({ kind: "export", name: "Dataset export", signal }, async operation => {
+  return withTrustedMutation({ kind: "export", name: "Dataset export", signal, storage: format !== "geoparquet" }, async operation => {
     const file = await copyFileWork(scope, [{ table: "data_tables", id: addressDataset(scope, name).table.id }], () => exportTableWork(scope, name, format));
     operation.defer(async () => { if (operation.signal.aborted) await file.cleanup(); });
     operation.assertCanCommit();

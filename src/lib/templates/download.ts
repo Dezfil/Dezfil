@@ -1,3 +1,4 @@
+import { admitStorageWrite } from "@/lib/system/storage-admission";
 import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { currentTrustedOperation } from "@/lib/trusted-operation";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
@@ -99,6 +100,7 @@ function archiveOrigin(where: CatalogueInEffect): InstalledOrigin {
  * after the write was accepted) ends the transfer with that failure,
  * every stream closed, and nothing waits on a stream that has failed. */
 async function land(body: Readable, file: string, declared: number): Promise<{ size: number; sha256: string }> {
+  try { admitStorageWrite(declared); } catch (error) { body.destroy(); throw error; }
   const hash = createHash("sha256");
   let size = 0;
   const count = new Transform({
@@ -188,6 +190,7 @@ async function download(scope: AccountScope, entry: ListedEntry, where: Catalogu
   await downloads.seam.transfer?.(keyOf(id, version));
   currentTrustedOperation()?.enterStage("template download");
   requireCatalogueAt(where, db);
+  admitStorageWrite(entry.size);
   const scratch = path.join(ingestScratchDir(), `template-${randomUUID()}`);
   // The scratch goes whatever happened, on the download's cleanup path: once
   // the version is installed, a failed removal is logged, never answered.

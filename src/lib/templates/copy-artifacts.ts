@@ -1,8 +1,9 @@
+import { admitStorageWrite } from "@/lib/system/storage-admission";
 import { currentStorageWriter } from "@/lib/system/storage-fence";
 import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { dataDir } from "@/lib/config";
@@ -30,6 +31,7 @@ export interface CopiedArtifact {
 /** Copy one member of a version folder into a fresh artifact of
  * `accountId`'s, held to `sha256`. */
 export async function copyDatasetFile(accountId: string, folder: string, member: string, sha256: string): Promise<CopiedArtifact> {
+  admitStorageWrite((await stat(path.join(folder, member))).size);
   const id = randomUUID();
   const file = path.join("tables", `${id}.parquet`);
   const target = path.join(dataDir(), file);

@@ -1,3 +1,4 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { copyFileWork } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
@@ -313,6 +314,18 @@ async function describe(
   }
 }
 
-export function exportLayerResult(scope: AccountScope, layer: ExportableLayer, format: LayerExportFormat, signal?: AbortSignal): Promise<LayerExportFile> { return copyFileWork(scope, layer.mapId ? [{ table: "maps", id: layer.mapId }] : [], () => exportLayerResultWork(scope, layer, format, signal)); }
+export function exportLayerResult(scope: AccountScope, layer: ExportableLayer, format: LayerExportFormat, signal?: AbortSignal): Promise<LayerExportFile> {
+  return withTrustedMutation({ kind: "interactive-read", storage: true, name: "Layer export", signal }, async operation => {
+    const file = await copyFileWork(scope, layer.mapId ? [{ table: "maps", id: layer.mapId }] : [], () => exportLayerResultWork(scope, layer, format, operation.signal));
+    operation.defer(async () => { if (operation.signal.aborted) await file.cleanup(); });
+    operation.assertCanCommit(); return file;
+  });
+}
 
-export function exportQueryResult(scope: AccountScope, sql: string, format: LayerExportFormat, signal?: AbortSignal, name?: string): Promise<LayerExportFile> { return copyFileWork(scope, [], () => exportQueryResultWork(scope, sql, format, signal, name)); }
+export function exportQueryResult(scope: AccountScope, sql: string, format: LayerExportFormat, signal?: AbortSignal, name?: string): Promise<LayerExportFile> {
+  return withTrustedMutation({ kind: "interactive-read", storage: true, name: "Query export", signal }, async operation => {
+    const file = await copyFileWork(scope, [], () => exportQueryResultWork(scope, sql, format, operation.signal, name));
+    operation.defer(async () => { if (operation.signal.aborted) await file.cleanup(); });
+    operation.assertCanCommit(); return file;
+  });
+}
