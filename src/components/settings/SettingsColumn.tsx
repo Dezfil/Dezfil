@@ -2,7 +2,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  ArrowRightIcon, DataServicesIcon, GaugeIcon, KeyIcon, LayersIcon, LookIcon, MapsIcon, PersonIcon, PublishingIcon, ServerIcon, ShieldIcon, SlidersIcon, UsersIcon, WorkflowsIcon,
+  ArrowRightIcon, DataServicesIcon, GaugeIcon, KeyIcon, LayersIcon, LookIcon, MapsIcon, PersonIcon, PublishingIcon, ServerIcon, ShieldIcon, SparkleIcon, SlidersIcon, UsersIcon, WorkflowsIcon,
 } from "@/components/ui/icons";
 import { tabAddress } from "./settings-address";
 import { settingsColumn, type SettingsTabId } from "./settings-tabs";
@@ -11,6 +11,7 @@ import styles from "./SettingsFrame.module.css";
 const ICONS: Record<SettingsTabId, ReactNode> = {
   account: <PersonIcon />,
   tokens: <KeyIcon />,
+  assistant: <SparkleIcon />,
   appearance: <LookIcon />,
   general: <SlidersIcon />,
   maps: <MapsIcon />,

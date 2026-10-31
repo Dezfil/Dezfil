@@ -90,6 +90,7 @@ beforeEach(() => {
       return Response.json({ ...token, secret: SECRET });
     }
     if (url === "/api/account/tokens") return Response.json({ tokens });
+    if (url === "/api/account/assistant-key") return Response.json({ key: null, unreadable: false });
     if (url === "/api/settings") return Response.json({ displayName: "Ada Okafor", instanceName: null, viewPrefs: {}, sourceGrouping: "kind", look: LOOK });
     return Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 });
   }));
@@ -362,7 +363,7 @@ describe("where a hit lands", () => {
       external: false, tokens, look: LOOK, instance: storedRead(STORED, FACTS), entry: null,
       health: "ready", assistant: { enabled: false, reason: "No model credential is configured." }, palettes: PALETTES,
     }, true);
-    const tabs: SettingsTabId[] = ["account", "tokens", "appearance", "general", "maps", "libraries", "workflows", "publishing", "data", "limits", "security", "system"];
+    const tabs: SettingsTabId[] = ["account", "tokens", "assistant", "appearance", "general", "maps", "libraries", "workflows", "publishing", "data", "limits", "security", "system"];
     expect(Object.keys(declared).sort()).toEqual([...tabs].sort());
     for (const tab of tabs) {
       await arrive(`/settings/${tab}`);

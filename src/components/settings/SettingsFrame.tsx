@@ -8,6 +8,7 @@ import { AccountTab } from "./AccountTab";
 import { TokensCard } from "./TokensCard";
 import { McpCard } from "./McpCard";
 import { AppearanceTab } from "./AppearanceTab";
+import { AssistantKeyCard } from "./AssistantKeyCard";
 import { GeneralTab } from "./GeneralTab";
 import { MapsTab } from "./MapsTab";
 import { LibrariesTab } from "./LibrariesTab";
@@ -285,6 +286,7 @@ function TabContent({ tab, loaded }: { tab: SettingsTabId; loaded: Loaded }) {
   switch (tab) {
     case "account": return <AccountTab account={loaded.account} />;
     case "tokens": return <><TokensCard admin={loaded.account.isAdmin} /><McpCard /></>;
+    case "assistant": return <AssistantKeyCard />;
     case "appearance": return <AppearanceTab />;
     case "general": return <GeneralTab admin={loaded.account.isAdmin} />;
     case "maps": return <MapsTab />;

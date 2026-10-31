@@ -16,6 +16,7 @@ import type { InsertOutcome } from "./assistant/ProposalBlock";
 import { TalkingAbout } from "./assistant/TalkingAbout";
 import { talkingAbout, type PageFacts } from "./assistant/talking-about";
 import { useAssistantTurn } from "./assistant/use-assistant-turn";
+import { KeyForm } from "./assistant/KeyForm";
 import { ModelPicker } from "./assistant/ModelPicker";
 import { pickerShown } from "./assistant/model-choice";
 import styles from "./AssistantPanel.module.css";
@@ -72,6 +73,7 @@ export function AssistantPanel({ onMutate, layerDataDownloads, context, facts, o
       <section className={styles.panel}>
         {showTitle && <h2 className={styles.title}>Assistant</h2>}
         <p className={styles.absent}>{status.reason}</p>
+        <KeyForm onSaved={() => setStatusAttempt((n) => n + 1)} />
       </section>
     );
   }

@@ -248,6 +248,10 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
   return {
     account: accountCards(sources.account, sources.external),
     tokens: tokenCards(sources.tokens),
+    assistant: [{ id: "ai-key", title: "Your AI key", keys: "assistant api key provider anthropic openai own", rows: [
+      { id: "set-ai-key", label: "Key", keys: "assistant api key replace remove add anthropic openai" },
+      { id: "ai-key-field", label: "API key", secret: true },
+    ] }],
     appearance: appearanceCards(sources.look),
     ...(general ? { general: generalCards(general) } : {}),
     ...(admin && sources.instance ? {
