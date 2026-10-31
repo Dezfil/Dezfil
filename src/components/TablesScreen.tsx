@@ -17,6 +17,7 @@ import {
   readRecipes,
 } from "./api";
 import { AddDataDialog } from "./AddDataDialog";
+import { useStorageFullLine } from "./use-instance-rules";
 import { useTransientNotice } from "./use-transient-notice";
 import { TransientNotice } from "./TransientNotice";
 import { skippedNotice } from "./skipped-members";
@@ -186,6 +187,11 @@ export function TablesScreen({
   const workflows =
     workflowsState.status === "ready" ? workflowsState.value : null;
   const [workflowsNoteDismissed, setWorkflowsNoteDismissed] = useState(false);
+  // What the page knows may have moved the free space: its lists, a refusal,
+  // and the Add data dialog closing on whatever it did.
+  const storageLine = useStorageFullLine(
+    `${world?.all.length} ${workflows?.length} ${actionError} ${dialogOpen}`,
+  );
   // A re-read after a change that fails keeps the last fold and says so
   // (found at review); a re-read overtaken by a later one is
   // dropped, so two deletions in flight cannot land out of order.
@@ -516,6 +522,12 @@ export function TablesScreen({
           },
         }}
       />
+
+      {storageLine && (
+        <p className={styles.storageLine} role="status">
+          {storageLine}
+        </p>
+      )}
 
       {filedNote && (
         <div className={gallery.notice} role="status">

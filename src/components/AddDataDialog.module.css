@@ -92,6 +92,16 @@
   flex: 1;
 }
 
+/* Beside every source and every step, so it never moves a pane's own parts. */
+.storageLine {
+  margin: 0;
+  padding: 10px 8px 0;
+  color: var(--warn);
+  font-size: var(--text-label);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
 .navFoot {
   font-size: 11px;
   line-height: 1.5;

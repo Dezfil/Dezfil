@@ -8,6 +8,10 @@
  * here: the System tab reads this module too.
  */
 
+export const STORAGE_MB = 1024 * 1024;
+/** The instance counts as full at this much free space or less. It is fixed. */
+export const STORAGE_FULL_BYTES = 512 * STORAGE_MB;
+
 /** The kinds, in the order Storage lists them. */
 export const STORAGE_KINDS = ["tables", "tile_archives", "service_caches", "thumbnails", "profile_pictures", "templates", "metadata_database", "leftover_files", "other"] as const;
 export type StorageKind = typeof STORAGE_KINDS[number];
@@ -36,4 +40,9 @@ export interface StorageState {
   readonly free: number;
   readonly total: number;
   readonly threshold: number;
+}
+
+/** The line a screen shows while full: free space in whole MB, as a refusal says it. */
+export function storageFullLine(state: Pick<StorageState, "free">): string {
+  return `Storage is full: ${Math.round(state.free / STORAGE_MB)} MB free.`;
 }

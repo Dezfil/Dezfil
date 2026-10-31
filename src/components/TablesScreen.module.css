@@ -8,6 +8,14 @@
   min-height: 460px;
 }
 
+/* A standing state, in the warning's words and no box. */
+.storageLine {
+  margin: 0;
+  color: var(--warn);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
 .nameCell {
   /* A table identifier speaks mono. */
   font-family: var(--font-mono);

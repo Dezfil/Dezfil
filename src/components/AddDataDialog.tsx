@@ -17,6 +17,7 @@ import type { MatchingStep, MatchingStepState, StepOutcome } from "./column-matc
 import { stepTable } from "./column-matching/needs-step";
 import { useMatchingStep } from "./column-matching/use-matching-step";
 import { useUrlHold } from "./column-matching/use-url-hold";
+import { useStorageFullLine } from "./use-instance-rules";
 import { Dialog } from "./ui/Dialog";
 import { IconButton } from "./ui/IconButton";
 import { XIcon } from "./ui/icons";
@@ -107,6 +108,11 @@ function AddDataDialogBody({
   projectName = null,
 }: Omit<Props, "open">) {
   const router = useRouter();
+  // Read as the dialog opens, and again as a batch settles: what it wrote
+  // or was refused moves the free space while the dialog stays open.
+  const storageLine = useStorageFullLine(
+    `${uploadQueue.batch} ${uploadQueue.settled}`,
+  );
   // The destination sentence: one per-pane footer whenever imports land
   // in a project, the host's own name first and the shell's cached
   // directory as the backstop.
@@ -242,6 +248,11 @@ function AddDataDialogBody({
           />
         ))}
         <span className={styles.navSpace} />
+        {storageLine && (
+          <p className={styles.storageLine} role="status">
+            {storageLine}
+          </p>
+        )}
       </nav>
 
       <div className={styles.main}>

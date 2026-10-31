@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ruleRefusal, type RuleKey, type WhoMayRule } from "@/lib/settings/instance-rules";
+import { storageFullLine, type StorageState } from "@/lib/system/storage-answer";
 
 /** What a screen knows of one instance rule and of the person reading it:
  * each null until its read answers, and null for good when it fails. */
@@ -92,4 +93,35 @@ export function useLimitMark(of: "maps" | "projects" | "people", revision: strin
     return () => { latest = -1; window.removeEventListener("focus", read); };
   }, [of, revision]);
   return mark;
+}
+
+/**
+ * The storage state as the runtime read reports it to the signed-in person,
+ * read when the screen opens, each time `revision` changes, what the screen
+ * knows may have moved the free space, and when the person comes back to the
+ * tab. The latest question's answer stands. Null until the read answers and
+ * when the first read fails; a later failure keeps the state there is.
+ */
+export function useStorageState(revision: string | number = 0): StorageState | null {
+  const [state, setState] = useState<StorageState | null>(null);
+  useEffect(() => {
+    let latest = 0;
+    const read = () => {
+      const asked = ++latest;
+      readJson("/api/config").then(config => {
+        const storage = (config as { storage?: StorageState }).storage;
+        if (asked === latest) setState(typeof storage?.full === "boolean" ? storage : null);
+      }).catch(() => { /* without the read the screen draws what it knew */ });
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => { latest = -1; window.removeEventListener("focus", read); };
+  }, [revision]);
+  return state;
+}
+
+/** The one line the Data page and Add data show while storage is full, or null. */
+export function useStorageFullLine(revision: string | number = 0): string | null {
+  const state = useStorageState(revision);
+  return state?.full ? storageFullLine(state) : null;
 }
