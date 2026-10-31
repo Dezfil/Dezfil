@@ -892,6 +892,10 @@
       "action": "erase",
       "rule": "Erase the target's own assistant key: its encrypted envelope, provider, last four characters and saving time.",
       "fixture": "table:assistant_keys"
+    },
+    "memory:storage-state": {
+      "action": "retain",
+      "rule": "Keep only the full-state transition bit for once-per-transition logging. It holds no account identity or content."
     }
   },
   "tables": {
@@ -7406,6 +7410,19 @@
     "memory:src/lib/assistant/retained-work.ts#retainAssistantCleanup.entry": {
       "stores": [
         "memory:assistant-cleanups"
+      ]
+    },
+    "location:src/lib/system/storage-state.ts#readStorageState.folder:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "memory:src/lib/system/storage-state.ts#transition": {
+      "stores": [
+        "memory:storage-state"
       ]
     }
   },
