@@ -54,6 +54,12 @@ export function useAssistantTurn(context: AssistantContext | undefined, onMutate
     }).catch(() => { if (!cancelled) setStatusFailed(true); });
     return () => { cancelled = true; };
   }, [statusAttempt]);
+  // A key saved or removed in another tab changes who pays for the next turn.
+  useEffect(() => {
+    const reread = () => { void json<Exclude<Status, null>>("/api/assistant").then(setStatus).catch(() => {}); };
+    window.addEventListener("focus", reread);
+    return () => window.removeEventListener("focus", reread);
+  }, []);
 
   const { applyReceipt, readOutcome, recover: recoverUnordered } = useAssistantRecovery({ recoveryId, onMutate: refreshAfterRecovery, replace, pendingList });
   const recover = useCallback((id?: string) => {

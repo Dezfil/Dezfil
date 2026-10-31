@@ -42,6 +42,21 @@ const keyField = () => { const label = container.querySelectorAll("label").find(
 async function settle() { for (let i = 0; i < 6; i += 1) await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); }); }
 const props = (element: HostElement) => (element as unknown as Record<string, Record<string, (event: unknown) => void>>)[Object.keys(element).find(name => name.startsWith("__reactProps$"))!];
 
+it("reads who pays again when the person comes back to the tab", async () => {
+  let payer: { kind: "own" | "instance" } = { kind: "instance" };
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/assistant"
+    ? Response.json({ enabled: true, provider: "anthropic", model: "claude-sonnet-5", stepBudget: 8, instanceKey: true, payer })
+    : Response.json({ pending: [] })));
+  await act(async () => root.render(<AssistantPanel onMutate={() => {}} layerDataDownloads={{} as never} />));
+  await settle();
+  expect(container.textContent).toContain("instance key");
+  // The key was saved in another tab.
+  payer = { kind: "own" };
+  await act(async () => { window.dispatchEvent(new HostEvent("focus") as unknown as Event); });
+  await settle();
+  expect(container.textContent).toContain("your key");
+});
+
 it("takes the key in place of the sentence alone, then shows the composer without a reload", async () => {
   await act(async () => root.render(<AssistantPanel onMutate={() => {}} layerDataDownloads={{} as never} />));
   await settle();
