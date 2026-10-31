@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import type { RunReceipt } from "./runs";
 
-export const RECOVERY_LIMITS = { slots: 8, reservationMs: 5 * 60_000, receipts: 256, receiptBytes: 64 * 1024, submissionBytes: 128 * 1024, liveBytes: 1024 * 1024 } as const;
+export const RECOVERY_LIMITS = { slots: 8, accountSlots: 4, accountReservations: 2, reservationMs: 5 * 60_000, receipts: 256, receiptBytes: 64 * 1024, submissionBytes: 128 * 1024, liveBytes: 1024 * 1024 } as const;
 export const jsonBytes = (value: unknown) => Buffer.byteLength(JSON.stringify(value), "utf8");
 /** The bytes of parked state, a binary counted by its own size rather than
  * as indexed JSON (a check's image in a batch's outcomes). */

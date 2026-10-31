@@ -31,7 +31,7 @@ Streamable HTTP `tools/list`, and compares:
   This is the installed file in the checkout, not an imaginary plugin HTTP route.
 
 <!-- contract-counts:start -->
-Expected counts: 152 paths, 426 operations, 193 schemas, 149 error codes, 162 tools, 264 exclusions and 70 JSON readers (1 at 8,192 bytes, 17 at 65,536 bytes, 1 at 131,072 bytes, 51 at 16,777,216 bytes).
+Expected counts: 152 paths, 426 operations, 193 schemas, 150 error codes, 162 tools, 264 exclusions and 70 JSON readers (1 at 8,192 bytes, 17 at 65,536 bytes, 1 at 131,072 bytes, 51 at 16,777,216 bytes).
 <!-- contract-counts:end -->
 
 Regenerate the expected counts above from the contract with

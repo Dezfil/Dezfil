@@ -6,7 +6,7 @@ import type { RecordedSubject } from "./record-label";
 import { RECOVERY_LIMITS, compactReceipt, jsonBytes, parkedBytes, recoveryLimit } from "./recovery-data";
 import { createHash, randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api/errors";
-import { ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
+import { ASSISTANT_ACCOUNT_CAPACITY, ERROR_CATALOGUE } from "@/lib/api/error-catalogue";
 import type { AssistantEvent } from "./loop";
 import type { LookFacts, LookState } from "@/lib/export/map-look";
 import type { Observation } from "./observation";
@@ -123,11 +123,22 @@ export class AssistantRunStore {
   reserve(scope: AccountScope): RunReceipt {
     const accountId = requireAccountScope(scope);
     this.expire();
-    const occupied = [...this.entries.values()].filter(({ receipt }) => ["reserved", "running", "awaiting_confirmation"].includes(receipt.state)).length;
-    if (occupied >= RECOVERY_LIMITS.slots) throw new ApiError("assistant_capacity", ERROR_CATALOGUE.assistant_capacity, 409);
+    // A reservation takes no place among the eight, so what limits it is the
+    // account's own count: someone who reserves and never submits holds up
+    // nobody else.
+    const unsubmitted = [...this.entries.values()].filter(entry => entry.accountId === accountId && entry.receipt.state === "reserved").length;
+    if (unsubmitted >= RECOVERY_LIMITS.accountReservations) throw new ApiError("assistant_reservation_limit", ERROR_CATALOGUE.assistant_reservation_limit, 409);
     const receipt: RunReceipt = { id: randomUUID(), state: "reserved", text: "", actions: [], incomplete: false };
     this.entries.set(receipt.id, { receipt, scope, accountId, begun: assistantBeginMark(), createdAt: this.now() });
     return structuredClone(receipt);
+  }
+  /** A run takes its place when it binds a submission and keeps it until it
+   * ends, a wait for confirmation included, so a resolution re-enters the place
+   * it already holds and can never be turned away. */
+  private requirePlace(accountId: string) {
+    const bound = [...this.entries.values()].filter(({ receipt }) => receipt.state === "running" || receipt.state === "awaiting_confirmation");
+    if (bound.filter(entry => entry.accountId === accountId).length >= RECOVERY_LIMITS.accountSlots) throw new ApiError("assistant_capacity", ASSISTANT_ACCOUNT_CAPACITY, 409);
+    if (bound.length >= RECOVERY_LIMITS.slots) throw new ApiError("assistant_capacity", ERROR_CATALOGUE.assistant_capacity, 409);
   }
   requireAccount(scope: AccountScope, id: string): void { this.lookup(scope, id); }
   read(scope: AccountScope, id: string): RunReceipt { return structuredClone(this.lookup(scope, id).receipt); }
@@ -173,6 +184,8 @@ export class AssistantRunStore {
       return false;
     }
     if (entry.receipt.state !== "reserved") throw new ApiError("assistant_run_unavailable", ERROR_CATALOGUE.assistant_run_unavailable, 404);
+    // Refused here, nothing has bound: the reservation stays for a retry.
+    this.requirePlace(entry.accountId);
     entry.fingerprint = fingerprint; entry.receipt.state = "running"; entry.controller = new AbortController();
     return true;
   }

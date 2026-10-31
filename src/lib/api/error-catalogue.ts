@@ -158,6 +158,7 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   assistant_run_unavailable: "This run identity is unavailable and cannot execute.",
   assistant_run_conflict: "This run identity is already bound to different input.",
   assistant_capacity: "Eight assistant runs occupy capacity. Read GET /api/assistant/pending; release an unused reservation or abandon a pending turn with DELETE /api/assistant/runs/{id}.",
+  assistant_reservation_limit: "This account holds two unsubmitted reservations, the most it may. Send a message on one, release one with DELETE /api/assistant/runs/{id}, or wait: they expire after five minutes.",
   assistant_run_state: "This operation is not available in the current run state.",
   assistant_submission_too_large: "The assistant submission exceeds 128 KiB.",
   assistant_recovery_limit: "Further work stopped before the live recovery bound could be exceeded.",
@@ -252,3 +253,6 @@ export const RESOURCE_ERROR_STATUSES = {
   request_timeout: 408,
   render_bytes_exceeded: 422,
 } as const satisfies Partial<Record<ErrorCode, number>>;
+
+/** assistant_capacity when the refusal is the account's own share of the eight. */
+export const ASSISTANT_ACCOUNT_CAPACITY = "This account holds four open assistant runs, the most one account may. Read GET /api/assistant/pending; abandon a pending turn with DELETE /api/assistant/runs/{id}, or wait for one to finish.";

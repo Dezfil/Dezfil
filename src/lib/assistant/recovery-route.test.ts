@@ -143,13 +143,13 @@ it("concurrent identical submissions observe a running reservation before its fi
   expect(factory.exchanges).toBe(1);
 });
 
-it("eight occupied slots refuse admission and release/abandon expose capacity without replay", async () => {
+it("two unsubmitted reservations refuse a third and release/abandon expose capacity without replay", async () => {
   factory.provider = provider(true);
   const parked = await reserve();
   await (await api("/api/assistant/messages", { runId: parked, message: "Create then delete" })).text();
-  const ids = await Promise.all(Array.from({ length: 7 }, reserve));
+  const ids = await Promise.all(Array.from({ length: 2 }, reserve));
   const full = await api("/api/assistant/runs", {});
-  expect(full.status).toBe(409); expect((await full.json()).error.code).toBe("assistant_capacity");
+  expect(full.status).toBe(409); expect((await full.json()).error.code).toBe("assistant_reservation_limit");
   for (const id of ids) expect(await (await api(`/api/assistant/runs/${id}`)).json()).toMatchObject({ id, state: "reserved" });
   const open = (await (await api("/api/assistant/pending")).json()).pending;
   expect(open).toHaveLength(1);
@@ -160,7 +160,7 @@ it("eight occupied slots refuse admission and release/abandon expose capacity wi
   expect((await (await api("/api/assistant/pending")).json()).pending).toEqual([]);
   expect(await (await api(`/api/assistant/runs/${parked}`)).json()).toMatchObject({ state: "interrupted" });
   expect((await api("/api/assistant/messages", { resolution: { pending: open[0].id, approved: true } })).status).toBe(409);
-  await reserve(); expect(factory.exchanges).toBe(1); expect(await maps()).toHaveLength(1);
+  expect(factory.exchanges).toBe(1); expect(await maps()).toHaveLength(1);
 });
 
 it("the 128 KiB submission boundary refuses oversized JSON before provider creation", async () => {

@@ -84,6 +84,7 @@ export type ErrorCode =
   | "assistant_run_unavailable"
   | "assistant_run_conflict"
   | "assistant_capacity"
+  | "assistant_reservation_limit"
   | "assistant_run_state"
   | "assistant_submission_too_large"
   | "assistant_recovery_limit"
