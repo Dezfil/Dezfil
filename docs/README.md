@@ -183,6 +183,12 @@ Install, secure, configure and back up your own instance.
   - read when: you want to keep the data in another folder; you want to set the encryption key yourself; the tile builder or the image renderer is somewhere else on the server
   - audience: operator, agent
 
+- [External sign-in](self-host/configuration/external-sign-in.md)
+  - path: `docs/self-host/configuration/external-sign-in.md`
+  - summary: Configure the public keys, instance identity and first owner for a trusted sign-in service.
+  - read when: you want a trusted service to sign people into your instance; you need the external sign-in variables and their formats
+  - audience: operator, developer
+
 ## API and agents
 
 Script Dezfil over HTTP, or connect an AI agent through MCP.

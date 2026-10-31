@@ -16,7 +16,9 @@ export function readDeploymentSetting(definition: SettingDefinition) {
   const locked = modelList ? raw !== undefined : raw !== undefined && raw !== "";
   let value: unknown = locked ? raw : definition.defaultValue;
   let invalidOverride = false;
-  if (definition.secret) {
+  if (definition.key === "externalSignInKeys") {
+    value = { count: raw?.split(",").filter(item => item.trim()).length ?? 0 };
+  } else if (definition.secret) {
     value = definition.key === "secretKey"
       ? { status: locked ? "environment" : existsSync(path.join(dataDir(), "secret.key")) ? "data-directory" : "not-yet-present" }
       : { set: locked };

@@ -42,6 +42,7 @@ const KEPT_SITE = { type: "string", pattern: "^https?://[a-z0-9.-]+(?::[0-9]{1,5
 const ADDRESS = { pattern: "^\\s*[Hh][Tt][Tt][Pp][Ss]?://[^/\\\\?#\\s]" };
 
 function valueSchema(definition: SettingDefinition): Record<string, unknown> {
+  if (definition.key === "externalSignInKeys") return object({ count: { type: "integer", minimum: 0 } });
   if (definition.secret) return definition.key === "secretKey"
     ? object({ status: { type: "string", enum: ["environment", "data-directory", "not-yet-present"] } })
     : object({ set: { type: "boolean" } });

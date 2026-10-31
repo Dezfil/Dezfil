@@ -1,5 +1,8 @@
 /** Independent defaults and stored-write boundaries for the configuration contract. */
 export const DEFAULTS = {
+  externalSignInKeys: null, externalSignInAudience: null, externalSignInUrl: null,
+  externalSignInOwnerId: null, externalSignInOwnerEmail: null, externalSignInOwnerName: null,
+  externalSignInGenerationFloor: "0",
   uploadMaxMb: 5120, dataProcessingTimeoutS: 3600, remoteMaxMb: 2048, remoteTimeoutS: 300,
   overtureMaxKm2: 25000, osmMaxKm2: 10000, overpassTimeoutS: 60,
   overpassMaxsizeMb: 512, overpassCacheHours: 24, overpassCacheMb: 2048,

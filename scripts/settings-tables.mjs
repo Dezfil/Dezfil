@@ -24,6 +24,7 @@ export const TEST_SEAMS = ["overtureS3Endpoint"];
 
 /** The areas, each with the page its table is on and its table's name. */
 export const SETTINGS_AREAS = [
+  { id: "external-sign-in", page: "docs/self-host/configuration/external-sign-in.md" },
   { id: "general", page: "docs/self-host/configuration/general.md" },
   { id: "defaults", page: "docs/self-host/configuration/defaults.md" },
   { id: "libraries", page: "docs/self-host/configuration/libraries.md" },
@@ -42,6 +43,7 @@ export const WIRING_TABLE = { id: "test-wiring", page: "docs/contribute/developm
 /** The settings a variable sets, by area. Settings an admin stores with no
  * variable follow the catalogue's own groups. */
 const BY_AREA = {
+  "external-sign-in": ["externalSignInKeys", "externalSignInAudience", "externalSignInUrl", "externalSignInOwnerId", "externalSignInOwnerEmail", "externalSignInOwnerName", "externalSignInGenerationFloor"],
   assistant: ["anthropicApiKey", "openaiApiKey", "aiProvider", "aiModel", "aiModelsAnthropic", "aiModelsOpenai", "assistantOffer",
     "assistantAutoCheck", "assistantStepBudget", "assistantLookTimeoutS", "assistantLookRetention", "assistantLookRetentionMb"],
   proxies: ["trustedProxies", "sessionCookie"],
@@ -93,6 +95,13 @@ export function areaOf(definition, predicates) {
 /** What a variable takes, for the settings no write rule of Settings
  * describes: read from the code that parses each one. */
 const VARIABLE_VALUES = {
+  externalSignInKeys: "Raw 32-byte Ed25519 public keys in unpadded base64url, separated by commas",
+  externalSignInAudience: "The exact audience string tickets must name",
+  externalSignInUrl: "An HTTP or HTTPS address without user information or a fragment",
+  externalSignInOwnerId: "A non-empty stable identity string",
+  externalSignInOwnerEmail: "An email address",
+  externalSignInOwnerName: "A display name",
+  externalSignInGenerationFloor: "A non-negative safe whole number",
   assistantAutoCheck: "`0`, `false` or `off` turns it off; any other value turns it on",
   dataDir: "A folder path",
   secretKey: "64 hex characters (32 bytes)",

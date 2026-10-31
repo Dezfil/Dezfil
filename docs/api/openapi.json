@@ -66801,6 +66801,755 @@
                 ],
                 "additionalProperties": false
               },
+              "externalSignInKeys": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInKeys"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_KEYS"
+                  },
+                  "kind": {
+                    "const": "secret"
+                  },
+                  "label": {
+                    "const": "Sign-in public keys"
+                  },
+                  "purpose": {
+                    "const": "Public keys trusted for external sign-in; reads disclose only the count."
+                  },
+                  "defaultValue": {
+                    "const": {
+                      "set": false
+                    }
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": true
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "type": "object",
+                    "properties": {
+                      "count": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "count"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInAudience": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInAudience"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "Sign-in audience"
+                  },
+                  "purpose": {
+                    "const": "This instance's identity, required in every sign-in ticket."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInUrl": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInUrl"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_URL"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "Sign-in service"
+                  },
+                  "purpose": {
+                    "const": "The address the browser visits to sign in."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInOwnerId": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInOwnerId"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_ID"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "First owner's identity"
+                  },
+                  "purpose": {
+                    "const": "Stable identity of the first admin, read only on an empty store."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInOwnerEmail": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInOwnerEmail"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "First owner's email"
+                  },
+                  "purpose": {
+                    "const": "Email of the first admin, read only on an empty store."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInOwnerName": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInOwnerName"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_OWNER_NAME"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "First owner's name"
+                  },
+                  "purpose": {
+                    "const": "Optional name of the first admin, read only on an empty store."
+                  },
+                  "defaultValue": {
+                    "const": null
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
+              "externalSignInGenerationFloor": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInGenerationFloor"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR"
+                  },
+                  "kind": {
+                    "const": "text"
+                  },
+                  "label": {
+                    "const": "Door generation floor"
+                  },
+                  "purpose": {
+                    "const": "Minimum door generation, applied at start. Lowering it never lowers the stored generation."
+                  },
+                  "defaultValue": {
+                    "const": "0"
+                  },
+                  "documentedDefault": {
+                    "const": "0"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": false
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rule"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
               "assistantAutoCheck": {
                 "type": "object",
                 "properties": {
@@ -75664,6 +76413,13 @@
               "operationHistoryPerSubject",
               "publicRateLimit",
               "publicTileRateLimit",
+              "externalSignInKeys",
+              "externalSignInAudience",
+              "externalSignInUrl",
+              "externalSignInOwnerId",
+              "externalSignInOwnerEmail",
+              "externalSignInOwnerName",
+              "externalSignInGenerationFloor",
               "assistantAutoCheck",
               "dataDir",
               "secretKey",

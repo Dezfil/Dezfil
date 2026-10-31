@@ -82,6 +82,13 @@ const OFFERED = "where a basemap is chosen: the builder's picker, a published pa
   "Off, choosing it anew is refused; a map already on it keeps it.";
 export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   ...NUMERIC_SETTINGS,
+  deployment("externalSignInKeys", "DEZFIL_EXTERNAL_SIGN_IN_KEYS", "secret", "Sign-in public keys", "Public keys trusted for external sign-in; reads disclose only the count.", null, "unset"),
+  deployment("externalSignInAudience", "DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE", "text", "Sign-in audience", "This instance's identity, required in every sign-in ticket.", null, "unset"),
+  deployment("externalSignInUrl", "DEZFIL_EXTERNAL_SIGN_IN_URL", "text", "Sign-in service", "The address the browser visits to sign in.", null, "unset"),
+  deployment("externalSignInOwnerId", "DEZFIL_EXTERNAL_SIGN_IN_OWNER_ID", "text", "First owner's identity", "Stable identity of the first admin, read only on an empty store.", null, "unset"),
+  deployment("externalSignInOwnerEmail", "DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL", "text", "First owner's email", "Email of the first admin, read only on an empty store.", null, "unset"),
+  deployment("externalSignInOwnerName", "DEZFIL_EXTERNAL_SIGN_IN_OWNER_NAME", "text", "First owner's name", "Optional name of the first admin, read only on an empty store.", null, "unset"),
+  deployment("externalSignInGenerationFloor", "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR", "text", "Door generation floor", "Minimum door generation, applied at start. Lowering it never lowers the stored generation.", "0", "0"),
   deployment("assistantAutoCheck", "DEZFIL_ASSISTANT_AUTO_CHECK", "boolean", "Automatic map check", "Check the rendered map after an assistant turn changes it.", true, "on"),
   deployment("dataDir", "DEZFIL_DATA_DIR", "path", "Data directory", "The single durable directory for tables, tiles and metadata.", { rule: "working-directory/data" }, "./data; /data in the container"),
   deployment("secretKey", "DEZFIL_SECRET_KEY", "secret", "Encryption key", "The key that encrypts saved connection passwords and service addresses.", { rule: "key-file-or-generate" }, "generated"),
