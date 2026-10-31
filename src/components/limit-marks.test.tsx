@@ -101,6 +101,18 @@ describe("the mark's words", () => {
   });
 });
 
+describe("a change made elsewhere", () => {
+  it("reads the count again when the person comes back to the tab", async () => {
+    limits = { maps: reading(0, 3), projects: reading(0, 3), people: reading(3, 6) };
+    await draw(<UsersScreen />);
+    expect(mark()).toBe("6 of 3");
+    limits = { maps: reading(0, 3), projects: reading(0, 3), people: reading(3, 5) };
+    await act(async () => { window.dispatchEvent(new HostEvent("focus") as unknown as Event); });
+    await settle();
+    expect(mark()).toBe("5 of 3");
+  });
+});
+
 describe("the heading", () => {
   it("draws the mark it is given beside the title, outside it, and none otherwise", async () => {
     await draw(<ListHeading title="Tables" line={null} />);

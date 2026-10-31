@@ -69,21 +69,27 @@ export function limitMark(read: { readonly limit: number; readonly count: number
 
 /**
  * The mark a list heading shows, read from the runtime read each time
- * `revision` changes: what the page knows has moved its count, its list or a
- * refusal. Nothing is read while it is null, before the page's own list has
- * answered. Null while no limit is set, until the read answers, and when the
- * first read fails; a later failure keeps the mark there is.
+ * `revision` changes, what the page knows has moved its count, its list or a
+ * refusal, and when the person comes back to the tab, since a change made
+ * elsewhere moves the count too. Nothing is read while it is null, before the
+ * page's own list has answered. Null while no limit is set, until the read
+ * answers, and when the first read fails; a later failure keeps the mark there is.
  */
 export function useLimitMark(of: "maps" | "projects" | "people", revision: string | null): string | null {
   const [mark, setMark] = useState<string | null>(null);
   useEffect(() => {
     if (revision === null) return;
-    let cancelled = false;
-    readJson("/api/config").then(config => {
-      const limits = (config as { instanceLimits?: Record<string, { limit: number; count: number }> }).instanceLimits;
-      if (!cancelled) setMark(limitMark(limits?.[of]));
-    }).catch(() => { /* without the read the heading draws no new mark */ });
-    return () => { cancelled = true; };
+    let latest = 0;
+    const read = () => {
+      const asked = ++latest;
+      readJson("/api/config").then(config => {
+        const limits = (config as { instanceLimits?: Record<string, { limit: number; count: number }> }).instanceLimits;
+        if (asked === latest) setMark(limitMark(limits?.[of]));
+      }).catch(() => { /* without the read the heading draws no new mark */ });
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => { latest = -1; window.removeEventListener("focus", read); };
   }, [of, revision]);
   return mark;
 }
