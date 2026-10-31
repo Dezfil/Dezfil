@@ -50,6 +50,7 @@ describe("the settings tables", () => {
 
   it("put the assistant's on Set up the assistant, the trusted proxies' on Reverse proxy and HTTPS, the limits on Limits, the rest under Configuration", () => {
     expect(Object.fromEntries(tables.map((entry) => [entry.table, entry.page]))).toEqual({
+      "settings-external-sign-in": "docs/self-host/configuration/external-sign-in.md",
       "settings-general": "docs/self-host/configuration/general.md",
       "settings-defaults": "docs/self-host/configuration/defaults.md",
       "settings-libraries": "docs/self-host/configuration/libraries.md",
@@ -82,6 +83,7 @@ describe("the settings tables", () => {
     // configuration guard places rows by the generator's areas, so a
     // generator that moved a row would pass it.
     const subjects: [string, RegExp][] = [
+      ["settings-external-sign-in", /^DEZFIL_EXTERNAL_SIGN_IN_[A-Z_]+$/],
       ["settings-assistant", /^(?:ANTHROPIC_API_KEY|OPENAI_API_KEY|DEZFIL_AI_[A-Z_]+|DEZFIL_ASSISTANT_[A-Z_]+)$/],
       ["settings-proxies", /^DEZFIL_(?:TRUSTED_PROXIES|SESSION_COOKIE)$/],
       ["settings-storage", /^DEZFIL_(?:DATA_DIR|SECRET_KEY|TIPPECANOE|CHROMIUM_PATH)$/],
