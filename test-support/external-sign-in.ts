@@ -30,7 +30,7 @@ export function externalFixture() {
       origin: "https://instance.test", "content-type": "application/json", cookie: `${value.cookie}${session ? `; ${SESSION_COOKIE}=${session}` : ""}`,
     }, body: JSON.stringify(body) }));
   }
-  return { get db() { return db; }, directory, ticket, request,
+  return { signingKey: keys.privateKey.export({ format: "jwk" }), get db() { return db; }, directory, ticket, request,
     restart() { closeMetadataDb(); if (db.open) db.close(); Reflect.deleteProperty(process, Symbol.for("dezfil.external-sign-in-start-key")); db = metadataDb(); },
     connection() { return open(path.join(directory, "metadata.sqlite")); },
     snapshot() { return ["accounts", "auth_sessions", "auth_tokens", "auth_links", "auth_ticket_ids", "auth_generations"].map(t => db.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()); },
