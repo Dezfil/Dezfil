@@ -80391,10 +80391,6 @@
               "message": {
                 "type": "string"
               },
-              "account": {
-                "$ref": "#/components/schemas/Account",
-                "description": "The current browser account on an already_signed_in arrival refusal."
-              },
               "retryAfter": {
                 "type": "integer",
                 "minimum": 1,
