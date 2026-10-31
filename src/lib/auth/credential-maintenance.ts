@@ -19,8 +19,8 @@ export function credentialMaintenance() {
     // the cursor where it was when another writer owns the store.
     try {
       return withBusyTimeout(db, 0, () => {
-        const next: Cursors = { ...(cursors ?? { sessions: undefined, links: undefined, tokens: undefined }) };
-        const examined = { sessions: 0, links: 0, tokens: 0 }, removed = { ...examined };
+        const next: Cursors = { ...(cursors ?? { sessions: undefined, links: undefined, tokens: undefined, ticket_ids: undefined }) };
+        const examined = { sessions: 0, links: 0, tokens: 0, ticket_ids: 0 }, removed = { ...examined };
         for (const kind of credentialKinds) {
           if (next[kind] === null) continue;
           const ids = credentialPage(db, kind, next[kind]);

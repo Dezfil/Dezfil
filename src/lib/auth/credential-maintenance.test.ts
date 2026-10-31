@@ -64,9 +64,9 @@ it("bounds examined rows, including live rows, and resumes every store without a
     link(id); token(id);
   } })();
   const sweep = credentialMaintenance();
-  expect(sweep(db, () => now)).toEqual({ examined: { sessions: 500, links: 500, tokens: 500 }, removed: { sessions: 0, links: 500, tokens: 500 }, complete: false });
-  expect(sweep(db, () => now)).toEqual({ examined: { sessions: 500, links: 500, tokens: 500 }, removed: { sessions: 500, links: 500, tokens: 500 }, complete: false });
-  expect(sweep(db, () => now)).toEqual({ examined: { sessions: 251, links: 251, tokens: 251 }, removed: { sessions: 251, links: 251, tokens: 251 }, complete: true });
+  expect(sweep(db, () => now)).toEqual({ examined: { sessions: 500, links: 500, tokens: 500, ticket_ids: 0 }, removed: { sessions: 0, links: 500, tokens: 500, ticket_ids: 0 }, complete: false });
+  expect(sweep(db, () => now)).toEqual({ examined: { sessions: 500, links: 500, tokens: 500, ticket_ids: 0 }, removed: { sessions: 500, links: 500, tokens: 500, ticket_ids: 0 }, complete: false });
+  expect(sweep(db, () => now)).toEqual({ examined: { sessions: 251, links: 251, tokens: 251, ticket_ids: 0 }, removed: { sessions: 251, links: 251, tokens: 251, ticket_ids: 0 }, complete: true });
   expect(ids("sessions")).toHaveLength(500); expect(ids("links")).toEqual([]); expect(ids("tokens")).toEqual([]);
   const plan = db.prepare("EXPLAIN QUERY PLAN SELECT id FROM auth_sessions WHERE id > ? ORDER BY id LIMIT ?").all("0500", 500);
   expect(JSON.stringify(plan)).toContain("SEARCH"); expect(JSON.stringify(plan)).not.toContain("SCAN");
@@ -108,7 +108,7 @@ it("keeps new rows behind the cursor until the next pass and restarts safely mid
 it("a sub-day forward clock step preserves credentials usable after correction", () => {
   session("rolling", now + 60_000); link("link", now + 60_000); token("live", null);
   const sweep = credentialMaintenance();
-  expect(sweep(db, () => now + day - 1)?.removed).toEqual({ sessions: 0, links: 0, tokens: 0 });
+  expect(sweep(db, () => now + day - 1)?.removed).toEqual({ sessions: 0, links: 0, tokens: 0, ticket_ids: 0 });
   expect(authenticateSession("rolling", db, now)).not.toBeNull();
   expect(authenticateToken("live", db, now)).not.toBeNull();
   expect(ids("links")).toEqual(["link"]);
@@ -206,4 +206,26 @@ it("a delegated credential access continues unfinished maintenance", () => {
   expect(ids("sessions")).toHaveLength(701);
   expect(authenticateDelegation(delegated, db, later)?.account.id).toBe("account");
   expect(ids("sessions")).toHaveLength(201);
+});
+
+it("keeps live accepted ticket ids through the exact expiry and drains a bounded backlog", () => {
+  const insert = db.prepare("INSERT INTO auth_ticket_ids(id,expires_at) VALUES (?,?)");
+  db.transaction(() => { for (let i = 0; i < 1251; i++) insert.run(String(i).padStart(4, "0"), i < 500 ? now + 1 : now); })();
+  const sweep = credentialMaintenance();
+  expect(sweep(db, () => now)).toMatchObject({ examined: { ticket_ids: 500 }, removed: { ticket_ids: 0 }, complete: false });
+  expect(sweep(db, () => now)).toMatchObject({ examined: { ticket_ids: 500 }, removed: { ticket_ids: 500 }, complete: false });
+  expect(sweep(db, () => now)).toMatchObject({ examined: { ticket_ids: 251 }, removed: { ticket_ids: 251 }, complete: true });
+  expect(ids("ticket_ids")).toHaveLength(500);
+  const restarted = credentialMaintenance();
+  expect(restarted(db, () => now + 1)?.removed.ticket_ids).toBe(500);
+  expect(ids("ticket_ids")).toEqual([]);
+});
+it("retries ticket cleanup after rollback without losing its cursor or a live id", () => {
+  db.prepare("INSERT INTO auth_ticket_ids VALUES (?,?)").run("expired", now);
+  db.prepare("INSERT INTO auth_ticket_ids VALUES (?,?)").run("live", now + 1);
+  const sweep = credentialMaintenance();
+  db.exec("CREATE TRIGGER reject_ticket_cleanup BEFORE DELETE ON auth_ticket_ids BEGIN SELECT RAISE(ABORT, 'injected'); END");
+  expect(() => sweep(db, () => now)).toThrow("injected"); expect(ids("ticket_ids")).toEqual(["expired", "live"]);
+  db.exec("DROP TRIGGER reject_ticket_cleanup");
+  expect(sweep(db, () => now)?.removed.ticket_ids).toBe(1); expect(ids("ticket_ids")).toEqual(["live"]);
 });
