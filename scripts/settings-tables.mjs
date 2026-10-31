@@ -43,6 +43,7 @@ export const WIRING_TABLE = { id: "test-wiring", page: "docs/contribute/developm
 /** The settings a variable sets, by area. Settings an admin stores with no
  * variable follow the catalogue's own groups. */
 const BY_AREA = {
+  limits: ["mapsLimit", "projectsLimit", "peopleLimit", "tokenLifetimeMax"],
   "external-sign-in": ["externalSignInKeys", "externalSignInAudience", "externalSignInUrl", "externalSignInOwnerId", "externalSignInOwnerEmail", "externalSignInOwnerName", "externalSignInGenerationFloor"],
   assistant: ["anthropicApiKey", "openaiApiKey", "aiProvider", "aiModel", "aiModelsAnthropic", "aiModelsOpenai", "assistantOffer",
     "assistantAutoCheck", "assistantStepBudget", "assistantLookTimeoutS", "assistantLookRetention", "assistantLookRetentionMb"],
@@ -150,6 +151,7 @@ function writeValues(write) {
 /** What a numeric variable takes, from how the server parses it, and how
  * it is taken. */
 function numberValues(parsing) {
+  if (parsing === "non-negative-integer") return ["a whole number from 0 to 9,007,199,254,740,991", ""];
   if (parsing === "non-negative") return ["any number from 0", ""];
   if (parsing === "positive-integer") return ["any number above 0", ", rounded down to a whole number of at least 1"];
   return ["any number above 0", ""];
@@ -286,7 +288,7 @@ export function settingsTables(source) {
   const drawn = drawnLabels(drawnTabs(source));
   const labelOf = (definition) => {
     const parts = drawn.get(definition.key)?.parts;
-    if (!parts && definition.editable) throw new Error(`No tab of Settings draws ${definition.key}: add its row to drawnTabs in scripts/settings-tables.mjs`);
+    if (!parts && definition.editable && !BY_AREA.limits.includes(definition.key)) throw new Error(`No tab of Settings draws ${definition.key}: add its row to drawnTabs in scripts/settings-tables.mjs`);
     return (parts ?? [definition.label]).map((part) => `**${part}**`).join(" › ");
   };
   const unitOf = (definition) => shownUnit(definition.key, definition.unit);

@@ -147,6 +147,9 @@ Run it with `node change-limit.mjs`.
 | **Time limit per image** | `DEZFIL_EXPORT_RENDER_TIMEOUT_S` | `exportRenderTimeoutS` | `90` seconds | 10 to 300 in Settings; any number above 0 as a variable | Time for one image, its wait for a turn included. | In Settings, live; by variable, after a restart |
 | **Requests per visitor** | `DEZFIL_PUBLIC_RATE_LIMIT` | `publicRateLimit` | `60` every 10 seconds | 1 to 10,000 in Settings; any number above 0 as a variable | Requests one visitor may make to published maps, counted by network address across every published map. | In Settings, live; by variable, after a restart |
 | **Tile requests per visitor** | `DEZFIL_PUBLIC_TILE_RATE_LIMIT` | `publicTileRateLimit` | `600` every 10 seconds | 1 to 100,000 in Settings; any number above 0 as a variable | Tile requests one visitor may make to published maps, counted by network address across every published map. | In Settings, live; by variable, after a restart |
+| **Maps on this instance** | `DEZFIL_MAPS_LIMIT` | `mapsLimit` | `0` maps | 0 to 9,007,199,254,740,991 in Settings; a whole number from 0 to 9,007,199,254,740,991 as a variable | Every map, including duplicates and template copies. Zero means no limit. | In Settings, live; by variable, after a restart |
+| **Projects on this instance** | `DEZFIL_PROJECTS_LIMIT` | `projectsLimit` | `0` projects | 0 to 9,007,199,254,740,991 in Settings; a whole number from 0 to 9,007,199,254,740,991 as a variable | Every project. Zero means no limit. | In Settings, live; by variable, after a restart |
+| **People on this instance** | `DEZFIL_PEOPLE_LIMIT` | `peopleLimit` | `0` people | 0 to 9,007,199,254,740,991 in Settings; a whole number from 0 to 9,007,199,254,740,991 as a variable | Invited, active and deactivated accounts and unfinished deletions. Zero means no limit. | In Settings, live; by variable, after a restart |
 | **Engine memory** | `DEZFIL_QUERY_MEMORY_MB` |  | `2048` MB | Any number above 0 | Memory the engine that runs people's SQL may use, shared by every query. | By variable, after a restart |
 | **Trusted engine memory** | `DEZFIL_TRUSTED_MEMORY_MB` |  | `3072` MB | Any number above 0 | Memory the engine that imports and processes data may use; it may spill up to four times this to disk. | By variable, after a restart |
 | **Slider preview rows** | `DEZFIL_SLIDER_PREVIEW_ROWS` |  | `50000` rows | Any number above 0 | Source points transferred for interactive slider previews. | By variable, after a restart |
@@ -155,6 +158,7 @@ Run it with `node change-limit.mjs`.
 | **Image request time limit** | `DEZFIL_EXPORT_REQUEST_TIMEOUT_S` |  | `20` seconds | Any number above 0 | Deadline for each request made by the render page. | By variable, after a restart |
 | **Tool attachment size** | `DEZFIL_TOOL_ATTACHMENT_MAX_MB` |  | `32` MB | Any number above 0 | The largest file a tool hands back to the assistant or an agent, such as an exported image. | By variable, after a restart |
 | **Run history depth** | `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` |  | `20` runs | Any number above 0, rounded down to a whole number of at least 1 | Runs kept in each run history, such as a workflow step's; its latest success is always kept. | By variable, after a restart |
+| **Longest token lifetime** | `DEZFIL_TOKEN_LIFETIME_MAX` | `tokenLifetimeMax` | `none` | `none`, `30d`, `90d` or `1y` | The longest lifetime new tokens may take. None leaves the token rule unbounded. | In Settings, live; by variable, after a restart |
 
 <!-- settings-limits:end -->
 

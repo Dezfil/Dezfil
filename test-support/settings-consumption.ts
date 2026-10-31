@@ -20,7 +20,7 @@ const plumbing = new Set(["NODE_ENV", "HOSTNAME", "NEXT_RUNTIME", "TZ", "CI", "P
 /** The settings readers a consumer imports, by module: the numbers' and
  * switches' resolver, and the service addresses' resolver. */
 const RESOLVERS: Record<string, readonly string[]> = {
-  "src/lib/settings/resolver": ["resolveNumber", "resolveBoolean", "resolveNumericSetting"],
+  "src/lib/settings/resolver": ["resolveNumber", "resolveBoolean", "resolveNumericSetting", "resolveChoice"],
   "src/lib/settings/service-address": ["resolveServiceAddress", "serviceAddressConfigured"],
 };
 const definitionFiles = new Set(["catalogue.ts", "numeric.ts", "types.ts", "validation.ts", "resolver.ts"]);

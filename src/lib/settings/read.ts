@@ -11,6 +11,7 @@ import { disclosedDefinition } from "./disclosure";
 import { readDeploymentSetting } from "./deployment-read";
 import { serviceAddressSetting } from "./service-address";
 import { lockedEnvironment, resolveNumericSettings } from "./resolver";
+import { tokenLifetimeMax } from "./instance-limit-values";
 import { readStoredSettings } from "./store";
 import type { NumericOverrides } from "./state";
 import type { SettingDefinition, SettingValue } from "./types";
@@ -25,6 +26,7 @@ import { listLibraryStyles } from "@/lib/basemap-library";
  * stored value, else the default. */
 function besideItsVariable(definition: SettingDefinition, stored: Readonly<Record<string, SettingValue>>) {
   if (!definition.editable) return readDeploymentSetting(definition);
+  if (definition.key === "tokenLifetimeMax") return tokenLifetimeMax(stored);
   const storedValue = stored[definition.key] ?? null;
   if (lockedEnvironment(definition)) return { ...readDeploymentSetting(definition), storedValue };
   return { value: storedValue ?? definition.defaultValue, source: storedValue === null ? "default" as const : "stored" as const,

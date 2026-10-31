@@ -7,8 +7,8 @@ describe("settings consumption inventory", () => {
   it("covers every deployment definition in both directions using actual reads", () => {
     const inventory = consumptionInventory(SETTING_CATALOGUE, sources());
     expect(consumptionProblems(SETTING_CATALOGUE, sources())).toEqual([]);
-    expect(inventory).toHaveLength(77); // Deployment settings and the two platform facts.
-    expect(inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))).toHaveLength(49);
+    expect(inventory).toHaveLength(81); // Deployment settings and the two platform facts.
+    expect(inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))).toHaveLength(53);
     // Each service address is read through its resolver, in its service's
     // own module alone, never from the environment directly.
     const addresses: Record<string, string[]> = {
@@ -20,6 +20,10 @@ describe("settings consumption inventory", () => {
       templatesCatalogueUrl: ["src/lib/templates/catalogue-address.ts"],
     };
     for (const row of inventory.filter(row => row.consumers.some(c => c.kind === "resolver"))) {
+      if (["mapsLimit", "projectsLimit", "peopleLimit", "tokenLifetimeMax"].includes(row.key)) {
+        expect(row.consumers.map(c => [c.kind, c.file]), row.key).toEqual([["resolver", "src/lib/settings/instance-limit-values.ts"]]);
+        continue;
+      }
       if (row.key in addresses) {
         expect(row.consumers.map(c => [c.kind, c.file]), row.key).toEqual(addresses[row.key].map(file => ["resolver", file]));
         continue;

@@ -33,12 +33,12 @@ it("exposes a closed update input and refuses unknown arguments before HTTP disp
     instanceName: { type: ["string", "null"], pattern: "^\\s*[\\s\\S]{0,80}\\s*$" }, landingPage: { enum: ["home", "projects", "maps", "workflows", "data", "sql", null] },
     "newMap.zoom": { type: ["number", "null"], minimum: 0, maximum: 22 }, "newLayer.pointOpacity": { type: ["integer", "null"], minimum: 10, maximum: 100 },
     "sqlConsole.lineWrap": { type: ["boolean", "null"] }, "imageExport.shape": { enum: ["16:9", "4:3", "1:1", null] } });
-  // The fifteen limits, the four General rows, the eighteen defaults for new
+  // The nineteen limits, the four General rows, the eighteen defaults for new
   // things, the twelve sign-in, token, publishing, connection and import
   // rows, the four service addresses and the services' eight numbers, the
   // five basemap switches, the satellite imagery's template and credit, and
   // the template catalogue's switch and address.
-  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(70);
+  expect(Object.keys(tool.inputSchema.properties)).toHaveLength(74);
   expect(tool.inputSchema.properties).toMatchObject({ geocodePaceMs: { type: ["integer", "null"], minimum: 0, maximum: 60_000 },
     geocodeMatchCacheHours: { type: ["integer", "null"], minimum: 24, maximum: 8_760 }, overpassCacheHours: { type: ["integer", "null"], minimum: 1, maximum: 720 } });
   for (const key of ["secretKey", "basemapUrl", "renderCapFeatures", "renderCapBytes", "trustedMemoryMb", "sourceGrouping"]) expect(tool.inputSchema.properties).not.toHaveProperty(key);

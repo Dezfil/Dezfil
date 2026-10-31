@@ -1,5 +1,6 @@
 /** Independent defaults and stored-write boundaries for the configuration contract. */
 export const DEFAULTS = {
+  mapsLimit: 0, projectsLimit: 0, peopleLimit: 0, tokenLifetimeMax: "none",
   externalSignInKeys: null, externalSignInAudience: null, externalSignInUrl: null,
   externalSignInOwnerId: null, externalSignInOwnerEmail: null, externalSignInOwnerName: null,
   externalSignInGenerationFloor: "0",
@@ -51,6 +52,9 @@ export const DEFAULTS = {
 } as const;
 
 export const EDITABLE_NUMBERS = {
+  mapsLimit: { kind: "integer", min: 0, max: Number.MAX_SAFE_INTEGER },
+  projectsLimit: { kind: "integer", min: 0, max: Number.MAX_SAFE_INTEGER },
+  peopleLimit: { kind: "integer", min: 0, max: Number.MAX_SAFE_INTEGER },
   uploadMaxMb: { kind: "integer", min: 1, max: 102400 },
   dataProcessingTimeoutS: { kind: "integer", min: 60, max: 21600 },
   remoteMaxMb: { kind: "integer", min: 1, max: 102400 },

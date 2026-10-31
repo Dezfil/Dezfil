@@ -82,6 +82,9 @@ const OFFERED = "where a basemap is chosen: the builder's picker, a published pa
   "Off, choosing it anew is refused; a map already on it keeps it.";
 export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   ...NUMERIC_SETTINGS,
+  { ...deployment("tokenLifetimeMax", "DEZFIL_TOKEN_LIFETIME_MAX", "choice", "Longest token lifetime",
+    "The longest lifetime new tokens may take. None leaves the token rule unbounded.", "none", "none"),
+    changedBy: "admin", timing: "live", editable: true, write: choice("none", "30d", "90d", "1y") },
   deployment("externalSignInKeys", "DEZFIL_EXTERNAL_SIGN_IN_KEYS", "secret", "Sign-in public keys", "Public keys trusted for external sign-in; reads disclose only the count.", null, "unset"),
   deployment("externalSignInAudience", "DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE", "text", "Sign-in audience", "This instance's identity, required in every sign-in ticket.", null, "unset"),
   deployment("externalSignInUrl", "DEZFIL_EXTERNAL_SIGN_IN_URL", "text", "Sign-in service", "The address the browser visits to sign in.", null, "unset"),

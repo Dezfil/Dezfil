@@ -16,6 +16,9 @@ const integer = (min: number, max: number) => ({ kind: "integer", min, max } as 
  * The services' numbers an admin may store keep those units too: a gap in
  * milliseconds, an answer limit in seconds, freshness in hours. */
 export const NUMERIC_SETTINGS = [
+  numeric("mapsLimit", "DEZFIL_MAPS_LIMIT", "Maps on this instance", "Every map, including duplicates and template copies. Zero means no limit.", 0, "maps", integer(0, Number.MAX_SAFE_INTEGER), "non-negative-integer"),
+  numeric("projectsLimit", "DEZFIL_PROJECTS_LIMIT", "Projects on this instance", "Every project. Zero means no limit.", 0, "projects", integer(0, Number.MAX_SAFE_INTEGER), "non-negative-integer"),
+  numeric("peopleLimit", "DEZFIL_PEOPLE_LIMIT", "People on this instance", "Invited, active and deactivated accounts and unfinished deletions. Zero means no limit.", 0, "people", integer(0, Number.MAX_SAFE_INTEGER), "non-negative-integer"),
   numeric("uploadMaxMb", "DEZFIL_UPLOAD_MAX_MB", "Largest upload", "Size cap for one uploaded file.", 5120, "MB", integer(1, 102400)),
   numeric("dataProcessingTimeoutS", "DEZFIL_DATA_PROCESSING_TIMEOUT_S", "Data processing time limit", "Time to receive one upload, and, counted apart, time for one data processing job, such as an import.", 3600, "seconds", integer(60, 21600)),
   numeric("remoteMaxMb", "DEZFIL_REMOTE_MAX_MB", "Largest link import", "Size cap for a URL or object-store import.", 2048, "MB", integer(1, 102400)),
