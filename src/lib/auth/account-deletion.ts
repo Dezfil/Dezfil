@@ -88,7 +88,14 @@ async function continueDeletion(journal: DeletionJournal, db: Database): Promise
       }).immediate(); },
       () => { compactMetadataStore(db); },
     ];
-    while (journal.next < stages.length) { await withStorageRecovery(stages[journal.next]); journal.next++; await withStorageRecovery(() => writeDeletionJournal(journal)); }
+    while (journal.next < stages.length) {
+      // Admitted work may need storage recovery to settle. Waiting for it
+      // under that same latch blocks both its settlement and pending replies.
+      if (journal.next === 0) await stages[journal.next]();
+      else await withStorageRecovery(stages[journal.next]);
+      journal.next++;
+      await withStorageRecovery(() => writeDeletionJournal(journal));
+    }
     removeDeletionJournal(journal.id);
     return { id: journal.id, state: "completed" };
   } catch {
