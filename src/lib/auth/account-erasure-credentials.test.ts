@@ -79,15 +79,25 @@ it.each(["success", "failure", "refund"])("a held %s current-password check cann
 it.each(["success", "failure", "refund"])("held %s reservations cannot recreate erased email buckets, and preserve source accounting", async outcome => {
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
-  const attempts = ["target", "former", "orphan"].map(id => withLoginLimit(`${id}@example.test`, "198.51.100.1", async () => {
+  const ids = ["target", "former", "orphan"];
+  const entered = ids.map(() => Promise.withResolvers<void>());
+  const attempts = ids.map((id, index) => withLoginLimit(`${id}@example.test`, "198.51.100.1", async () => {
+    entered[index].resolve();
     await held;
     if (outcome === "failure") throw new AuthError("invalid_credentials", "refused", 401);
     if (outcome === "refund") throw new Error("unavailable");
   }, db, () => 1000));
-  db.exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
-  eraseAccountCredentials("target", db);
-  release(); await Promise.allSettled(attempts);
-  for (const id of ["target", "former", "orphan"]) expect(db.prepare("SELECT * FROM auth_login_limits WHERE bucket = ?").get(key(`${id}@example.test`))).toBeUndefined();
+  const settled = Promise.allSettled(attempts);
+  try {
+    // Reservations now wait for storage recovery. Erase only after all three
+    // callbacks have entered, so this exercises settlement of existing work.
+    await Promise.all(entered.map(start => start.promise));
+    for (const id of ids) expect(db.prepare("SELECT pending FROM auth_login_limits WHERE bucket = ?").get(key(`${id}@example.test`))).toEqual({ pending: 1 });
+    db.exec("UPDATE accounts SET status = 'deleting' WHERE id = 'target'");
+    eraseAccountCredentials("target", db);
+  } finally { release(); await settled; }
+  expect((await settled).map(result => result.status)).toEqual(ids.map(() => outcome === "success" ? "fulfilled" : "rejected"));
+  for (const id of ids) expect(db.prepare("SELECT * FROM auth_login_limits WHERE bucket = ?").get(key(`${id}@example.test`))).toBeUndefined();
   expect(db.prepare("SELECT failures, pending FROM auth_login_limits WHERE bucket = ?").get(`source:${secretHash("198.51.100.1")}`)).toEqual({ failures: outcome === "failure" ? 3 : 0, pending: 0 });
 });
 it("rolls back every destructive write when a later statement fails", () => {
