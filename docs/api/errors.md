@@ -75,7 +75,9 @@ Some codes add a field beside the two:
 | `retryAfter` | `rate_limited` from sign-in or a password check, and `authentication_busy` | The seconds to wait before you try again. The `Retry-After` header carries the same number. |
 | `retryAt` | `rate_limited` from sign-in or a password check | The time you may try again. |
 | `rule` | `rule_refused` | The instance rule that refused you: `tokens.create`, `publishing.publish`, `connections.create` or `imports.links`. |
-| `key`, `limit`, `count` | `instance_limit_reached` | The refused count setting (`mapsLimit`, `projectsLimit` or `peopleLimit`), its limit and the current instance-wide count. |
+| `key` | `instance_limit_reached` | The refused count setting: `mapsLimit`, `projectsLimit` or `peopleLimit`. |
+| `limit` | `instance_limit_reached` | The largest count the instance allows for this setting. |
+| `count` | `instance_limit_reached` | The current count across the instance for this setting. |
 | `setting` | `basemap_not_offered` | The basemap switch that refused it, such as `basemaps.satellite`. |
 | `issues` | `geometry_choice_invalid`, and `invalid_request` for a tool's arguments over MCP | Each reason the request fails: a `code` and a `message` for a geometry choice, a `message` and the argument's `path` for a tool call. |
 

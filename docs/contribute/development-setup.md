@@ -410,15 +410,15 @@ A script writes each of these. Run it and commit what changed, rather than editi
 | The design specimen, `design/identity/dezfil-identity.html` | `node scripts/build-specimen.mjs` | `npm run lint:specimen` |
 | The look's background sheets in `public/look/` | `node scripts/generate-look-sheets.mjs` | The unit suite runs its `--check` |
 | The plugin guidance file and its licence | `node scripts/generate-dezfil-guidance.mjs` | `npm run lint:plugin` |
+| The assistant baselines | `node scripts/generate-assistant-baselines.mjs`; review every changed definition before committing | The assistant contract and provider request tests |
 | A plugin package for one instance | `node scripts/prepare-dezfil-plugin.mjs --output <NEW_FOLDER> --base-url <ORIGIN>` | Not committed: prepare a fresh copy when the instance address changes |
 | The shipped templates in `templates/`, one released archive at a time | `npm run templates:install -- <ARCHIVE> --sha256 <SHA256> --size <BYTES>`, as [`scripts/install-template.md`](../../scripts/install-template.md) says | Not checked for staleness: install each release once, from its checksum and size |
 
-Two kinds are cut by hand:
+Pixel baselines are cut by hand:
 
 | What | How |
 |---|---|
 | Pixel baselines | Only for an intended change, on macOS on Apple silicon, against a production build on a fresh data folder, one spec at a time: `DEZFIL_BASE_URL=http://127.0.0.1:<PORT> npx playwright test e2e/<SPEC>.spec.ts --update-snapshots=changed`. A shot whose comparison times out is written as it stands, so compare each rewritten picture with the old one before you commit it, and name the system in the commit message. |
-| The assistant baselines | The captures under `test-support/assistant-baselines/` have no script. When the unit suite says one moved, confirm the change is meant, then update the capture by hand. |
 
 ## Test and development wiring
 
