@@ -28,7 +28,7 @@ describe("the instance operations in the guides", () => {
     expect(operations.map(operation => operation.call).sort()).toEqual([
       "DELETE /api/instance/basemaps/{id}", "DELETE /api/instance/caches", "GET /api/instance/settings", "GET /api/instance/storage",
       "PATCH /api/instance/basemaps/{id}", "PATCH /api/instance/settings", "POST /api/instance/basemaps",
-      "POST /api/instance/parts/{part}/test", "POST /api/instance/services/{service}/test",
+      "POST /api/instance/parts/{part}/test", "POST /api/instance/services/{service}/test", "POST /api/instance/sign-out",
     ]);
   });
 

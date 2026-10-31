@@ -29,7 +29,7 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * Renderer availability and refresh's waiting-only response update output captures without changing the count.
  * Profile pictures add the read of a person's picture, setting and removing
  * one's own, and an admin's removal of another's. */
-const GENERATED_TOOLS = 161;
+const GENERATED_TOOLS = 162;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();
