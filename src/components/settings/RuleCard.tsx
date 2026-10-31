@@ -38,11 +38,19 @@ function cardKeys(card: RuleCard, settings: Settings): string[] {
 /** What a setting shows in its control: the listed sites as lines. */
 const shown = (key: string, value: unknown): Value => key === SITES ? sitesText(value) : value as Value;
 
+/** What a null write reads back as: the default, or, while a bound leaves the
+ * default out of the offer, the longest choice the read still offers. */
+function resetsTo(setting: ReadSetting, base: UnitControl): Value | undefined {
+  const offered = setting.write?.kind === "choice" ? setting.write.values : null;
+  return offered?.length && base.defaultValue !== undefined && !offered.includes(String(base.defaultValue)) ? offered[offered.length - 1] : base.defaultValue;
+}
+
 /** The save unit's view of a setting. The listed sites reset with the rest
  * of the card: their default, no site, in the lines the field shows. */
 function control(key: string, settings: Settings, row: string | undefined): UnitControl {
   const base = { ...unitControlFor(settings[key]), ...(row ? { row } : {}) };
-  return key === SITES && !base.locked ? { ...base, defaultValue: shown(key, settings[key].defaultValue) } : base;
+  if (key === SITES && !base.locked) return { ...base, defaultValue: shown(key, settings[key].defaultValue) };
+  return { ...base, ...(base.defaultValue !== undefined ? { defaultValue: resetsTo(settings[key], base) } : {}) };
 }
 
 function ruleUnit(card: RuleCard, settings: Settings): SaveUnit {
