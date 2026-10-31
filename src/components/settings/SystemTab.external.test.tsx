@@ -12,8 +12,8 @@ vi.mock("next/link", () => ({
 }));
 
 /**
- * System's External sign-in card: on or off from the configuration read and,
- * while on, the service's address, how many keys and both generations. The
+ * System's External sign-in card: on or off from the configuration read, both
+ * generations, and while on the service's address and how many keys. The
  * read carries no key, and the Server settings table's row says the count
  * rather than reading as unset. The reads are faked.
  */
@@ -67,10 +67,10 @@ it("says one key in the singular", async () => {
   expect(rows()).toContain("Public keys1 key");
 });
 
-it("says Off and nothing more while the mode is off", async () => {
+it("says Off and both generations while the mode is off, with no service or keys to name", async () => {
   read = instanceReadFixture({}, { externalSignIn: { enabled: false, keyCount: 0, signOutGeneration: 2, doorGeneration: 0 } });
   await open();
-  expect(rows()).toEqual(["StatusOff"]);
+  expect(rows()).toEqual(["StatusOff", "Sign-out generation2", "Door generation0"]);
 });
 
 it("draws no card from a read without the mode", async () => {

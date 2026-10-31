@@ -131,16 +131,18 @@ export interface ExternalSignInRow {
   readonly mono?: boolean;
 }
 
-/** The mode's card: on or off, and while on where people sign in, how many
- * public keys it trusts and both generations. The read holds no key. */
+/** The mode's card: on or off, both generations, which rise in either mode,
+ * and while on where people sign in and how many public keys it trusts. The
+ * read holds no key. */
 export function externalSignInRows(read: Pick<InstanceRead, "settings" | "externalSignIn">): ExternalSignInRow[] {
   const mode = read.externalSignIn;
   if (!mode) return [];
-  const status: ExternalSignInRow = { id: "sys-external-status", label: "Status", keys: "on off enabled disabled", value: mode.enabled ? "On" : "Off", state: mode.enabled ? "on" : "off" };
-  if (!mode.enabled) return [status];
-  return [status,
-    { id: "sys-external-service", label: "Sign-in service", keys: "door address url", value: String(read.settings.externalSignInUrl?.value ?? ""), mono: true },
-    { id: "sys-external-keys", label: "Public keys", keys: "keys rotation trust", value: keysWords(mode.keyCount) },
+  return [
+    { id: "sys-external-status", label: "Status", keys: "on off enabled disabled", value: mode.enabled ? "On" : "Off", state: mode.enabled ? "on" : "off" },
+    ...(mode.enabled ? [
+      { id: "sys-external-service", label: "Sign-in service", keys: "door address url", value: String(read.settings.externalSignInUrl?.value ?? ""), mono: true },
+      { id: "sys-external-keys", label: "Public keys", keys: "keys rotation trust", value: keysWords(mode.keyCount) },
+    ] : []),
     { id: "sys-external-sign-out-generation", label: "Sign-out generation", keys: "sign everyone out raised", value: String(mode.signOutGeneration) },
     { id: "sys-external-door-generation", label: "Door generation", keys: "floor raised", value: String(mode.doorGeneration) },
   ];
