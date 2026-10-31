@@ -1,3 +1,4 @@
+import { StorageWriter, assertStorageWritersOpen } from "@/lib/system/storage-fence";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import { bindDeletionDatasets, inDetachedDeletionWork, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
@@ -129,6 +130,7 @@ interface BuildAttempt {
   generation: number;
   done: ReturnType<typeof Promise.withResolvers<void>>;
   deletionWork: AccountWorkLease;
+  storage: StorageWriter;
 }
 
 /** A layer's attempt for one requesting reach. */
@@ -189,8 +191,9 @@ export async function tileBuildsSettled(): Promise<void> {
 
 /** The layer's tiler run, under the tile-build timeout, said as the
  * layer's own build message when it fails. */
-async function runTippecanoe(input: string, output: string): Promise<void> {
-  const run = await runTiler(input, output, limits.tileBuildTimeoutMs);
+async function runTippecanoe(input: string, output: string, signal: AbortSignal): Promise<void> {
+  const run = await runTiler(input, output, limits.tileBuildTimeoutMs, signal);
+  if (signal.aborted) throw signal.reason;
   if (run.ok) return;
   throw new Error(
     run.reason === "timed_out"
@@ -231,6 +234,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
   try {
     // A queued attempt may have been deleted before its turn reached the
     // process-wide worker. It has nothing to do and must write no state.
+    attempt.storage.assertCanCommit();
     if (!attemptCanCommit(attempt)) return;
     // The export's own evaluation is the archive's evidence: the identities
     // it bound, with the artifacts it read, whatever the render saw before.
@@ -241,12 +245,14 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
         geometryColumn: input.geometryColumn,
         columns: input.columns,
       },
-      exportFile,
+      exportFile, attempt.storage.signal,
     ));
     bindDeletionDatasets(inputs.datasets.map(input => input.id));
     trackBuildInputs(attempt.id, input.layerId, inputs);
+    attempt.storage.assertCanCommit();
     if (!attemptCanCommit(attempt)) return;
-    await runTippecanoe(exportFile, archiveFile);
+    await runTippecanoe(exportFile, archiveFile, attempt.storage.signal);
+    attempt.storage.assertCanCommit();
     if (!attemptCanCommit(attempt)) return;
     // The record names the data the archive actually holds.
     const built = tileFingerprint(input.sql, input.filters, input.projection, inputs);
@@ -333,6 +339,7 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
 
 function start(access: TileAccess, input: TileBuildInput): void {
   requireTileAccess(access, input.layerId);
+  assertStorageWritersOpen();
   const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, requestInputs(input, getTileRecord(input.layerId)));
   const attempt: BuildAttempt = {
     access,
@@ -343,6 +350,7 @@ function start(access: TileAccess, input: TileBuildInput): void {
     generation: generation(input.layerId),
     done: Promise.withResolvers<void>(),
     deletionWork: admitAccountWork([access.ownerId, ...("scope" in access.credential ? [access.credential.scope.accountId] : [])]),
+    storage: new StorageWriter(),
   };
   try {
   inDetachedDeletionWork(attempt.deletionWork, () => bindDeletionDatasets(input.inputs?.datasets.map(input => input.id) ?? []));
@@ -363,8 +371,8 @@ function start(access: TileAccess, input: TileBuildInput): void {
   })();
   active.set(attempt.key, attempt);
   trackBuildInputs(attempt.id, input.layerId, input.inputs ?? null);
-  } catch (error) { attempt.deletionWork.release(); throw error; }
-  const work = () => inDetachedDeletionWork(attempt.deletionWork, () => runBuild(attempt)).finally(() => { attempt.deletionWork.release(); attempt.done.resolve(); });
+  } catch (error) { attempt.storage.close(); attempt.deletionWork.release(); throw error; }
+  const work = () => inDetachedDeletionWork(attempt.deletionWork, () => runBuild(attempt)).finally(() => { attempt.deletionWork.release(); attempt.storage.close(); attempt.done.resolve(); });
   // Contain every terminal failure so one bad target cannot poison the
   // global queue or become an unhandled rejection.
   chain.value = chain.value.then(work, work).catch(() => undefined);

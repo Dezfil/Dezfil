@@ -517,7 +517,7 @@ export interface CascadeResult {
  * and fails by name for whoever opens it.
  */
 export async function cascadeDeleteSketch(scope: AccountScope, name: string, from: "layer" | "dataset" = "dataset", opts: { expectedRevision?: unknown; signal?: AbortSignal } = {}): Promise<CascadeResult> {
-  return withTrustedMutation({ kind: "sketch-change", name: "Sketch change", signal: opts.signal }, async operation => {
+  return withTrustedMutation({ kind: "sketch-change", name: "Sketch change", signal: opts.signal, storage: false }, async operation => {
     const keyed = requireSketch(scope, name);
     return serializeSketchMutation(keyed.id, async () => {
       const fresh = requireSketch(scope, name);

@@ -1,3 +1,4 @@
+import { StorageWriter } from "@/lib/system/storage-fence";
 import { admitResourceWork, inDeletionWork, registerRenderDeletionWork } from "@/lib/auth/account-deletion-work";
 import { pictureMeasure } from "@/lib/pictures/measurement";
 import { drainAccountRenders } from "./render-work";
@@ -132,11 +133,14 @@ export interface RenderImageInput {
 export function renderMapImage(scope: AccountScope, input: RenderImageInput): Promise<RenderImageResult> {
   const accountId = requireAccountScope(scope);
   const lease = admitResourceWork(scope, [{ table: "maps", id: input.mapId }]);
+  let writer: StorageWriter;
+  try { writer = new StorageWriter(); } catch (error) { lease.release(); throw error; }
+  input = { ...input, signal: AbortSignal.any([writer.signal, ...(input.signal ? [input.signal] : [])]) };
   const unregister = registerRenderDeletionWork(input.credential, lease);
   const rendering = trackRenderWork(accountId, inDeletionWork(lease, () => performRenderMapImage(scope, input)));
-  return rendering.then(result => { lease.assertCommit(); return result; }).finally(() => {
+  return rendering.then(result => { writer.assertCanCommit(); lease.assertCommit(); return result; }, error => { writer.assertCanCommit(); throw error; }).finally(() => {
     // A timed-out response can precede browser launch/render/close settlement.
-    void drainAccountRenders(accountId).finally(() => { unregister(); lease.release(); });
+    void drainAccountRenders(accountId).finally(() => { unregister(); lease.release(); writer.close(); });
   });
 }
 

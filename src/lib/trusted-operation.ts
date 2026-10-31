@@ -1,3 +1,4 @@
+import { StorageWriter, assertStorageWritersOpen } from "./system/storage-fence";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ApiError, EvaluationCancelled, type ErrorCode } from "./api/errors";
 import { RESOURCE_ERROR_STATUSES } from "./api/error-catalogue";
@@ -28,6 +29,8 @@ export interface TrustedOperationOptions {
   deadline?: number;
   /** Interests are parent-operation signals; stop when none still needs this child. */
   shared?: boolean;
+  /** Small recovery work, such as deleting a sketch, creates no dataset. */
+  storage?: boolean;
 }
 
 /** Keep every already-coded refusal intact through source-specific wrappers,
@@ -313,7 +316,14 @@ export class TrustedOperation {
 }
 
 export function admitTrustedOperation(options: TrustedOperationOptions): TrustedOperation {
-  return new TrustedOperation(options);
+  const writes = options.storage ?? options.kind !== "interactive-read";
+  if (writes) assertStorageWritersOpen();
+  const operation = new TrustedOperation(options);
+  if (writes) {
+    const writer = new StorageWriter(error => operation.refuse(error));
+    void operation.drained.then(() => writer.close());
+  }
+  return operation;
 }
 
 export function withTrustedOperation<T>(options: TrustedOperationOptions, work: (operation: TrustedOperation) => Promise<T>): Promise<T> {

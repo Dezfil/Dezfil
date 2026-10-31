@@ -1,3 +1,4 @@
+import { currentStorageWriter, withStorageWrite } from "@/lib/system/storage-fence";
 import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { randomBytes } from "node:crypto";
 import { mkdir, readdir, rename, writeFile } from "node:fs/promises";
@@ -116,7 +117,7 @@ export interface PictureOutcome {
 /** Make `picture` the subject's picture, or remove it when null, in the
  * subject's turn. `authorize` runs inside the commit and throws when the
  * actor may no longer make the change. */
-export function publishPicture(write: PictureWrite, picture: Buffer | null, authorize: (db: Database) => void,
+function publishPictureWork(write: PictureWrite, picture: Buffer | null, authorize: (db: Database) => void,
   db: Database = metadataDb()): Promise<PictureOutcome> {
   const writes = pictureWrites.get(writesKey(write.subjectId, db));
   if (!writes?.live.has(write.sequence)) return Promise.reject(new Error("The picture write has been released."));
@@ -154,6 +155,7 @@ function standing(write: PictureWrite, authorize: (db: Database) => void, db: Da
  * it replaced. */
 async function commit(write: PictureWrite, version: string | null, authorize: (db: Database) => void, db: Database): Promise<string | null> {
   return db.transaction(() => {
+    currentStorageWriter()?.assertCanCommit();
     authorize(db);
     const row = db.prepare("SELECT picture_version FROM accounts WHERE id = ? AND status NOT IN ('deleting', 'deleted')")
       .get(write.subjectId) as { picture_version: string | null } | undefined;
@@ -168,11 +170,12 @@ async function commit(write: PictureWrite, version: string | null, authorize: (d
  * name, and a rename puts them in place. Answers the new version. */
 async function placeCandidate(accountId: string, picture: Buffer): Promise<string> {
   const version = mintPictureVersion();
-  registerAccountFile(accountId, partialPath(accountId, version));
-  registerAccountFile(accountId, picturePath(accountId, version));
   try {
+    registerAccountFile(accountId, partialPath(accountId, version));
+    registerAccountFile(accountId, picturePath(accountId, version));
     await mkdir(folder(), { recursive: true });
-    await writeFile(partialPath(accountId, version), picture, { flag: "wx" });
+    await writeFile(partialPath(accountId, version), picture, { flag: "wx", signal: currentStorageWriter()?.signal });
+    currentStorageWriter()?.assertCanCommit();
     await rename(partialPath(accountId, version), picturePath(accountId, version));
     await removeAccountFile(partialPath(accountId, version));
   } catch (error) {
@@ -217,4 +220,8 @@ export async function sweepProfilePictures(db: Database = metadataDb()): Promise
   for (const name of recorded) if (!current.has(name)) await removeAccountFile(path.join(folder(), name));
   if (leftovers.length) console.warn(`boot sweep: removed ${leftovers.length} profile picture ${leftovers.length === 1 ? "file" : "files"} no account names`);
   return leftovers.length;
+}
+
+export function publishPicture(...args: Parameters<typeof publishPictureWork>): Promise<PictureOutcome> {
+  return args[1] === null ? publishPictureWork(...args) : withStorageWrite(() => publishPictureWork(...args));
 }

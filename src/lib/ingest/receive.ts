@@ -1,3 +1,4 @@
+import { StorageWriter } from "@/lib/system/storage-fence";
 import { isStorageExhausted, storageExhausted } from "@/lib/system/storage-errors";
 import { createUploadClock, nativeUploadReception, type UploadReception, type ReceptionRefusal } from "@/lib/auth/reception.mjs";
 import { settingRemedy } from "@/lib/settings/remedy";
@@ -104,6 +105,7 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     observe(finished(stream, { cleanup: true }), classify);
     return stream;
   };
+  const writer = new StorageWriter(fail);
   const abort = () => fail(new EvaluationCancelled());
   request.signal.addEventListener("abort", abort, { once: true });
 
@@ -211,6 +213,7 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     if (tmpPath) await removeAccountFile(tmpPath, { force: true });
     throw failure;
   } finally {
+    writer.close();
     reception.complete();
     request.signal.removeEventListener("abort", abort);
   }

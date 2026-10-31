@@ -1,9 +1,10 @@
+import { fenceStorageWriters } from "@/lib/system/storage-fence";
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
@@ -109,7 +110,7 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 printf '%s\\n' "$input" >> "$DEZFIL_TEST_TILER_LOG"
-: > "$DEZFIL_TEST_TILER_STARTED"
+echo $$ > "$DEZFIL_TEST_TILER_STARTED"
 while [ ! -f "$DEZFIL_TEST_TILER_RELEASE" ]; do sleep 0.01; done
 printf 'PMTiles%s' "$input" > "$out"
 `,
@@ -441,4 +442,19 @@ describe("tile builds", () => {
     expect(attempts).toHaveLength(2);
     expect(new Set(attempts).size).toBe(2);
   });
+});
+
+it("the storage fence ends the tiler and settles its scratch before recovery", async () => {
+  const tiler = await gatedTiler();
+  const access = privateTileAccess(testAccountScope(), layerId);
+  ensureTiles(access, input());
+  await tiler.begun();
+  const pid = Number(await readFile(process.env.DEZFIL_TEST_TILER_STARTED!, "utf8"));
+  const fence = await fenceStorageWriters();
+  try {
+    expect(fence.overdue).toBe(0);
+    expect(() => process.kill(pid, 0)).toThrow();
+    expect(await readdir(path.join(dir, "data", "tiles", "scratch"))).toEqual([]);
+    expect(ensureTiles(access, input())).toMatchObject({ state: "failed", error: expect.stringContaining("storage is full") });
+  } finally { fence.release(); await tiler.release(); }
 });

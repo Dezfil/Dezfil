@@ -1,3 +1,4 @@
+import { currentStorageWriter, withStorageWrite } from "./system/storage-fence";
 import { writeAtomically } from "./pictures/write-atomically";
 import { admitResourceWork, bindDeletionDatasets, inDeletionWork } from "@/lib/auth/account-deletion-work";
 import type { AccountScope } from "@/lib/auth/scope";
@@ -296,7 +297,7 @@ async function expireHeld(
  * the map returns to one image. `inputs` is what the image drew, or null
  * for an unattributed image; `basemap` the basemap it was drawn on, or
  * null when none is known. */
-export function saveThumbnail(
+function saveThumbnailWork(
   scope: AccountScope,
   mapId: string,
   bytes: Uint8Array,
@@ -305,7 +306,7 @@ export function saveThumbnail(
 ): Promise<void> {
   requireOwnMap(scope, mapId);
   const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
-  const authorize = () => { requireOwnMap(scope, mapId); lease.assertCommit(); };
+  const authorize = () => { currentStorageWriter()?.assertCanCommit(); requireOwnMap(scope, mapId); lease.assertCommit(); };
   try { inDeletionWork(lease, () => bindDeletionDatasets(inputs?.datasets.map(input => input.id) ?? [])); }
   catch (error) { lease.release(); throw error; }
   return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
@@ -372,7 +373,7 @@ async function moveAside(mapId: string, set: ThumbnailSet, authorize: () => void
  * template copy's pair is marked as the template's by the call that
  * completes it.
  */
-export function saveThemedThumbnail(
+function saveThemedThumbnailWork(
   scope: AccountScope,
   mapId: string,
   theme: ThumbnailTheme,
@@ -384,7 +385,7 @@ export function saveThemedThumbnail(
 ): Promise<"held" | "published"> {
   requireOwnMap(scope, mapId);
   const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
-  const authorize = () => { requireOwnMap(scope, mapId); lease.assertCommit(); };
+  const authorize = () => { currentStorageWriter()?.assertCanCommit(); requireOwnMap(scope, mapId); lease.assertCommit(); };
   try { inDeletionWork(lease, () => bindDeletionDatasets(inputs?.datasets.map(input => input.id) ?? [])); }
   catch (error) { lease.release(); throw error; }
   return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
@@ -594,8 +595,8 @@ export function removeThumbnail(scope: AccountScope, mapId: string): Promise<voi
  * themed pair only whole; otherwise the copy starts without it. Lock both
  * parents in stable order, so a queued destination write cannot interleave
  * the copy. */
-export function copyThumbnail(scope: AccountScope, from: string, to: string): Promise<void> {
-  const authorize = () => { requireMap(scope, from); requireOwnMap(scope, to); };
+function copyThumbnailWork(scope: AccountScope, from: string, to: string): Promise<void> {
+  const authorize = () => { currentStorageWriter()?.assertCanCommit(); requireMap(scope, from); requireOwnMap(scope, to); };
   authorize();
   if (from === to) return Promise.resolve();
   const [first, second] = [from, to].sort();
@@ -657,7 +658,7 @@ export function thumbnailTurnForTests(mapId: string): Promise<unknown> | undefin
 
 /** Server candidates use fresh names for single images too, so switching
  * between one and two appearances is one atomic publication. */
-export function savePictureSet(scope: AccountScope, mapId: string, images: { light: Uint8Array | PictureImages; dark?: Uint8Array | PictureImages },
+function savePictureSetWork(scope: AccountScope, mapId: string, images: { light: Uint8Array | PictureImages; dark?: Uint8Array | PictureImages },
   inputs: ArtifactInputs, basemaps: { light: DrawnBasemap; dark?: DrawnBasemap }, generation: number,
   check: () => void, published: () => void): Promise<void> {
   requireOwnMap(scope, mapId);
@@ -669,7 +670,7 @@ export function savePictureSet(scope: AccountScope, mapId: string, images: { lig
   // Refused before any work is admitted, so a refusal holds no lease.
   const sizes = listedSizes(themes.map((theme) => pictures[theme]!));
   const lease = admitResourceWork(scope, [{ table: "maps", id: mapId }]);
-  const authorize = () => { requireOwnMap(scope, mapId); lease.assertCommit(); check(); };
+  const authorize = () => { currentStorageWriter()?.assertCanCommit(); requireOwnMap(scope, mapId); lease.assertCommit(); check(); };
   return inDeletionWork(lease, () => inThumbnailTurn(mapId, async () => {
     bindDeletionDatasets(inputs.datasets.map(input => input.id));
     authorize();
@@ -772,3 +773,11 @@ export async function publishedPictureInputs(mapId: string): Promise<ArtifactInp
     catch { return null; }
   });
 }
+
+export function saveThumbnail(...args: Parameters<typeof saveThumbnailWork>) { return withStorageWrite(() => saveThumbnailWork(...args)); }
+
+export function saveThemedThumbnail(...args: Parameters<typeof saveThemedThumbnailWork>) { return withStorageWrite(() => saveThemedThumbnailWork(...args)); }
+
+export function savePictureSet(...args: Parameters<typeof savePictureSetWork>) { return withStorageWrite(() => savePictureSetWork(...args)); }
+
+export function copyThumbnail(...args: Parameters<typeof copyThumbnailWork>) { return withStorageWrite(() => copyThumbnailWork(...args)); }

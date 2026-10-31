@@ -896,6 +896,10 @@
     "memory:storage-state": {
       "action": "retain",
       "rule": "Keep only the full-state transition bit for once-per-transition logging. It holds no account identity or content."
+    },
+    "memory:storage-writers": {
+      "action": "retain",
+      "rule": "Keep process-wide writer cancellation and settlement coordination until each owning operation drains. Account deletion drains those operation owners before erasing their material; the registry stores no account identity or file bytes of its own."
     }
   },
   "tables": {
@@ -1576,7 +1580,7 @@
         "cache/isochrone/.*.*.tmp"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail:inDir": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1584,7 +1588,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail:thumbnailManifestPath": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork:thumbnailManifestPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1592,7 +1596,7 @@
         "thumbnails/*.json"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1600,7 +1604,7 @@
         "thumbnails/*.png"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail.dark:inDir": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork.dark:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1608,7 +1612,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail.light:inDir": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork.light:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1616,7 +1620,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail.singleEvidence:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork.singleEvidence:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1720,7 +1724,7 @@
         "thumbnails/*.png"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:inDir": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1728,7 +1732,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:thumbnailManifestPath": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:thumbnailManifestPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1736,7 +1740,7 @@
         "thumbnails/*.json"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1744,7 +1748,7 @@
         "thumbnails/*.png"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail.paired:inDir": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork.paired:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1752,7 +1756,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThumbnail:thumbnailManifestPath": {
+    "location:src/lib/map-thumbnails.ts#saveThumbnailWork:thumbnailManifestPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1760,7 +1764,7 @@
         "thumbnails/*.json"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThumbnail:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#saveThumbnailWork:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1768,7 +1772,7 @@
         "thumbnails/*.png"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThumbnail.single:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#saveThumbnailWork.single:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -4377,7 +4381,7 @@
         "cache/isochrone/.*.*.tmp"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#copyThumbnail:writeAtomically": {
+    "writer:src/lib/map-thumbnails.ts#copyThumbnailWork:writeAtomically": {
       "stores": [
         "file:thumbnails"
       ],
@@ -4396,7 +4400,7 @@
         "thumbnails/*.json"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnail:writeAtomically": {
+    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:writeAtomically": {
       "stores": [
         "file:thumbnails"
       ],
@@ -5416,7 +5420,7 @@
         "memory:request-closures"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail.partnerInputs:inDir": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork.partnerInputs:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -5429,7 +5433,7 @@
         "memory:account-deletion-work"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnail:writeImageCandidate": {
+    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:writeImageCandidate": {
       "stores": [
         "file:thumbnails"
       ],
@@ -5437,7 +5441,7 @@
         "thumbnails/*"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#saveThumbnail:writeImageCandidate": {
+    "writer:src/lib/map-thumbnails.ts#saveThumbnailWork:writeImageCandidate": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7043,7 +7047,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#savePictureSet:inDir": {
+    "location:src/lib/map-thumbnails.ts#savePictureSetWork:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7051,7 +7055,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#savePictureSet:thumbnailManifestPath": {
+    "location:src/lib/map-thumbnails.ts#savePictureSetWork:thumbnailManifestPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7059,7 +7063,7 @@
         "thumbnails/*.json"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#savePictureSet:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#savePictureSetWork:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7067,7 +7071,7 @@
         "thumbnails/*.png"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#savePictureSet:writeAtomically": {
+    "writer:src/lib/map-thumbnails.ts#savePictureSetWork:writeAtomically": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7076,7 +7080,7 @@
         "thumbnails/*.json"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#savePictureSet:writeImageCandidate": {
+    "writer:src/lib/map-thumbnails.ts#savePictureSetWork:writeImageCandidate": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7459,6 +7463,61 @@
       ],
       "roots": [
         "tmp"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#context": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#fenceStorageWriters.error": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#fenceStorageWriters.reason": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#fenceStorageWriters.timer": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#fenceStorageWriters.writers": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#state": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#state.writers": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#StorageWriter.completion": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#StorageWriter.controller": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#StorageWriter.settled": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#StorageWriter.signal": {
+      "stores": [
+        "memory:storage-writers"
       ]
     }
   },

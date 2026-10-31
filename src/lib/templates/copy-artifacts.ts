@@ -1,3 +1,4 @@
+import { currentStorageWriter } from "@/lib/system/storage-fence";
 import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -45,6 +46,7 @@ export async function copyDatasetFile(accountId: string, folder: string, member:
         }
       },
       createWriteStream(target, { flags: "wx" }),
+      { signal: currentStorageWriter()?.signal },
     );
     if (hash.digest("hex") !== sha256) refuse("template_record_mismatch", `The member "${member}" differs from its record.`);
     return { id, file };

@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import type { DatasetScope } from "@/lib/query/access";
 import { limits } from "@/lib/limits";
 import { ApiError } from "@/lib/api/errors";
@@ -42,6 +43,7 @@ export async function exportGeoJsonSeq(
   scope: DatasetScope,
   input: ExportInput,
   outFile: string,
+  signal?: AbortSignal,
 ): Promise<number> {
   return boundedEvaluation(
     async (conn) => {
@@ -59,6 +61,7 @@ export async function exportGeoJsonSeq(
         const row = reader.getRowObjects()[0] as Record<string, unknown>;
         return Number(Object.values(row ?? {})[0] ?? 0);
       } catch (error) {
+        rethrowStorageFailure(error);
         if (error instanceof ApiError) throw error;
         if (isOutOfMemory(error)) throw error;
         const message =
@@ -67,7 +70,7 @@ export async function exportGeoJsonSeq(
       }
     },
     {
-      scope,
+      scope, signal,
       budgetMs: limits.tileBuildTimeoutMs,
       timeoutError: () =>
         new ApiError(
