@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { useSearchShortcut } from "@/components/use-search-shortcut";
 import { useTransientNotice } from "@/components/use-transient-notice";
 import { readExternalMode } from "@/components/auth/external-mode";
+import { useLimitMark } from "@/components/use-instance-rules";
 import { accountRequest, failureMessage } from "@/components/settings/api";
 import gallery from "@/components/gallery.module.css";
 import { InviteUserRow } from "./InviteUserRow";
@@ -31,6 +32,8 @@ export function UsersScreen() {
   const focusSearch = useRef(false), finishing = useRef(false);
   const search = useRef<HTMLInputElement>(null); useSearchShortcut(search);
   const { notice, show } = useTransientNotice();
+  const [refusedInvitations, setRefusedInvitations] = useState(0);
+  const limit = useLimitMark("people", data ? `${data.users.length} ${data.deletions.length} ${refusedInvitations}` : null);
   useEffect(() => {
     let cancelled = false;
     Promise.all([accountRequest<{ users: Account[]; deletions: PendingDeletion[] }>("/api/users"), accountRequest<{ account: Account }>("/api/account"), readExternalMode()])
@@ -108,7 +111,7 @@ export function UsersScreen() {
       onDone={() => setHandOver(null)} onDelete={() => setDeleting(account)} />;
   }
   return <div className={styles.screen}>
-    <ListHeading title="Users" line={null} action={{ label: "Invite", disabled: !data || busy || inviting,
+    <ListHeading title="Users" line={null} mark={limit} action={{ label: "Invite", disabled: !data || busy || inviting,
       onClick: () => { setInviting(true); setOpen(null); setHandOver(null); } }} />
     {error && <ErrorNote message={error} onRetry={!data ? () => { setError(null); setAttempt(value => value + 1); } : undefined} onDismiss={data ? () => setError(null) : undefined} />}
     {pending.filter(value => value.state === "needs-retry").map(value => <ErrorNote key={value.id}
@@ -122,7 +125,7 @@ export function UsersScreen() {
     {!data && !error && <p role="status">Loading users…</p>}
     {data && <div className={`${gallery.listCard} ${styles.ledger}`}>
       <div className={`${gallery.listHead} ${styles.columns}`} aria-hidden><span>Person</span><span>Email</span><span>Role</span><span>Status</span><span>Last sign-in</span><span /></div>
-      {inviting && <InviteUserRow onCancel={() => setInviting(false)} onCreated={issued => {
+      {inviting && <InviteUserRow onCancel={() => setInviting(false)} onRefused={() => setRefusedInvitations(value => value + 1)} onCreated={issued => {
         update(issued.account); setQuery(""); setInviting(false); setOpen(issued.account.id); setHandOver(issued); show(`Account created for ${issued.account.name}`);
       }} onReactivate={async id => { if (await change(id, { status: "active" })) { setInviting(false); setOpen(id); setQuery(""); } }} />}
       {active.map(row)}

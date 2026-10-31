@@ -27,6 +27,7 @@ import { ErrorNote } from "./ui/ErrorNote";
 import { ListHeading } from "./ListHeading";
 import { PictureRendererNotice } from "./PictureRendererNotice";
 import { readPictureListing } from "./picture-poll";
+import { useLimitMark } from "./use-instance-rules";
 import { PicturePoll } from "./PicturePoll";
 import { headingLine } from "./scope/model";
 import { PlusIcon, SignOutIcon } from "./ui/icons";
@@ -96,6 +97,7 @@ export function ProjectsScreen({
   );
   const [draftName, setDraftName] = useState<string | null>(null);
   const [nameProblem, setNameProblem] = useState<string | null>(null);
+  const limit = useLimitMark("projects", world ? `${world.projects.length} ${nameProblem}` : null);
   const [creating, setCreating] = useState(false);
   const [exporting, setExporting] = useState<{ id: string; name: string } | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(departureNotice);
@@ -429,6 +431,7 @@ export function ProjectsScreen({
           appears only when a search narrows the list. */}
       <ListHeading
         title="Projects"
+        mark={limit}
         line={
           world && shown
             ? headingLine({

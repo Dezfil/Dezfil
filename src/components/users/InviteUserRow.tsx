@@ -7,8 +7,10 @@ import { failureMessage } from "@/components/settings/api";
 import type { HandOver } from "./SignInHandOver";
 import styles from "./UsersScreen.module.css";
 
-export function InviteUserRow({ onCreated, onCancel, onReactivate }: {
+export function InviteUserRow({ onCreated, onCancel, onReactivate, onRefused }: {
   onCreated: (value: HandOver) => void; onCancel: () => void; onReactivate: (id: string) => Promise<void>;
+  /** The server refused the invitation, so what the page knows of the count may be behind. */
+  onRefused?: () => void;
 }) {
   const [name, setName] = useState(""), [email, setEmail] = useState(""), [admin, setAdmin] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
@@ -21,6 +23,7 @@ export function InviteUserRow({ onCreated, onCancel, onReactivate }: {
       const body = await response.json();
       if (!response.ok) {
         if (body.error?.canReactivate === true && typeof body.error.accountId === "string") setReactivateId(body.error.accountId);
+        onRefused?.();
         throw new Error(body.error?.message ?? "The invitation could not be created.");
       }
       onCreated(body as HandOver);

@@ -38,7 +38,7 @@ import { CheckIcon, PlusIcon } from "./ui/icons";
 import { OwnerPill } from "./sharing/PeopleMarks";
 import { ownedByOther } from "./sharing/people";
 import { useSignedInSqlName } from "./sharing/signed-in";
-import { useRuleRefusal } from "./use-instance-rules";
+import { useLimitMark, useRuleRefusal } from "./use-instance-rules";
 import gallery from "./gallery.module.css";
 import styles from "./MapsScreen.module.css";
 import { serverUnreachable } from "./failure-copy";
@@ -147,6 +147,7 @@ export function MapsScreen({
   // Mutation failures are their own dismissible note, separate from the
   // load state — one banner no longer serves six different failures.
   const [actionError, setActionError] = useState<string | null>(null);
+  const limit = useLimitMark("maps", world ? `${world.all.length} ${actionError}` : null);
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -400,6 +401,7 @@ export function MapsScreen({
           quietly create unfiled: creation waits for a ready world. */}
       <ListHeading
         title="Maps"
+        mark={limit}
         line={
           world
             ? headingLine({

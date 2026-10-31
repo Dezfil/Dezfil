@@ -6,13 +6,13 @@ import gallery from "@/components/gallery.module.css";
 
 /**
  * The list pages' one heading: the page supplies its words and its
- * action, when it has one; the arrangement is shared. No count stands beside the title
- * in any state — a field round over took the pill back off
- * the five pages, so the heading neither draws a number nor accepts
- * one. The pages still compute their totals, which the second line and
- * the filter chips need. The line is the page's second sentence and
- * appears only when it says something the title cannot; the page
- * decides that with headingLine.
+ * action, when it has one; the arrangement is shared. A page's total never
+ * stands beside the title: the pages still compute their totals, which the
+ * second line and the filter chips need. The one number the heading draws is
+ * a limit's mark, "n of m", which a page passes only while the limit is set;
+ * it stands outside the h1, so the heading's name stays the title. The line
+ * is the page's second sentence and appears only when it says something the
+ * title cannot; the page decides that with headingLine.
  */
 export type ListHeadingAction =
   | { label: string; onClick: () => void; disabled?: boolean }
@@ -21,11 +21,14 @@ export type ListHeadingAction =
 export function ListHeading({
   title,
   line,
+  mark = null,
   note = null,
   action,
 }: {
   title: string;
   line: string | null;
+  /** Where the instance stands against a limit, while one is set. */
+  mark?: string | null;
   /** Why the action is drawn disabled, when a rule holds it back. */
   note?: string | null;
   /** None on a page where nothing is made from the heading. */
@@ -34,7 +37,10 @@ export function ListHeading({
   return (
     <div className={gallery.heading} data-list-heading>
       <div>
-        <h1>{title}</h1>
+        <div className={gallery.titleLine}>
+          <h1>{title}</h1>
+          {mark && <span className={gallery.limitMark} data-limit-mark>{mark}</span>}
+        </div>
         {line && <p className={gallery.subLine}>{line}</p>}
         {note && <p className={gallery.subLine}>{note}</p>}
       </div>
