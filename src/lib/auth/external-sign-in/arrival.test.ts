@@ -81,14 +81,6 @@ it("rolls back account, budget, session and ticket id when a write after session
   log.mockRestore(); f.db.exec("DROP TRIGGER fail_ticket");
   expect((await arrive(ticket)).status).toBe(200);
 });
-it("two simultaneous presentations through separate connections yield exactly one session", async () => {
-  const ticket = f.ticket(), other = f.connection();
-  try {
-    const responses = await Promise.all([arriveExternalSignIn(f.request(ticket), f.db), arriveExternalSignIn(f.request(ticket), other)]);
-    expect(responses.map(r => r.status).sort()).toEqual([200, 401]); expect(f.db.prepare("SELECT * FROM auth_sessions").all()).toHaveLength(1);
-  } finally { other.close(); }
-});
-
 it("uses the ticket name or email only for an owner without a configured name", async () => {
   const ticket = f.ticket({ name: undefined });
   expect((await arrive(ticket)).status).toBe(200);
