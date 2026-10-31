@@ -7,7 +7,7 @@
     },
     "table:accounts": {
       "action": "erase",
-      "rule": "Erase every profile field, the picture's version included, and all account dates. Ever-active identities retain only id, deleted status and the fixed SQL name. Never-used invitations leave no row.",
+      "rule": "Erase every profile field, the picture's version and bound external identity included, and all account dates. Ever-active identities retain only id, deleted status and the fixed SQL name. Never-used invitations leave no row.",
       "fixture": "table:accounts"
     },
     "table:auth_links": {
@@ -879,6 +879,14 @@
       "action": "erase",
       "rule": "Keep an account's order of picture writes only while one of them is admitted under its work lease. Deletion drains the account's writes, which removes its entry; other accounts' entries stay.",
       "fixture": "memory:src/lib/profile-pictures/store.ts#pictureWrites"
+    },
+    "table:auth_ticket_ids": {
+      "action": "retain",
+      "rule": "Keep accepted ticket ids until expiry to prevent replay, without account content."
+    },
+    "table:auth_generations": {
+      "action": "retain",
+      "rule": "Keep the instance sign-out and door generations across account deletion."
     }
   },
   "tables": {
@@ -910,7 +918,9 @@
     "recipes": "table:recipes",
     "step_runner_outputs": "table:step_runner_outputs",
     "workspace_settings": "table:workspace_settings",
-    "map_pictures": "table:map_pictures"
+    "map_pictures": "table:map_pictures",
+    "auth_ticket_ids": "table:auth_ticket_ids",
+    "auth_generations": "table:auth_generations"
   },
   "sources": {
     "location:src/app/api/health/route.ts#GET:dataDir": {
@@ -7446,6 +7456,7 @@
     "picture_version": "erase",
     "sql_name": "retain",
     "status": "retain",
-    "updated_at": "erase"
+    "updated_at": "erase",
+    "external_identity": "erase"
   }
 }

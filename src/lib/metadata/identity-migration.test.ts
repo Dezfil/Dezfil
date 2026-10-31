@@ -15,21 +15,22 @@ let directory: string, file: string, db: Database.Database;
 /** Later migrations add the token expiry column, the picture's version and
  * the basemap library's table; these checks compare the store as the
  * identity migration left it, every other byte included. */
-const LATER_TOKEN_COLUMN = ", expires_at INTEGER)";
-const LATER_COLUMNS: Record<string, string> = { auth_tokens: "expires_at", accounts: "picture_version" };
-const LATER_TABLES = new Set(["basemap_styles", "map_pictures"]);
+const LATER_CREDENTIAL_COLUMNS = /, (?:expires_at INTEGER, )?sign_out_generation INTEGER NOT NULL DEFAULT 0, door_generation INTEGER NOT NULL DEFAULT 0\)$/;
+const LATER_COLUMNS: Record<string, string[]> = { auth_tokens: ["expires_at", "sign_out_generation", "door_generation"], auth_sessions: ["sign_out_generation", "door_generation"], accounts: ["picture_version", "external_identity"] };
+const LATER_TABLES = new Set(["basemap_styles", "map_pictures", "auth_generations", "auth_ticket_ids"]);
 function schema() {
   return (db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE NOT (type = 'table' AND name = 'accounts') ORDER BY type, name").all() as
     { type: string; name: string; tbl_name: string; sql: string | null }[])
     .filter(entry => !LATER_TABLES.has(entry.tbl_name) && entry.name !== "revoke_picture_work_on_inactive_owner")
-    .map(entry => entry.type === "table" && entry.name === "auth_tokens" && entry.sql?.endsWith(LATER_TOKEN_COLUMN)
-      ? { ...entry, sql: entry.sql.slice(0, -LATER_TOKEN_COLUMN.length) + ")" } : entry);
+    .filter(entry => entry.name !== "idx_accounts_external_identity")
+    .map(entry => entry.type === "table" && ["auth_tokens", "auth_sessions"].includes(entry.name) && entry.sql
+      ? { ...entry, sql: entry.sql.replace(LATER_CREDENTIAL_COLUMNS, ")") } : entry);
 }
 function rows() {
   return Object.fromEntries((db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[])
     .filter(({ name }) => !LATER_TABLES.has(name))
     .map(({ name }) => [name, (db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all() as Record<string, unknown>[])
-      .map(row => name in LATER_COLUMNS ? Object.fromEntries(Object.entries(row).filter(([column]) => column !== LATER_COLUMNS[name])) : row)]));
+      .map(row => name in LATER_COLUMNS ? Object.fromEntries(Object.entries(row).filter(([column]) => !LATER_COLUMNS[name].includes(column))) : row)]));
 }
 function reopen() { db.close(); db = open(file); }
 function eraseProfile() {
@@ -114,7 +115,7 @@ it.each(["copy", "integrity", "trigger"])("rolls back a %s failure and restores 
 it("keeps only the retained identity, hides profiles, reserves SQL names and preserves other people's homes", async () => {
   reopen(); const before = rows(); eraseProfile();
   expect(db.prepare("SELECT * FROM accounts WHERE id = 'ada'").get()).toEqual({ id: "ada", status: "deleted", sql_name: "ada",
-    name: null, email: null, password_hash: null, is_admin: null, created_at: null, updated_at: null, last_sign_in_at: null, picture_version: null });
+    name: null, email: null, password_hash: null, is_admin: null, created_at: null, updated_at: null, last_sign_in_at: null, picture_version: null, external_identity: null });
   for (const column of ["name", "email", "password_hash", "is_admin", "created_at", "updated_at", "last_sign_in_at"]) {
     expect(() => db.prepare(`UPDATE accounts SET ${column} = ? WHERE id = 'ada'`).run(column === "is_admin" ? 0 : "personal")).toThrow(/CHECK/);
   }

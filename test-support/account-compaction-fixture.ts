@@ -26,8 +26,8 @@ export function compactionFixture() {
     return { target: found(target), control: found(control) };
   };
   const formerImmediately = scan().target.slice(0, 3);
-  db.prepare("INSERT INTO auth_sessions VALUES ('session', ?, 'target', 1, 2, 1, NULL)").run(target[6]);
-  db.prepare("INSERT INTO auth_tokens VALUES ('token', 'target', 'token', ?, 1, NULL, 2, NULL)").run(target[7]);
+  db.prepare("INSERT INTO auth_sessions (id,secret_hash,account_id,created_at,expires_at,last_used_at,revoked_at) VALUES ('session', ?, 'target', 1, 2, 1, NULL)").run(target[6]);
+  db.prepare("INSERT INTO auth_tokens (id,account_id,name,secret_hash,created_at,last_used_at,revoked_at,expires_at) VALUES ('token', 'target', 'token', ?, 1, NULL, 2, NULL)").run(target[7]);
   db.prepare("INSERT INTO auth_links VALUES ('link', 'target', 'reset', ?, 1, 2, 2, NULL)").run(target[8]);
   for (const [id, content] of [["target", target[9]], ["control", control[3]]]) {
     db.prepare("INSERT INTO account_preferences VALUES (?, ?, 'time')").run(id, content.repeat(2000));

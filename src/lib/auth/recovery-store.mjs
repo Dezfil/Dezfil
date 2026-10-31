@@ -3,7 +3,7 @@ import { statSync } from "node:fs";
 import path from "node:path";
 
 // Kept in parity with the shipped migrations by a test, without importing the migrating opener.
-export const RECOVERY_SCHEMA_VERSION = 59;
+export const RECOVERY_SCHEMA_VERSION = 60;
 export const RECOVERY_BUSY_TIMEOUT_MS = 5000;
 export const recoveryWaitRemaining = deadline => Math.max(0, Math.floor(deadline - performance.now()));
 
@@ -34,11 +34,11 @@ export function validateRecoveryStore(db) {
   try {
     if (db.pragma("user_version", { simple: true }) !== RECOVERY_SCHEMA_VERSION) throw upgrade();
     const columns = {
-      accounts: "id,name,email,password_hash,is_admin,status,created_at,updated_at,last_sign_in_at,sql_name",
+      accounts: "id,name,email,password_hash,is_admin,status,created_at,updated_at,last_sign_in_at,sql_name,picture_version,external_identity",
       original_account: "singleton,account_id",
       auth_links: "id,account_id,kind,secret_hash,created_at,expires_at,consumed_at,revoked_at",
-      auth_sessions: "id,account_id,secret_hash,created_at,expires_at,last_used_at,revoked_at",
-      auth_tokens: "id,account_id,name,secret_hash,created_at,last_used_at,revoked_at,expires_at",
+      auth_sessions: "id,account_id,secret_hash,created_at,expires_at,last_used_at,revoked_at,sign_out_generation,door_generation",
+      auth_tokens: "id,account_id,name,secret_hash,created_at,last_used_at,revoked_at,expires_at,sign_out_generation,door_generation",
     };
     for (const [table, fields] of Object.entries(columns)) db.prepare(`SELECT ${fields} FROM ${table} LIMIT 0`).all();
     if (!db.prepare(`SELECT 1 FROM original_account o JOIN accounts a ON a.id = o.account_id
