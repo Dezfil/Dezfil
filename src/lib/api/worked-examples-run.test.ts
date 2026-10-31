@@ -98,6 +98,10 @@ const SEQUENCE: [key: string, name: string, how?: "cookie" | "mcp"][] = [
   ["GET /api/settings", "newAccount"],
   ["PATCH /api/settings", "mapsAsList"],
   ["GET /api/openapi.json", "excerpt"],
+  // A saved key makes the instance's encryption key, which the settings reads above report absent.
+  ["GET /api/account/assistant-key", "none"],
+  ["PUT /api/account/assistant-key", "anthropic"],
+  ["DELETE /api/account/assistant-key", "removed"],
   ["DELETE /api/publications/{token}", "deactivatedOwner"],
   ["POST /api/instance/sign-out", "everyone"],
   ["POST /api/auth/external/start", "externalSignIn", "cookie"],

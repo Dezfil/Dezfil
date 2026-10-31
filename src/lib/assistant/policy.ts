@@ -17,6 +17,9 @@ import { buildTools, type ToolDef } from "@/lib/tools/tools";
  * refused before any product operation (the phase rule: the API refuses
  * where a page would warn).
  *
+ * An operation holding a person's secret declares itself kept from the
+ * assistant and is outside every policy's set, the full one's too.
+ *
  * The policy binds at the run's first accepted submission and travels
  * with its parked state through confirmation continuations.
  */
@@ -30,6 +33,7 @@ export function policyFor(context: AssistantContext | undefined): AssistantPolic
 
 /** Whether one operation is inside a policy's set. */
 export function admits(policy: AssistantPolicy, tool: Pick<ToolDef, "effects" | "confirm" | "confirmWhen">): boolean {
+  if (tool.effects.keptFromAssistant) return false;
   if (policy === "full") return true;
   return tool.effects.readOnly && tool.effects.planningArgument === undefined && !tool.effects.reachesOutside &&
     !tool.confirm && tool.confirmWhen === undefined;
@@ -37,5 +41,5 @@ export function admits(policy: AssistantPolicy, tool: Pick<ToolDef, "effects" | 
 
 /** The tools a run under this policy is offered. */
 export function admittedTools(policy: AssistantPolicy, tools: ToolDef[] = buildTools()): ToolDef[] {
-  return policy === "full" ? tools : tools.filter((tool) => admits(policy, tool));
+  return tools.filter((tool) => admits(policy, tool));
 }

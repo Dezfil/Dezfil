@@ -32,15 +32,15 @@
   },
   "mcpListing": {
     "file": "mcp-tools-list.json",
-    "sha256": "504d3f9dde4e85c18badba8561e5e1a5b28ef19100c7877c129c3e93f4228918"
+    "sha256": "1773c74b963728692a3206e5a910bfb72f7cf8da85d2f8c4d9337b7a44abe887"
   },
   "identities": {
     "file": "identities.json",
-    "sha256": "42df60838e4a0ba971e57a46c4753b954ea48fc796731538b77bf6def40d4b5e",
+    "sha256": "d0a60c2551664696d1f56f8668f112a96476926e8bce62bd5d9e9d29c38cdb57",
     "counts": {
-      "operations": 426,
-      "tools": 162,
-      "exclusions": 264
+      "operations": 431,
+      "tools": 165,
+      "exclusions": 266
     }
   },
   "packagePrompt": {

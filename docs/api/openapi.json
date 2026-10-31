@@ -3879,6 +3879,625 @@
         ]
       }
     },
+    "/api/account/assistant-key": {
+      "get": {
+        "summary": "Read your AI key's status",
+        "description": "Your own key and nobody else's: the account comes from the credential alone, and no operation reads or changes another person's key, an admin's included. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. An MCP client or a script may call this; the in-app assistant is neither offered it nor admitted to it, on any page. Says which provider your key is for, its last four characters and when it was saved. `key` is null when you have none. `unreadable` is true when a saved key can no longer be opened, for example after the instance's encryption key changed: it counts as none and is added again. The key itself is never returned.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "get_assistant_key",
+        "x-effects": {
+          "readOnly": true,
+          "writes": [],
+          "keptFromAssistant": true
+        },
+        "x-mcp": {
+          "destructiveHint": false,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Read your AI key's status"
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantKeyStatus"
+                },
+                "examples": {
+                  "none": {
+                    "summary": "Read that you have no AI key of your own",
+                    "description": "Needs a token. The key itself is never returned, here or by any operation.",
+                    "value": {
+                      "key": null,
+                      "unreadable": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set or replace your AI key",
+        "description": "At most 65,536 wire bytes; a larger body is refused with `request_body_too_large` before JSON parsing. Your own key and nobody else's: the account comes from the credential alone, and no operation reads or changes another person's key, an admin's included. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. An MCP client or a script may call this; the in-app assistant is neither offered it nor admitted to it, on any page. Saves your own Anthropic or OpenAI key, encrypted, in place of any you had; the assistant then answers you on it, sending it only to that provider's public address. The key is taken trimmed and needs 16 to 512 characters with no whitespace or control characters inside; anything else returns invalid_request, which never repeats what was sent, and the previous key stays. Saving makes no provider call: the first turn is the check. Replacing a key ends your turns begun before it, running and parked, as a cancel does; a later resolution of a parked one returns assistant_key_changed. Adding a first key ends nothing.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "set_assistant_key",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            }
+          ],
+          "keptFromAssistant": true
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "repeatability": "Identical calls may update retained working state."
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-display": {
+          "verb": "Saved your AI key"
+        },
+        "requestBody": {
+          "x-byte-limit": 65536,
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "anthropic",
+                      "openai"
+                    ],
+                    "description": "The provider the key belongs to."
+                  },
+                  "key": {
+                    "type": "string",
+                    "writeOnly": true,
+                    "description": "The key. Write-only: no answer returns it."
+                  }
+                },
+                "required": [
+                  "provider",
+                  "key"
+                ]
+              },
+              "examples": {
+                "anthropic": {
+                  "summary": "Save your own Anthropic key",
+                  "description": "Needs a token. Saving makes no provider call: the first turn is the check.",
+                  "value": {
+                    "provider": "anthropic",
+                    "key": "example-not-a-real-key-7f3a"
+                  }
+                }
+              }
+            }
+          },
+          "x-byte-error": "request_body_too_large"
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantKeyStatus"
+                },
+                "examples": {
+                  "anthropic": {
+                    "summary": "Save your own Anthropic key",
+                    "description": "Needs a token. Saving makes no provider call: the first turn is the check.",
+                    "value": {
+                      "key": {
+                        "provider": "anthropic",
+                        "lastFour": "7f3a",
+                        "savedAt": "2026-10-31T12:00:00.000Z"
+                      },
+                      "unreadable": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Remove your AI key",
+        "description": "Your own key and nobody else's: the account comes from the credential alone, and no operation reads or changes another person's key, an admin's included. Cookie or bearer authentication is required. Cookie mutations require the same trusted Origin. Responses, including refusals, are private, no-store. An MCP client or a script may call this; the in-app assistant is neither offered it nor admitted to it, on any page. Removes your own key and ends your turns begun before it, running and parked, as a cancel does; a later resolution of a parked one returns assistant_key_changed. The assistant then answers you on the instance's key if it has one, and otherwise refuses until you add another. `removed` is false when there was none, so removing twice is harmless.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": "remove_assistant_key",
+        "x-effects": {
+          "readOnly": false,
+          "writes": [
+            {
+              "resource": "accounts",
+              "collection": true
+            }
+          ],
+          "keptFromAssistant": true
+        },
+        "x-mcp": {
+          "destructiveHint": true,
+          "openWorldHint": false,
+          "idempotentHint": true
+        },
+        "x-tool-output": {
+          "envelope": "result-history"
+        },
+        "x-confirmation": {
+          "target": "Remove your AI key?",
+          "consequence": "Turns in progress stop. The assistant then uses the instance's key for you if it has one, and otherwise stops answering you until you add another.",
+          "subject": {
+            "path": "/api/account",
+            "argument": "",
+            "name": "account.name"
+          }
+        },
+        "x-display": {
+          "verb": "Removed your AI key"
+        },
+        "x-confirm": true,
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantKeyRemoved"
+                },
+                "examples": {
+                  "removed": {
+                    "summary": "Remove your own key",
+                    "description": "Needs a token. Removing a second time answers removed: false and changes nothing.",
+                    "value": {
+                      "removed": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "head": {
+        "summary": "Read response headers",
+        "description": "Automatic HEAD uses GET with no response body.",
+        "tags": [
+          "Accounts"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Error with a machine-readable code and human message."
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method. HEAD has no response body.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      },
+      "options": {
+        "summary": "Read allowed methods",
+        "description": "Automatic OPTIONS returns no body and the Allow header. Authentication is required.",
+        "tags": [
+          "System"
+        ],
+        "x-tool": false,
+        "x-effects": {
+          "readOnly": true,
+          "writes": []
+        },
+        "responses": {
+          "204": {
+            "description": "Allowed methods.",
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "method_not_allowed: the method is unsupported for this path.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Allow": {
+                "description": "Exactly the documented methods for this path.",
+                "schema": {
+                  "type": "string",
+                  "const": "DELETE, GET, HEAD, OPTIONS, PUT"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error with a machine-readable code and human message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieSession": []
+          },
+          {
+            "BearerToken": []
+          }
+        ]
+      }
+    },
     "/api/users/{id}/deletion-preview": {
       "get": {
         "summary": "Preview user deletion",
@@ -61577,6 +62196,70 @@
         },
         "required": [
           "revoked"
+        ]
+      },
+      "AssistantKeyStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "anthropic",
+                      "openai"
+                    ]
+                  },
+                  "lastFour": {
+                    "type": "string",
+                    "minLength": 4,
+                    "maxLength": 4,
+                    "description": "The key's last four characters."
+                  },
+                  "savedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When it was saved."
+                  }
+                },
+                "required": [
+                  "provider",
+                  "lastFour",
+                  "savedAt"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Your saved key's facts, or null when you have none."
+          },
+          "unreadable": {
+            "type": "boolean",
+            "description": "A saved key can no longer be opened, counts as none and is added again."
+          }
+        },
+        "required": [
+          "key",
+          "unreadable"
+        ]
+      },
+      "AssistantKeyRemoved": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "removed": {
+            "type": "boolean",
+            "description": "False when there was none."
+          }
+        },
+        "required": [
+          "removed"
         ]
       },
       "AccountDeletionStatus": {

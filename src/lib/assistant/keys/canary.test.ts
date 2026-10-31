@@ -13,7 +13,9 @@ import { assistantRuns } from "../runs";
 import { pendingActions } from "../pending";
 import { dispatchAssistantTestRoute } from "../testing/route-dispatch";
 import { anthropicEvents, outputText, responseWire, sse } from "../testing/wire";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { setOwnKey } from "./change";
+import { readAssistantKey } from "./store";
 
 /**
  * A recognisable key walked through every surface a person, an admin or a log
@@ -74,6 +76,7 @@ async function everyRead(member: ReturnType<typeof person>, admin: ReturnType<ty
   const reads: [string, Response][] = [
     ["status", await member("/api/assistant")],
     ["account", await member("/api/account")],
+    ["key status", await member("/api/account/assistant-key")],
     ["tokens", await member("/api/account/tokens")],
     ["pending", await member("/api/assistant/pending")],
     ["member config", await member("/api/config")],
@@ -96,6 +99,7 @@ async function everyRead(member: ReturnType<typeof person>, admin: ReturnType<ty
   }
 }
 const status = (code: number, body: unknown) => new Response(JSON.stringify(body), { status: code, headers: { "content-type": "application/json" } });
+const rejectedByAnthropic = () => status(401, { type: "error", error: { type: "authentication_error", message: `invalid x-api-key ${CANARY}` } });
 
 describe.each([
   ["anthropic" as const, () => status(401, { type: "error", error: { type: "authentication_error", message: `invalid x-api-key ${CANARY}` } }),
@@ -167,4 +171,74 @@ it("words a rejected instance key for an admin, with no variable name and the pr
   expect(failure.message).toBe("The instance's Anthropic key was rejected. An admin must replace it.");
   expect(failure.message).not.toMatch(/API_KEY|restart/);
   expect(failure.detail).toContain("invalid x-api-key");
+});
+
+describe("set through the operations", () => {
+  const body = (provider: string, key: string): RequestInit => ({ method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider, key }) });
+
+  it("through the UI's operation, refused once and saved once, says it back nowhere", async () => {
+    const ada = person("ada"), admin = person("root", true);
+    answer = () => { throw new Error("Saving makes no provider call."); };
+    const refused = await ada("/api/account/assistant-key", body("anthropic", `${CANARY} with spaces`));
+    expect(refused.status).toBe(400);
+    expect(await refused.text()).not.toContain(CANARY);
+    const saved = await ada("/api/account/assistant-key", body("anthropic", CANARY));
+    expect(saved.status).toBe(200);
+    expect(await saved.text()).not.toContain(CANARY);
+    answer = rejectedByAnthropic;
+    const { runId, stream } = await turn(ada);
+    expect(stream).toContain("Your Anthropic key was rejected.");
+    expect(stream).not.toContain(CANARY);
+    await everyRead(ada, admin, runId);
+    expect(logged.join("\n")).not.toContain(CANARY);
+    expectNoPlaintextOnDisk();
+  });
+
+  it("through the MCP tool, refused once and saved once, its own results holding none of it", async () => {
+    const ada = person("ada"), admin = person("root", true);
+    const token = createApiToken(authenticateSession(issueSession(getAccount("ada")!, metadataDb(), Date.now()).secret, metadataDb())!, "MCP client", metadataDb()).secret;
+    // The real endpoint, signed in as the person, dispatching back to the routes.
+    const client = new Client({ name: "canary-client", version: "1" });
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${origin}/api/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
+    try {
+      const listed = (await client.listTools()).tools.map((tool) => tool.name);
+      expect(listed).toEqual(expect.arrayContaining(["get_assistant_key", "set_assistant_key", "remove_assistant_key"]));
+      const refused = await client.callTool({ name: "set_assistant_key", arguments: { provider: "anthropic", key: `${CANARY} with spaces` } });
+      expect(refused.isError).toBe(true);
+      expect(JSON.stringify(refused)).not.toContain(CANARY);
+      const notAProvider = await client.callTool({ name: "set_assistant_key", arguments: { provider: 7, key: CANARY } }).catch((error: unknown) => ({ thrown: String(error), isError: true }));
+      expect(notAProvider.isError).toBe(true);
+      expect(JSON.stringify(notAProvider)).not.toContain(CANARY);
+      const saved = await client.callTool({ name: "set_assistant_key", arguments: { provider: "openai", key: CANARY } });
+      expect(saved.isError ?? false).toBe(false);
+      expect(JSON.stringify(saved)).toContain("lastFour");
+      expect(JSON.stringify(saved)).not.toContain(CANARY);
+      const read = await client.callTool({ name: "get_assistant_key", arguments: {} });
+      expect(JSON.stringify(read)).not.toContain(CANARY);
+    } finally { await client.close(); }
+    expect(readAssistantKey("ada")).toMatchObject({ key: CANARY, provider: "openai" });
+    await everyRead(ada, admin);
+    expect(logged.join("\n")).not.toContain(CANARY);
+    expectNoPlaintextOnDisk();
+  });
+
+  it.each([
+    ["sql", { page: "sql", draft: "", selection: null, lastExecution: null }], ["no page", undefined],
+  ])("a forced call in a turn on %s is refused, reaching nothing and recording nothing", async (_page, context) => {
+    const ada = person("ada");
+    setOwnKey("ada", "anthropic", `first-${CANARY}`);
+    const replies = [
+      () => sse(anthropicEvents([{ type: "tool_use", id: "forced", name: "set_assistant_key", input: { provider: "openai", key: CANARY } }], "tool_use"), true),
+      () => sse(anthropicEvents([{ type: "text", text: "Done." }]), true),
+    ];
+    answer = () => replies.shift()!();
+    const runId = (await (await ada("/api/assistant/runs", { method: "POST" })).json() as { id: string }).id;
+    const response = await ada("/api/assistant/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId, message: "Hello.", history: [], ...(context ? { context } : {}) }) });
+    const stream = await response.text();
+    expect(stream).toContain("assistant_action_not_admitted");
+    expect(stream).not.toContain(CANARY);
+    expect(readAssistantKey("ada")).toMatchObject({ key: `first-${CANARY}`, provider: "anthropic" });
+    expect(await (await ada(`/api/assistant/runs/${runId}`)).text()).not.toContain(CANARY);
+    expect(logged.join("\n")).not.toContain(CANARY);
+  });
 });

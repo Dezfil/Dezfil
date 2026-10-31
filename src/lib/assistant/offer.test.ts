@@ -24,8 +24,8 @@ describe("the default offer", () => {
     }
   });
   it("keeps the full admitted set with no page context, and in the full mode", () => {
-    expect(names(defaultOffer(undefined, "full", tools, "subset"))).toEqual(names(tools));
-    expect(names(defaultOffer("builder", "full", tools, "full"))).toEqual(names(tools));
+    expect(names(defaultOffer(undefined, "full", tools, "subset"))).toEqual(names(admittedTools("full", tools)));
+    expect(names(defaultOffer("builder", "full", tools, "full"))).toEqual(names(admittedTools("full", tools)));
     expect(names(defaultOffer("sql", "read_only", tools, "full"))).toEqual(names(admittedTools("read_only", tools)));
     expect(omittedFromOffer(undefined, "full", tools, "subset")).toEqual([]);
   });
