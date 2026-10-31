@@ -29,11 +29,12 @@ try {
   openDb();
   await until(() => fs.existsSync(path.join(folder, '.storage-reserve')) && fs.statSync(path.join(folder, '.storage-reserve')).size, n => n === RESERVE, 'Reserve not allocated');
   assert.ok(fs.statSync(path.join(folder, '.storage-reserve')).blocks * 512 >= RESERVE, 'Reserve must hold actual blocks');
-  async function upload(name) {
+  async function upload(name, client = api) {
     const form = new FormData(); form.append('file', new Blob(['id,lon,lat\n' + Array.from({ length: 40 }, (_, i) => `${i},${13.3 + i / 1000},52.5`).join('\n')]), `${name}.csv`);
     // A CSV lands as one table, answered directly; only container formats answer a list.
-    return good(await api('POST', '/api/tables', { form }));
+    return good(await client('POST', '/api/tables', { form }));
   }
+  const fileOf = table => path.join(folder, db.prepare('SELECT file FROM data_tables WHERE id=?').get(table.id).file);
   const kept = await upload('storage_kept'), disposable = await upload('storage_delete');
   const map = good(await api('POST', '/api/maps', { body: { name: 'Preserved map' } }));
   const eraseMap = good(await api('POST', '/api/maps', { body: { name: 'Delete while full' } }));
@@ -41,9 +42,10 @@ try {
   const render = () => api('GET', `/api/layers/${layer.id}/render`).then(good);
   await until(render, value => value.tiles?.state === 'ready', 'Initial real tile archive not built');
   const archive = path.join(folder, 'tiles', `${layer.id}.pmtiles`), evidence = path.join(folder, 'artifact-inputs/tiles', `${layer.id}.json`);
-  const tableFile = path.join(folder, db.prepare('SELECT file FROM data_tables WHERE id=?').get(kept.id).file);
+  const tableFile = fileOf(kept), disposableFile = fileOf(disposable);
   const before = { archive: digest(archive), evidence: digest(evidence), table: digest(tableFile) };
   const target = await invite(base, api, 'storage_erased');
+  const targetFile = fileOf(await upload('storage_erased_data', journeyApi(base, { token: target.token })));
   good(await api('PATCH', `/api/users/${target.id}`, { body: { status: 'deactivated' } }));
   const published = good(await api('POST', `/api/maps/${eraseMap.id}/publish`, { basis: captureBasis(eraseMap), body: {} }));
   assert.ok(published.token);
@@ -129,6 +131,7 @@ try {
   ];
   for (const [check, action] of actions) { checkpointAndFill(); const answer = await action(); good(answer); report.push({ check, status: 'confirmed', http: answer.status }); }
   assert.equal(db.prepare('SELECT id FROM data_tables WHERE id=?').get(disposable.id), undefined);
+  assert.equal(fs.existsSync(disposableFile), false, 'Dataset deletion on the full volume must free the file');
   assert.equal(db.prepare('SELECT id FROM maps WHERE id=?').get(eraseMap.id), undefined);
   assert.equal((await journeyApi(base, { token: revoked.secret })('GET', '/api/maps')).status, 401);
   await capacityBack();
@@ -144,6 +147,7 @@ try {
   assert.notEqual(deletion.state, 'completed', 'Compaction cannot claim completion without working space');
   const pending = await until(() => api('GET', `/api/users/deletions/${deletion.id}`).then(good), answer => answer.state === 'needs-retry', 'Compaction must report unfinished');
   assert.equal(pending.id, deletion.id);
+  assert.equal(fs.existsSync(targetFile), false, 'Account deletion on the full volume must free its files before compaction');
   await capacityBack();
   const completed = good(await api('POST', `/api/users/deletions/${deletion.id}/finish`));
   assert.equal(completed.state, 'completed', JSON.stringify(completed));

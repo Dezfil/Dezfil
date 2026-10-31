@@ -50,11 +50,12 @@ The assertions cover:
   session reads and a fresh sign-in succeeds. The recovery fence stops all three
   with `storage_exhausted`, records settlement within 35 seconds, removes scratch,
   ends the tiler and keeps the previous archive and evidence byte for byte.
-- Dataset deletion, token revocation, unpublish, map deletion and cache clearing,
-  refilling the hog before each action so a prior recovery cannot mask it.
-- Account deletion with less than twice the metadata size free. No outside
-  SQLite handle is kept open: compaction reports `needs-retry`, then completes
-  after space returns. The fixture pads the store with an unrelated retained
+- Dataset deletion, which must remove its file, token revocation, unpublish, map
+  deletion and cache clearing, refilling the hog before each action so a prior
+  recovery cannot mask it.
+- Account deletion with less than twice the metadata size free. The account's
+  file is gone by then. No outside SQLite handle is kept open: compaction reports
+  `needs-retry`, then completes after space returns, leaving the erased row. The fixture pads the store with an unrelated retained
   row so a recovery slice cannot accidentally satisfy compaction.
 - Reserve replenishment, a new upload and a fresh tile build after space returns,
   and alternating full/available transition logs.
