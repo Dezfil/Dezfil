@@ -77,6 +77,7 @@ export async function createFirstAccount(input: { name: string; email: string; p
 }
 
 export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  requirePasswordSignIn();
   maintainCredentials(db, now);
   const account = getAccountByEmail(email, db);
   const hash = account && accountPasswordHash(account.id, db);
@@ -101,6 +102,7 @@ export async function signIn(email: string, password: string, db: Database = met
 
 export async function changeOwnPassword(context: AuthContext, currentPassword: string, password: string,
   db: Database = metadataDb(), now?: number, signal?: AbortSignal): Promise<void> {
+  requirePasswordSignIn();
   const account = requireCurrentActor(context, db, now ?? Date.now());
   const oldHash = await checkCurrentPassword(account.id, currentPassword, db, signal);
   const passwordHash = await hashPassword(password, { class: "protected", signal, minimum: securitySettings(db).passwordMin });
@@ -119,6 +121,7 @@ export async function changeOwnPassword(context: AuthContext, currentPassword: s
 
 export async function updateOwnProfile(context: AuthContext, patch: { name?: string; email?: string; currentPassword?: string },
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  if (patch.email !== undefined) requirePasswordSignIn();
   const account = requireCurrentActor(context, db, now ?? Date.now());
   const oldHash = patch.email === undefined ? null : await checkCurrentPassword(account.id, patch.currentPassword, db, signal);
   return db.transaction(() => {

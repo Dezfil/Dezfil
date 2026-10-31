@@ -44,6 +44,9 @@ export function gateRequest(request: Request): Response {
     return response;
   }
   try {
+    if (pathname === "/setup" || (request.method === "POST" &&
+      (["/api/auth/setup", "/api/auth/sign-in", "/api/auth/redeem", "/api/account/password"].includes(pathname) ||
+        /^\/api\/users\/[^/]+\/sign-in-link$/.test(pathname)))) requirePasswordSignIn();
     const ingress = requestIngress(request);
     const redirect = (destination: string) => privateResponse(NextResponse.redirect(new URL(destination, ingress.origin)));
     if (isEntryRequest(pathname, request.method)) {

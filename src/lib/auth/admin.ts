@@ -1,3 +1,4 @@
+import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -39,6 +40,7 @@ export function inviteAccount(context: AuthContext, input: { name: string; email
 }
 
 export function issueSignInLink(context: AuthContext, accountId: string, db: Database = metadataDb(), now = Date.now()) {
+  requirePasswordSignIn();
   return db.transaction(() => {
     requireAdmin(context, db, now);
     const account = getAccount(accountId, db);

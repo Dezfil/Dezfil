@@ -29,7 +29,7 @@ export async function entryInformation(request: Request): Promise<Response> {
 }
 export async function enter(request: Request, action: "setup" | "sign-in" | "redeem"): Promise<Response> {
   try {
-    if (action === "setup") requirePasswordSignIn();
+    requirePasswordSignIn();
     const ingress = requestIngress(request);
     assertRequestOrigin(request);
     const fields = action === "setup" ? ["name", "email", "password"] : action === "sign-in" ? ["email", "password"] : ["secret", "password"];

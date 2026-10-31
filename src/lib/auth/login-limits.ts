@@ -1,3 +1,4 @@
+import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { normalizeEmail } from "@/lib/metadata/accounts";
@@ -74,6 +75,7 @@ export async function withLoginLimit<T>(email: string, source: string, operation
 /** Entry routes get their source from verified socket provenance, never a caller header. */
 export async function signInFromRequest(request: Request, email: string, password: string,
   db: Database = metadataDb()) {
+  requirePasswordSignIn();
   let source: string;
   try { source = requireIngress(request.headers).source; }
   catch { throw new AuthError("ingress_unavailable", "The instance cannot accept sign-ins yet.", 503); }

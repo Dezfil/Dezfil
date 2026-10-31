@@ -1,3 +1,4 @@
+import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { getAccount } from "@/lib/metadata/accounts";
@@ -10,6 +11,7 @@ import { securitySettings } from "./security-settings";
 
 export async function redeemSignInLink(secret: string, password: string,
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  requirePasswordSignIn();
   maintainCredentials(db, now);
   const readLink = (at: number) => {
     const link = linkByHash(secretHash(secret), db);
