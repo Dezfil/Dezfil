@@ -34,10 +34,13 @@ vi.mock("next/font/google", () => {
   return { Archivo: face("archivo"), DM_Mono: face("dm-mono"), Gabarito: face("gabarito"),
     IBM_Plex_Mono: face("plex-mono"), Inter: face("inter") };
 });
-const who = vi.hoisted(() => ({ account: "ada", db: null as unknown }));
+const who = vi.hoisted(() => ({ account: "ada", db: null as unknown, absent: null as string | null }));
 vi.mock("next/headers", () => ({
-  headers: async () =>
-    testAccountRequest(new Request("http://instance.test/maps"), who.db as Database, who.account).headers,
+  headers: async () => {
+    const { headers } = testAccountRequest(new Request("http://instance.test/maps"), who.db as Database, who.account);
+    if (who.absent) headers.set("x-dezfil-absent-kind", who.absent);
+    return headers;
+  },
 }));
 
 let db: Database;
@@ -187,7 +190,7 @@ describe("the route tree", () => {
     const catchAlls = readdirSync(workspace).filter(entry => /^\[\[?\.\.\./.test(entry));
     expect(catchAlls).toEqual([]);
     expect(readFileSync("next.config.ts", "utf8")).toMatch(/experimental:\s*\{[^}]*\bglobalNotFound:\s*true\b/);
-    const page = GlobalNotFound();
+    const page = await GlobalNotFound();
     expect(page.type).toBe(WorkspaceLayout);
     expect((page.props as { children: ReactElement }).children.type).toBe(WorkspaceNotFound);
     // Drawn whole for the signed-in person: the document with their look.
@@ -198,5 +201,26 @@ describe("the route tree", () => {
     const markup = renderToStaticMarkup(<WorkspaceNotFound />);
     expect(markup).toContain("<h1>Page not found</h1>");
     expect(markup).toContain('href="/"');
+  });
+
+  it("draws the item's own words when the gate names the kind, and the generic page for anything else", async () => {
+    const body = async (absent: string | null) => {
+      who.absent = absent;
+      try {
+        const page = await GlobalNotFound();
+        return renderToStaticMarkup((page.props as { children: ReactElement }).children);
+      } finally {
+        who.absent = null;
+      }
+    };
+    for (const [kind, title, href] of [["map", "Map not found", "/maps"], ["workflow", "Workflow not found", "/workflows"],
+      ["dataset", "Dataset not found", "/data"], ["project", "Project not found", "/projects"],
+      ["template", "Template not found", "/templates"]]) {
+      const markup = await body(kind);
+      expect(markup, kind).toContain(`<h1>${title}</h1>`);
+      expect(markup, kind).toContain(`href="${href}"`);
+    }
+    expect(await body("nonsense")).toContain("<h1>Page not found</h1>");
+    expect(await body(null)).toContain("<h1>Page not found</h1>");
   });
 });

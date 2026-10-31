@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ApiError } from "@/lib/api/errors";
+import { ABSENT_KIND_HEADER, absentKindOfFolder } from "@/lib/absent-kind";
 import { addressDataset } from "@/lib/dataset-address";
 import { readTemplateForAddress } from "@/lib/templates/catalogue";
 import { privateResponse } from "./http";
@@ -53,7 +54,9 @@ async function answersAbsent(read: () => unknown): Promise<boolean> {
  * document, the person's look and theme on it. The workspace holds its
  * pages out of the server render until the browser has confirmed the
  * session, so a page's own not-found never reached the render that sets
- * the status. The gate's cookie and privacy headers go with the answer.
+ * the status. The kind of item travels with the request, so the page can
+ * say what was not found. The gate's cookie and privacy headers go with the
+ * answer.
  */
 export async function withPagePresence(request: Request, gate: Response): Promise<Response> {
   if (gate.headers.get("x-middleware-next") !== "1") return gate;
@@ -66,7 +69,10 @@ export async function withPagePresence(request: Request, gate: Response): Promis
     // The page authenticates again and answers whatever went wrong here.
     return gate;
   }
-  const absent = privateResponse(NextResponse.rewrite(new URL(NO_PAGE, request.url)));
+  const headers = new Headers(request.headers);
+  const kind = absentKindOfFolder(DETAIL_PAGE.exec(pathname)![1]);
+  if (kind) headers.set(ABSENT_KIND_HEADER, kind);
+  const absent = privateResponse(NextResponse.rewrite(new URL(NO_PAGE, request.url), { request: { headers } }));
   for (const cookie of gate.headers.getSetCookie()) absent.headers.append("set-cookie", cookie);
   return absent;
 }
