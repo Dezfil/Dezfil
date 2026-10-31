@@ -16,12 +16,12 @@ import {
 import { capacityText, LIMITS_CARDS, withShownUnit } from "./limits-table";
 import { colorsWords, PALETTES_CARD, paletteRowId } from "./palettes-table";
 import { choiceLabel, LOOK_CARDS, rowShown } from "./look-tab";
-import { CONNECTIONS_CARD, PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, type RuleCard } from "./security-table";
+import { CONNECTIONS_CARD, PUBLIC_LINKS_CARD, ruleRowWords, SECURITY_CARDS, SIGN_OUT_CARD, type RuleCard } from "./security-table";
 import { formatSettingNumber } from "./server-set";
 import type { IndexCard, TabDeclarations } from "./settings-search";
 import { partMeta, partState, STATUS_ROWS } from "./status-table";
 import { FREE_ROW, STORAGE_CARD, STORAGE_ROWS } from "./storage-table";
-import { providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
+import { EXTERNAL_SIGN_IN_CARD, externalSignInRows, providerName, serverSettingsRows, type AssistantStatus } from "./system-table";
 
 /**
  * What each tab declares to the search: its cards and rows, under the ids
@@ -212,6 +212,8 @@ function systemCards(read: InstanceRead, health: IndexSources["health"], assista
       { id: "sys-assistant-provider", label: "Provider", keys: "provider anthropic openai",
         value: assistant.enabled ? providerName(assistant.provider) : "None" },
     ] : [] },
+    ...(read.externalSignIn ? [{ id: EXTERNAL_SIGN_IN_CARD.id, title: EXTERNAL_SIGN_IN_CARD.title, keys: EXTERNAL_SIGN_IN_CARD.keys,
+      rows: externalSignInRows(read).map(({ id, label, keys, value }) => ({ id, label, keys, value })) }] : []),
     { id: "system-settings", title: "Server settings", keys: "environment variables configuration effective",
       rows: serverSettingsRows(read).map(row => ({ id: row.id, label: row.label, keys: `${row.variable} environment variable server`,
         value: row.value.text + (row.value.after ?? "") })) },
@@ -247,7 +249,7 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
       workflows: defaultsCards("workflows", sources.instance),
       publishing: [...ruleCards([PUBLIC_LINKS_CARD], sources.instance), ...defaultsCards("publishing", sources.instance)],
       data: dataCards(sources.instance),
-      limits: limitsCards(sources.instance), security: ruleCards(SECURITY_CARDS, sources.instance),
+      limits: limitsCards(sources.instance), security: [...ruleCards(SECURITY_CARDS, sources.instance), SIGN_OUT_CARD],
       system: systemCards(sources.instance, sources.health, sources.assistant),
     } : {}),
   };

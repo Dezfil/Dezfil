@@ -20,6 +20,9 @@ export interface ServicesRead {
  * facts the System tab shows beside them, each part's state and what the
  * services keep. Admins only. */
 export interface InstanceRead {
+  /** Sign-in through an outside service: the mode as it was read at start,
+   * how many public keys it trusts and both generations, never a key. */
+  readonly externalSignIn?: { readonly enabled: boolean; readonly keyCount: number; readonly signOutGeneration: number; readonly doorGeneration: number };
   readonly settings: Readonly<Record<string, ReadSetting>>;
   readonly capacities: { readonly geocodeRows: number; readonly isochroneOrigins: number };
   readonly maxImageDimension: number;

@@ -88,10 +88,10 @@ const resets = () => container.querySelectorAll("[data-unit-slot]").map(button =
 const release = () => act(async () => { for (const respond of held!.splice(0)) respond(); });
 
 describe("Security", () => {
-  it("draws the Sign-in and API tokens cards with their rows and no other, at the read's values", async () => {
+  it("draws the Sign-in and API tokens cards with their rows, at the read's values, and Sign everyone out below them", async () => {
     await open();
     expect(requests.map(request => request.url)).toEqual(["/api/instance/settings"]);
-    expect(cards().map(section => section.querySelector("h2")!.textContent)).toEqual(["Sign-in", "API tokens"]);
+    expect(cards().map(section => section.querySelector("h2")!.textContent)).toEqual(["Sign-in", "API tokens", "Sign everyone out"]);
     expect(container.querySelectorAll("b").map(b => b.textContent)).toEqual([
       "Stay signed in for", "Invite and reset links last", "Failed sign-ins before a pause", "Shortest password",
       "Who may create tokens", "New tokens expire after",
@@ -217,6 +217,8 @@ describe("the words of Security", () => {
     "Counted from the last visit.",
     // Passwords already set are not checked again.
     "Checked when a password is next set.",
+    // Sign everyone out, and what it ends, which no setting's save does.
+    "Sign everyone out", "Ends every session and API token of every account, yours included.",
     // Narrowing who may create tokens takes none away.
     "Tokens members already have keep working.",
     // A new expiry reaches no token already made.

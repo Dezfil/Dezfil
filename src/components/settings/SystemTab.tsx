@@ -12,13 +12,13 @@ import { useDrawn } from "./settings-land";
 import { PartRow, State } from "./StatusRows";
 import { StorageCard } from "./StorageCard";
 import type { Health } from "./status-table";
-import { providerName, runningFor, serverSettingsRows, type AssistantStatus, type SettingSource, type ShownValue } from "./system-table";
+import { EXTERNAL_SIGN_IN_CARD, externalSignInRows, providerName, runningFor, serverSettingsRows, type AssistantStatus, type SettingSource, type ShownValue } from "./system-table";
 import cardStyles from "./SettingsCard.module.css";
 import styles from "./SystemTab.module.css";
 
 /** System: the version and each part's state with its Test, what the data
- * folder holds by kind, the assistant's status, and every setting a server
- * variable decides with the value in effect and where it came from.
+ * folder holds by kind, the assistant's status, sign-in through an outside
+ * service as the read reports it, and every setting a server variable decides with the value in effect and where it came from.
  * Nothing here changes a setting. */
 export function SystemTab() {
   const { read, error, retry } = useInstanceRead();
@@ -31,6 +31,7 @@ export function SystemTab() {
     <StatusCard read={read} health={health} />
     <StorageCard />
     <AssistantCard />
+    {read.externalSignIn && <ExternalSignInCard read={read} />}
     <ServerSettingsCard read={read} />
   </>;
 }
@@ -95,6 +96,15 @@ function AssistantCard() {
         {status.enabled ? <span className={styles.chip}>{providerName(status.provider)}</span> : <ValueText muted>None</ValueText>}
       </SettingRow>
     </Rows>}
+  </SettingsCard>;
+}
+
+/** The mode as it was read at start. Nothing here changes it. */
+function ExternalSignInCard({ read }: { read: InstanceRead }) {
+  return <SettingsCard id={EXTERNAL_SIGN_IN_CARD.id} title={EXTERNAL_SIGN_IN_CARD.title} headingId="system-external-sign-in-heading">
+    <Rows>{externalSignInRows(read).map(row => <SettingRow key={row.id} id={row.id} label={row.label}>
+      {row.state ? <State state={row.state}>{row.value}</State> : <ValueText mono={row.mono}>{row.value}</ValueText>}
+    </SettingRow>)}</Rows>
   </SettingsCard>;
 }
 

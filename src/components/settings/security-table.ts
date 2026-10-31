@@ -80,6 +80,11 @@ export const SECURITY_CARDS: readonly RuleCard[] = [
   ] },
 ];
 
+/** The Security card that holds an action and no setting. */
+export const SIGN_OUT_CARD = {
+  id: "security-sign-out", title: "Sign everyone out", keys: "sign out logout revoke end sessions tokens everyone all accounts compromise", rows: [],
+} as const;
+
 export const PUBLIC_LINKS_CARD: RuleCard = {
   id: "publishing-public", title: "Public links", keys: "publish public share anonymous link", rows: [
     { id: "set-who-may-publish", label: "Who may publish", draw: "segments", keys: "publish share public link permission members admins nobody off",

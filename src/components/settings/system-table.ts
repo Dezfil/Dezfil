@@ -42,6 +42,7 @@ export interface ServerSettingRow {
 }
 
 const NOT_SET: ShownValue = { text: "Not set", muted: true };
+const keysWords = (count: number) => `${count.toLocaleString("en-US")} ${count === 1 ? "key" : "keys"}`;
 const isRule = (value: unknown): value is { rule: string } => !!value && typeof value === "object" && "rule" in value;
 
 /** A setting's value as the read discloses it, in the page's words. */
@@ -54,6 +55,11 @@ export function shownValue(setting: ReadSetting): ShownValue {
     if (status === "data-directory") return { text: "secret.key", mono: true, after: " in the data folder" };
     if (status === "not-yet-present") return { text: "Not created yet", muted: true };
     return { text: "Set" };
+  }
+  // Public keys: how many, never which.
+  if (setting.key === "externalSignInKeys") {
+    const count = (value as { count?: number } | null)?.count ?? 0;
+    return count ? { text: keysWords(count) } : NOT_SET;
   }
   if (setting.kind === "secret") return (value as { set?: boolean } | null)?.set ? { text: "Set" } : NOT_SET;
   if (setting.kind === "address") {
@@ -110,4 +116,32 @@ export type AssistantStatus = { readonly enabled: true; readonly provider: strin
 /** The assistant's provider, by its name. */
 export function providerName(provider: string): string {
   return ({ anthropic: "Anthropic", openai: "OpenAI" } as Record<string, string>)[provider] ?? provider;
+}
+
+export const EXTERNAL_SIGN_IN_CARD = { id: "system-external-sign-in", title: "External sign-in", keys: "sign-in service door single sign-on sso login mode generation" } as const;
+
+export interface ExternalSignInRow {
+  readonly id: string;
+  readonly label: string;
+  readonly keys: string;
+  /** The row's words, for the card and the search. */
+  readonly value: string;
+  /** On or off, drawn as a state. */
+  readonly state?: "on" | "off";
+  readonly mono?: boolean;
+}
+
+/** The mode's card: on or off, and while on where people sign in, how many
+ * public keys it trusts and both generations. The read holds no key. */
+export function externalSignInRows(read: Pick<InstanceRead, "settings" | "externalSignIn">): ExternalSignInRow[] {
+  const mode = read.externalSignIn;
+  if (!mode) return [];
+  const status: ExternalSignInRow = { id: "sys-external-status", label: "Status", keys: "on off enabled disabled", value: mode.enabled ? "On" : "Off", state: mode.enabled ? "on" : "off" };
+  if (!mode.enabled) return [status];
+  return [status,
+    { id: "sys-external-service", label: "Sign-in service", keys: "door address url", value: String(read.settings.externalSignInUrl?.value ?? ""), mono: true },
+    { id: "sys-external-keys", label: "Public keys", keys: "keys rotation trust", value: keysWords(mode.keyCount) },
+    { id: "sys-external-sign-out-generation", label: "Sign-out generation", keys: "sign everyone out raised", value: String(mode.signOutGeneration) },
+    { id: "sys-external-door-generation", label: "Door generation", keys: "floor raised", value: String(mode.doorGeneration) },
+  ];
 }
