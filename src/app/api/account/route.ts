@@ -14,8 +14,9 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    // Name edits share this operation with email edits. In external mode,
-    // inspect the bounded patch before authentication can renew a credential.
+    // The proxy already authenticates and renews sessions. In external mode,
+    // reading the bounded patch first lets this handler refuse email edits
+    // before its own authentication call or any profile update.
     const context = externalSignIn().enabled ? null : requireRequestAuth(request);
     const body = await authBody(request, ["name", "email", "currentPassword"], []);
     if (body.email !== undefined) requirePasswordSignIn();
