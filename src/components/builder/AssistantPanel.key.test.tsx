@@ -57,6 +57,27 @@ it("reads who pays again when the person comes back to the tab", async () => {
   expect(container.textContent).toContain("your key");
 });
 
+it("keeps the newer answer when an older read of who pays comes back last", async () => {
+  const held: ((payer: { kind: "own" | "instance" }) => void)[] = [];
+  const status = (payer: { kind: "own" | "instance" }) => Response.json({ enabled: true, provider: "anthropic", model: "claude-sonnet-5", stepBudget: 8, instanceKey: true, payer });
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input) === "/api/assistant"
+    ? new Promise<Response>((resolve) => { held.push((payer) => resolve(status(payer))); })
+    : Response.json({ pending: [] })));
+  await act(async () => root.render(<AssistantPanel onMutate={() => {}} layerDataDownloads={{} as never} />));
+  await settle();
+  await act(async () => held.shift()!({ kind: "instance" }));
+  await settle();
+  await act(async () => { window.dispatchEvent(new HostEvent("focus") as unknown as Event); });
+  await act(async () => { window.dispatchEvent(new HostEvent("focus") as unknown as Event); });
+  const [older, newer] = held;
+  await act(async () => newer({ kind: "own" }));
+  await settle();
+  expect(container.textContent).toContain("your key");
+  await act(async () => older({ kind: "instance" }));
+  await settle();
+  expect(container.textContent).toContain("your key");
+});
+
 it("takes the key in place of the sentence alone, then shows the composer without a reload", async () => {
   await act(async () => root.render(<AssistantPanel onMutate={() => {}} layerDataDownloads={{} as never} />));
   await settle();
