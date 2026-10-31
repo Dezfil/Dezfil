@@ -28,7 +28,7 @@ export function useSettingsSearch(account: Account | null, live: LiveValues | nu
   const subscribe = useCallback((listener: () => void) => searching && live ? live.subscribe(listener) : QUIET(), [live, searching]);
   const fields = useSyncExternalStore(subscribe, () => live?.snapshot() ?? NONE, () => NONE);
   const index = useMemo(() => account ? buildSearchIndex(withLiveValues(settingsDeclarations({
-    account, tokens: sources.tokens ?? null, look: sources.look ?? null, instance: sources.instance ?? null, entry: sources.entry ?? null,
+    account, external: sources.external, tokens: sources.tokens ?? null, look: sources.look ?? null, instance: sources.instance ?? null, entry: sources.entry ?? null,
     health: sources.health ?? null, assistant: sources.assistant ?? null, palettes: sources.palettes ?? null,
   }, admin), searching ? fields : NONE), admin) : [], [account, admin, sources, fields, searching]);
   const hits = useMemo(() => searching ? searchSettings(index, query) : [], [index, query, searching]);

@@ -42,6 +42,8 @@ export interface EntryValues {
 
 export interface IndexSources {
   readonly account: Account;
+  /** People sign in through a sign-in service: the Account card has no password. */
+  readonly external?: boolean;
   readonly tokens: readonly ApiToken[] | null;
   /** The person's look, from the own-settings read. */
   readonly look: Look | null;
@@ -67,16 +69,18 @@ export function tokenState(token: Pick<ApiToken, "lastUsedAt" | "revokedAt" | "e
 
 const text = (value: unknown) => typeof value === "string" ? value : "";
 
-function accountCards(account: Account): IndexCard[] {
+function accountCards(account: Account, external = false): IndexCard[] {
   return [{ id: "account", title: "Account", keys: "profile", rows: [
     { id: "set-picture", label: "Picture", keys: "photo avatar face image profile" },
     { id: "set-display-name", label: "Display name", keys: "name profile person", value: account.name },
     { id: "set-sql-name", label: "SQL name", keys: "sql identifier tables owner", value: account.sqlName },
     { id: "set-email", label: "Email", keys: "email address mail sign in", value: account.email },
-    { id: "set-current-password-email", label: "Current password to change email", secret: true },
-    { id: "password", label: "Change password", keys: "password change new current" },
-    { id: "set-current-password", label: "Current password", secret: true },
-    { id: "set-new-password", label: "New password", secret: true },
+    ...(external ? [] : [
+      { id: "set-current-password-email", label: "Current password to change email", secret: true },
+      { id: "password", label: "Change password", keys: "password change new current" },
+      { id: "set-current-password", label: "Current password", secret: true },
+      { id: "set-new-password", label: "New password", secret: true },
+    ]),
   ] }];
 }
 
@@ -240,7 +244,7 @@ export function settingsDeclarations(sources: IndexSources, admin: boolean): Tab
       lostPasswordContact: sources.instance.settings.lostPasswordContact?.value, landingPage: sources.instance.settings.landingPage?.value }
     : !admin ? sources.entry : null;
   return {
-    account: accountCards(sources.account),
+    account: accountCards(sources.account, sources.external),
     tokens: tokenCards(sources.tokens),
     appearance: appearanceCards(sources.look),
     ...(general ? { general: generalCards(general) } : {}),

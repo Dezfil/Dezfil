@@ -8,6 +8,7 @@ import { ErrorNote } from "@/components/ui/ErrorNote";
 import { Button } from "@/components/ui/Button";
 import { useSearchShortcut } from "@/components/use-search-shortcut";
 import { useTransientNotice } from "@/components/use-transient-notice";
+import { readExternalMode } from "@/components/auth/external-mode";
 import { accountRequest, failureMessage } from "@/components/settings/api";
 import gallery from "@/components/gallery.module.css";
 import { InviteUserRow } from "./InviteUserRow";
@@ -20,7 +21,7 @@ import type { HandOver } from "./SignInHandOver";
 import styles from "./UsersScreen.module.css";
 
 export function UsersScreen() {
-  const [data, setData] = useState<{ users: Account[]; deletions: PendingDeletion[]; own: string } | null>(null), [attempt, setAttempt] = useState(0);
+  const [data, setData] = useState<{ users: Account[]; deletions: PendingDeletion[]; own: string; external: boolean } | null>(null), [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false);
   const [query, setQuery] = useState(""), [inviting, setInviting] = useState(false), [open, setOpen] = useState<string | null>(null);
   const [handOver, setHandOver] = useState<HandOver | null>(null);
@@ -32,8 +33,8 @@ export function UsersScreen() {
   const { notice, show } = useTransientNotice();
   useEffect(() => {
     let cancelled = false;
-    Promise.all([accountRequest<{ users: Account[]; deletions: PendingDeletion[] }>("/api/users"), accountRequest<{ account: Account }>("/api/account")])
-      .then(([users, identity]) => { if (!cancelled) setData({ users: users.users, deletions: users.deletions, own: identity.account.id }); })
+    Promise.all([accountRequest<{ users: Account[]; deletions: PendingDeletion[] }>("/api/users"), accountRequest<{ account: Account }>("/api/account"), readExternalMode()])
+      .then(([users, identity, external]) => { if (!cancelled) setData({ users: users.users, deletions: users.deletions, own: identity.account.id, external }); })
       .catch(error => { if (!cancelled) setError(failureMessage(error)); });
     return () => { cancelled = true; };
   }, [attempt]);
@@ -101,7 +102,7 @@ export function UsersScreen() {
   const active = shown.filter(user => user.status !== "deactivated"), deactivated = shown.filter(user => user.status === "deactivated");
   function row(account: Account) {
     return <UserRow key={account.id} account={account} own={account.id === data?.own} open={open === account.id} busy={busy}
-      handOver={handOver?.account.id === account.id ? handOver : null}
+      handOver={handOver?.account.id === account.id ? handOver : null} external={data?.external}
       onToggle={() => { setOpen(open === account.id ? null : account.id); setHandOver(null); }}
       onAccess={patch => change(account.id, patch)} onReset={() => reset(account.id)} onRemovePicture={() => void removePicture(account.id)}
       onDone={() => setHandOver(null)} onDelete={() => setDeleting(account)} />;

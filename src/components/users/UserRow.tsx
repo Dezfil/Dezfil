@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/Button";
 import { StatusDot } from "@/components/ui/Status";
 import { ChevronIcon } from "@/components/ui/icons";
 import { Face } from "@/components/people/Face";
-import { SignInHandOver, type HandOver } from "./SignInHandOver";
+import { SignInHandOver, signsInAtTheService, type HandOver } from "./SignInHandOver";
 import styles from "./UsersScreen.module.css";
 
 /** A day in the reader's language, the month in words: Oct 20, 2026. */
 const day = (value: string) => new Date(value).toLocaleDateString(undefined, { dateStyle: "medium" });
 
-export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess, onReset, onRemovePicture, onDone, onDelete }: {
+export function UserRow({ account, own, open, busy, handOver, external = false, onToggle, onAccess, onReset, onRemovePicture, onDone, onDelete }: {
   account: Account; own: boolean; open: boolean; busy: boolean; handOver: HandOver | null;
+  /** People sign in through a sign-in service: no password or link to offer. */
+  external?: boolean;
   onToggle: () => void; onAccess: (patch: { isAdmin?: boolean; status?: "active" | "deactivated" }) => Promise<boolean>;
   onReset: () => Promise<boolean>; onRemovePicture: () => void; onDone: () => void; onDelete: () => void;
 }) {
@@ -41,7 +43,8 @@ export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess
     {open && <div id={id} className={styles.expanded}>
       <p className={styles.facts}><span>Added <b>{day(account.createdAt)}</b></span><span className={styles.sep}>·</span>
         <span>SQL name <span className={styles.sql}>{account.sqlName}</span></span></p>
-      {handOver ? <SignInHandOver value={handOver} onDone={onDone} /> : own ? <div className={styles.actions}>
+      {external && account.status === "invited" && !handOver && <p className={styles.note}>{signsInAtTheService(account.email)}</p>}
+      {handOver ? <SignInHandOver value={handOver} onDone={onDone} /> : own ? !external && <div className={styles.actions}>
         <Link href="/settings#password" className={styles.passwordLink}>Change password</Link>
       </div> : confirm ? <div className={styles.actions}>
         <p className={styles.note}>{confirm === "reset" ? "The current password and earlier links will stop working. Browser sessions will end; API tokens stay valid." : "Browser sessions will end and API tokens will lose access. Their work stays here."}</p>
@@ -53,7 +56,7 @@ export function UserRow({ account, own, open, busy, handOver, onToggle, onAccess
         <span className={styles.grow} />
         <span className={styles.dangerZone}><Button variant="danger" disabled={busy} onClick={onDelete}>Delete account</Button></span>
       </div> : <div className={styles.actions}>
-        <Button disabled={busy} onClick={() => setConfirm("reset")}>{resetLabel}</Button>
+        {!external && <Button disabled={busy} onClick={() => setConfirm("reset")}>{resetLabel}</Button>}
         <Button disabled={busy} onClick={() => void onAccess({ isAdmin: !account.isAdmin })}>{account.isAdmin ? "Remove admin" : "Make admin"}</Button>
         {removePicture}
         <span className={styles.grow} />
