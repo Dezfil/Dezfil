@@ -33,6 +33,8 @@ export function recoveryProcess(directory: string, pauseAfterHash = false) {
     import { existsSync } from 'node:fs';
     import { pathToFileURL, fileURLToPath } from 'node:url';
     registerHooks({ resolve(specifier, context, next) {
+      // Native ESM needs the extension on the framework's CommonJS entry.
+      if (specifier === 'next/server') return next('next/server.js', context);
       if (${pauseAfterHash} && specifier === './passwords' && context.parentURL?.endsWith('/auth/links.ts'))
         return next(pathToFileURL(${JSON.stringify(shim)}).href, context);
       if (specifier.startsWith('@/')) return next(pathToFileURL(${JSON.stringify(root)} + '/src/' + specifier.slice(2) + '.ts').href, context);
