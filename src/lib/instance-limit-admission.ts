@@ -5,6 +5,7 @@ import { countLimitValues } from "./settings/instance-limit-values";
 import { settingRemedy } from "./settings/remedy";
 
 const KEYS = { maps: "mapsLimit", projects: "projectsLimit", people: "peopleLimit" } as const;
+const SINGULAR = { maps: "map", projects: "project", people: "person" } as const;
 
 /** The immediate outer transaction must hold admission through the insert.
  * Resolving from its database snapshot also observes another writer's settings. */
@@ -21,7 +22,8 @@ export function checkInstanceCreationLimit(kind: keyof InstanceCounts, db: Datab
   const count = instanceCounts(db)[kind];
   if (count < limit) return;
   const key = KEYS[kind];
+  const noun = limit === 1 ? SINGULAR[kind] : kind;
   throw new ApiError("instance_limit_reached",
-    `This instance holds its limit of ${limit} ${kind}. Delete one, or raise the limit. ${settingRemedy(key)}`,
+    `This instance holds its limit of ${limit} ${noun}. Delete one, or raise the limit. ${settingRemedy(key)}`,
     409, { key, limit, count });
 }

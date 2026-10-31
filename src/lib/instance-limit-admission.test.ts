@@ -5,6 +5,7 @@ import { createMap } from "./map-service";
 import { createProject } from "./metadata/owned-projects";
 import { writeStoredSettings } from "./settings/store";
 import { instanceCounts } from "./instance-limits";
+import { admitInstanceCreation, checkInstanceCreationLimit } from "./instance-limit-admission";
 import { dispatchAssistantTestRoute } from "./assistant/testing/route-dispatch";
 import { testClient } from "./mcp/test-client";
 import { recordCreationAttempt } from "../../test-support/instance-limit-assistant";
@@ -31,6 +32,34 @@ const call = (road: typeof roads[number], token: boolean) => dispatchAssistantTe
 }));
 
 describe("instance creation admission", () => {
+  it.each([
+    { kind: "maps", limit: 1, noun: "map" },
+    { kind: "maps", limit: 2, noun: "maps" },
+    { kind: "projects", limit: 1, noun: "project" },
+    { kind: "projects", limit: 2, noun: "projects" },
+    { kind: "people", limit: 1, noun: "person" },
+    { kind: "people", limit: 2, noun: "people" },
+  ] as const)("names a limit of $limit $noun in advisory and transactional refusals", ({ kind, limit, noun }) => {
+    const key = `${kind}Limit`;
+    writeStoredSettings({ [key]: 0 }, f.db);
+    const scope = testAccountScope(f.db, "admin");
+    if (limit === 2 && kind === "maps") createMap(scope, "Second");
+    if (limit === 2 && kind === "projects") createProject(scope, { name: "Second" }, f.db);
+    writeStoredSettings({ [key]: limit }, f.db);
+    const before = instanceCounts(f.db);
+    for (const check of [
+      () => checkInstanceCreationLimit(kind, f.db),
+      () => f.db.transaction(() => admitInstanceCreation(kind, f.db)).immediate(),
+    ]) {
+      expect(check).toThrow(expect.objectContaining({
+        code: "instance_limit_reached", status: 409,
+        message: expect.stringContaining(`This instance holds its limit of ${limit} ${noun}.`),
+        extra: { key, limit, count: before[kind] },
+      }));
+    }
+    expect(instanceCounts(f.db)).toEqual(before);
+  });
+
   it.each(roads)("$tool refuses both session and token requests without creating anything", async road => {
     const before = instanceCounts(f.db);
     for (const token of [false, true]) {
