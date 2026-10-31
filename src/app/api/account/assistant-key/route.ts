@@ -25,10 +25,13 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const account = requireCurrentActor(requireRequestAuth(request));
+    const context = requireRequestAuth(request);
+    const account = requireCurrentActor(context);
     const body = await authBody(request, ["provider", "key"]);
     const key = cleanKey(body.key);
     if (!isKeyProvider(body.provider) || key === null) throw new AuthError("invalid_request", INVALID_KEY, 400);
+    // A body can take its time, and the credential can be revoked meanwhile.
+    requireCurrentActor(context);
     setOwnKey(account.id, body.provider, key);
     return privateResponse(NextResponse.json(keyStatus(account.id)));
   } catch (error) { return authFailure(error); }

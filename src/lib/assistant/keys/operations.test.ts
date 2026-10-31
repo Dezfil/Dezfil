@@ -15,6 +15,7 @@ import { assistantRuns } from "../runs";
 import { pendingActions } from "../pending";
 import { dispatchAssistantTestRoute } from "../testing/route-dispatch";
 import { socketRequest } from "../testing/socket-request";
+import { setOwnKey } from "./change";
 import { assistantKeyFacts, readAssistantKey } from "./store";
 
 /** The three operations through the real route, as a person, an admin and a client. */
@@ -113,6 +114,21 @@ describe("another person's key", () => {
     expect((await admin(`/api/users/ada`)).status).not.toBe(500);
     expect(JSON.stringify(buildOpenApiDocument().paths)).not.toMatch(/users\/[^"]*assistant-key/);
   });
+});
+
+it("refuses a save whose credential was revoked while its body was on the way", async () => {
+  const ada = person("ada");
+  let release = () => {};
+  const body = new ReadableStream({ start(controller) {
+    release = () => { controller.enqueue(new TextEncoder().encode(JSON.stringify({ provider: "anthropic", key: KEY }))); controller.close(); };
+  } });
+  const pending = ada(URL_PATH, { method: "PUT", headers: { "content-type": "application/json" }, body, duplex: "half" } as RequestInit);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  metadataDb().prepare("UPDATE auth_tokens SET revoked_at = ? WHERE account_id = 'ada'").run(Date.now());
+  setOwnKey("ada", "openai", OTHER);
+  release();
+  expect((await pending).status).toBe(401);
+  expect(readAssistantKey("ada")).toMatchObject({ key: OTHER });
 });
 
 it("needs a credential, and a cookie write from another origin is refused at the gate", async () => {
