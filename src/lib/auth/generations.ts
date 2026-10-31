@@ -1,3 +1,5 @@
+import { assistantBeginMark } from "@/lib/assistant/retained-work";
+import { interruptOlderAssistantWork } from "./sign-out-everyone";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { adoptDoorGeneration } from "@/lib/metadata/auth-generations";
@@ -8,5 +10,8 @@ export function outdatedToken(): AuthError {
 }
 /** Run before the first request so restored credentials cannot precede a configured floor. */
 export function initializeAuthGenerations(db: Database = metadataDb()): boolean {
-  return db.transaction(() => adoptDoorGeneration(externalSignIn().generationFloor, db)).immediate();
+  const mark = assistantBeginMark();
+  const raised = db.transaction(() => adoptDoorGeneration(externalSignIn().generationFloor, db)).immediate();
+  if (raised) interruptOlderAssistantWork(mark);
+  return raised;
 }

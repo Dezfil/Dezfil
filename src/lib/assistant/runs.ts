@@ -1,4 +1,4 @@
-import { registerAssistantStore } from "./retained-work";
+import { assistantBeginMark, registerAssistantStore } from "./retained-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { getAccount } from "@/lib/metadata/accounts";
 import type { ActionEffects, ResolvedConfirmation } from "./action-metadata";
@@ -95,7 +95,7 @@ export interface RunReceipt {
    * reported. */
   provenance?: RunProvenance;
 }
-interface RunEntry { scope: AccountScope; accountId: string; controller?: AbortController; currentText?: { id: string; start: number }; receipt: RunReceipt; fingerprint?: string; createdAt: number }
+interface RunEntry { begun: number; invalidated?: boolean; scope: AccountScope; accountId: string; controller?: AbortController; currentText?: { id: string; start: number }; receipt: RunReceipt; fingerprint?: string; createdAt: number }
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value !== null && typeof value === "object") return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k,v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
@@ -126,7 +126,7 @@ export class AssistantRunStore {
     const occupied = [...this.entries.values()].filter(({ receipt }) => ["reserved", "running", "awaiting_confirmation"].includes(receipt.state)).length;
     if (occupied >= RECOVERY_LIMITS.slots) throw new ApiError("assistant_capacity", ERROR_CATALOGUE.assistant_capacity, 409);
     const receipt: RunReceipt = { id: randomUUID(), state: "reserved", text: "", actions: [], incomplete: false };
-    this.entries.set(receipt.id, { receipt, scope, accountId, createdAt: this.now() });
+    this.entries.set(receipt.id, { receipt, scope, accountId, begun: assistantBeginMark(), createdAt: this.now() });
     return structuredClone(receipt);
   }
   requireAccount(scope: AccountScope, id: string): void { this.lookup(scope, id); }
@@ -163,6 +163,7 @@ export class AssistantRunStore {
   checkPark(scope: AccountScope, id: string, data: unknown) {
     if (parkedBytes(data) + jsonBytes(this.lookup(scope, id).receipt) > RECOVERY_LIMITS.liveBytes) recoveryLimit();
   }
+  beginMark(scope: AccountScope, id: string): number { return this.lookup(scope, id).begun; }
   /** Synchronous claim before the first await: two callers cannot both win. */
   bind(scope: AccountScope, id: string, input: unknown): boolean {
     const entry = this.lookup(scope, id);
@@ -198,7 +199,9 @@ export class AssistantRunStore {
   /** A resolution re-enters the run; the pending representation becomes a
    * settled record carrying the decision. */
   resume(scope: AccountScope, id: string, decision: Extract<Decision, "approved" | "declined"> = "approved") {
-    const entry = this.lookup(scope, id); entry.controller = new AbortController(); entry.receipt.state = "running";
+    const entry = this.lookup(scope, id);
+    if (entry.invalidated) throw new ApiError("assistant_run_unavailable", ERROR_CATALOGUE.assistant_run_unavailable, 404);
+    entry.controller = new AbortController(); entry.receipt.state = "running";
     this.settle(entry.receipt, decision);
   }
   private settle(receipt: RunReceipt, decision: Decision) {
@@ -213,6 +216,7 @@ export class AssistantRunStore {
   }
   record(scope: AccountScope, id: string, event: AssistantEvent) {
     const entry = this.lookup(scope, id);
+    if (entry.invalidated) return;
     const receipt = structuredClone(entry.receipt);
     if (event.type === "text_delta") {
       if (entry.currentText?.id !== event.messageId) {
@@ -294,6 +298,16 @@ export class AssistantRunStore {
     }
     return true;
   }
+  endBefore(mark: number): void {
+    for (const [id, entry] of this.entries) if (entry.begun < mark && ["reserved", "running", "awaiting_confirmation"].includes(entry.receipt.state)) {
+      entry.invalidated = true;
+      entry.controller?.abort(new DOMException("Credentials ended", "AbortError"));
+      entry.receipt.state = "interrupted";
+      entry.receipt.error = { code: "authentication_required", message: "Sign in to continue." };
+      for (const action of entry.receipt.actions) if (action.observation?.state === "awaited") action.observation = { ...action.observation, state: "interrupted", reason: "cancelled" };
+      this.settle(entry.receipt, "superseded"); this.retainTerminal(id);
+    }
+  }
   interruptAccount(accountId: string): void { for (const entry of this.entries.values()) if (entry.accountId === accountId) entry.controller?.abort(new DOMException("Account is inactive", "AbortError")); }
   eraseAccount(accountId: string): void {
     for (const [id, entry] of this.entries) if (entry.accountId === accountId) this.entries.delete(id);
@@ -309,4 +323,4 @@ const runsHost = globalThis as typeof globalThis & { [runsKey]?: RunStoreState }
 const runsState: RunStoreState = runsHost[runsKey] ??= { entries: new Map(), terminals: [] as string[] };
 export const assistantRuns = new AssistantRunStore(Date.now, runsState);
 
-registerAssistantStore({ interrupt: id => assistantRuns.interruptAccount(id), erase: id => assistantRuns.eraseAccount(id) });
+registerAssistantStore({ endBefore: mark => assistantRuns.endBefore(mark), interrupt: id => assistantRuns.interruptAccount(id), erase: id => assistantRuns.eraseAccount(id) });

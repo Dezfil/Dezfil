@@ -17,7 +17,7 @@ export function runStream(scope: AccountScope, events: AsyncGenerator<AssistantE
       const work = beginAssistantWork(scope, () => {
         if (!closed) { closed = true; controller.error(new AuthError("authentication_required", "Sign in to continue.", 401)); }
         control?.depart();
-      });
+      }, runId ? assistantRuns.beginMark(scope, runId) : undefined);
       const emit = (event: AssistantEvent) => {
         requireAccountScope(scope);
         if (runId) assistantRuns.record(scope, runId, event);

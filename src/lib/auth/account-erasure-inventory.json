@@ -7356,6 +7356,16 @@
       "roots": [
         "templates"
       ]
+    },
+    "memory:src/lib/api/openapi-external-sign-in.ts#EXTERNAL_SIGN_IN_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/assistant/retained-work.ts#retainAssistantCleanup.entry": {
+      "stores": [
+        "memory:assistant-cleanups"
+      ]
     }
   },
   "files": {

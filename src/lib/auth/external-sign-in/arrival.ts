@@ -1,3 +1,5 @@
+import { assistantBeginMark } from "@/lib/assistant/retained-work";
+import { interruptOlderAssistantWork } from "../sign-out-everyone";
 import { adoptDoorGeneration, readGenerations } from "@/lib/metadata/auth-generations";
 import type { Database } from "better-sqlite3";
 import { NextResponse } from "next/server";
@@ -41,6 +43,7 @@ export async function arriveExternalSignIn(request: Request, db: Database = meta
       db.transaction(() => recordAddressAttempt(addressBudget(ingress!.source, db, now ?? Date.now()), true, db)).immediate();
       throw error;
     }
+    const mark = assistantBeginMark();
     const result = db.transaction(() => {
       const at = now ?? Date.now(); requireAuthenticationWanted(request.signal);
       refuseSignedIn(request, db, at);
@@ -60,12 +63,13 @@ export async function arriveExternalSignIn(request: Request, db: Database = meta
       db.prepare(`UPDATE accounts SET external_identity=?,email=?,name=?,status='active',last_sign_in_at=?,updated_at=? WHERE id=?`)
         .run(ticket.sub, email, name, new Date(at).toISOString(), new Date(at).toISOString(), account.id);
       recordAddressAttempt(budget, false, db);
-      adoptDoorGeneration(ticket.door_generation, db);
+      const raised = adoptDoorGeneration(ticket.door_generation, db);
       const session = issueSession(getAccount(account.id, db)!, db, at);
       db.prepare("INSERT INTO auth_ticket_ids (id, expires_at) VALUES (?, ?)").run(ticket.jti, ticket.exp * 1000);
-      return { session };
+      return { session, raised };
     }).immediate();
     if (result.error) throw result.error;
+    if (result.raised) interruptOlderAssistantWork(mark);
     response = privateResponse(NextResponse.json({ account: result.session!.account }));
     sessionCookie(response as NextResponse, result.session!.secret, ingress!);
   } catch (error) { response = authFailure(error); }
