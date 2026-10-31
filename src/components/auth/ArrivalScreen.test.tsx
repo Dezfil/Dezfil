@@ -153,7 +153,7 @@ describe("a refusal", () => {
   });
 
   it("asks nothing of the server without a ticket, and offers to start again", async () => {
-    Object.assign(host.window.location, { hash: "" });
+    (host.window as unknown as { location: { hash: string } }).location.hash = "";
     await open();
     expect(arrivals()).toEqual([]);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("This sign-in link is unavailable. Start sign-in again.");

@@ -46,7 +46,8 @@ function accountUnit(account: Account, external: boolean): SaveUnit {
         name: String(values.name ?? ""), ...(changingEmail ? { email: String(values.email ?? ""), currentPassword: String(patch.currentPassword ?? values.currentPassword ?? "") } : {}),
       });
       window.dispatchEvent(new CustomEvent(DISPLAY_NAME_EVENT, { detail: updated.name }));
-      return external ? { name: updated.name } : { name: updated.name, email: updated.email, currentPassword: "" };
+      const saved: Record<string, Value> = external ? { name: updated.name } : { name: updated.name, email: updated.email, currentPassword: "" };
+      return saved;
     },
   });
   return unit;

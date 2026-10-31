@@ -25,8 +25,9 @@ afterEach(async () => {
 });
 
 const door = async () => {
-  server = await startDoor({ instanceUrl: "http://localhost:3310" });
-  const address = server.address();
+  const listening: Server = await startDoor({ instanceUrl: "http://localhost:3310" });
+  server = listening;
+  const address = listening.address();
   return `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 };
 
