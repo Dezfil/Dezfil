@@ -31,7 +31,8 @@ try {
   assert.ok(fs.statSync(path.join(folder, '.storage-reserve')).blocks * 512 >= RESERVE, 'Reserve must hold actual blocks');
   async function upload(name) {
     const form = new FormData(); form.append('file', new Blob(['id,lon,lat\n' + Array.from({ length: 40 }, (_, i) => `${i},${13.3 + i / 1000},52.5`).join('\n')]), `${name}.csv`);
-    return good(await api('POST', '/api/tables', { form })).tables[0];
+    // A CSV lands as one table, answered directly; only container formats answer a list.
+    return good(await api('POST', '/api/tables', { form }));
   }
   const kept = await upload('storage_kept'), disposable = await upload('storage_delete');
   const map = good(await api('POST', '/api/maps', { body: { name: 'Preserved map' } }));
