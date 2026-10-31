@@ -2668,6 +2668,26 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-assistant-keys.ts#ASSISTANT_KEY_PATHS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-keys.ts#ASSISTANT_KEY_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-keys.ts#errors": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-assistant-keys.ts#facts": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-assistant-events.ts#ASSISTANT_EVENT_SCHEMAS": {
       "stores": [
         "memory:immutable-configuration"
