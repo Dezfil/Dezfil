@@ -1,3 +1,4 @@
+import { STORAGE_RESERVE_NAME } from "./storage-reserve";
 import { PICTURE_RECORD, STAGED_EXPORT_RECORD } from "@/lib/ingest/file-ownership";
 import type { StorageKind } from "./storage-answer";
 
@@ -49,6 +50,7 @@ const UNFINISHED_WRITE = ".tmp";
 /** The kind of the file at `segments`, a path under the data folder. */
 export function placeOf(segments: readonly string[], references: StorageReferences): StorageKind {
   const [top, second, third] = segments;
+  if (segments.length === 1 && top === STORAGE_RESERVE_NAME) return "other";
   if (segments.length === 1) return METADATA_FILES.has(top) ? "metadata_database" : "other";
   switch (top) {
     // A table's file, or everything under one entry of the folder, by that entry's name.

@@ -63,6 +63,7 @@ To see the sizes before you copy, sign in as an admin and open **Settings** > **
 | `profile-pictures/` | Each person's picture, as Dezfil keeps it | **Profile pictures** |
 | `templates/` | Downloaded templates | **Templates** |
 | `cache/` | Answers from the address finder, travel time and OpenStreetMap | **Service caches** |
+| `.storage-reserve` | Up to 64 MB held for signing in and cleanup when the disk fills. Dezfil refills it when space returns. | **Other** |
 | `secret.key` | The encryption key, once Dezfil has made one | **Other** |
 | `assistant-models.json` | Your model catalogue file, if you added one | **Other** |
 | `tmp/`, `exports/` | Work in progress, removed at the next start | **Leftover files** |

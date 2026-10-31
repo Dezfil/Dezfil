@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -64,7 +65,7 @@ export function acceptAccountDeletion(context: AuthContext, accountId: string, c
 async function continueDeletion(journal: DeletionJournal, db: Database): Promise<DeletionStatus> {
   const { accountId, content } = journal;
   try {
-    journal.state = "pending"; writeDeletionJournal(journal);
+    journal.state = "pending"; await withStorageRecovery(() => writeDeletionJournal(journal));
     // Stage numbers describe the next obligation. Replaying a stage after a
     // crash is safe, including dissolution whose transaction removes its source.
     const stages: (() => void | Promise<void>)[] = [
@@ -87,14 +88,14 @@ async function continueDeletion(journal: DeletionJournal, db: Database): Promise
       }).immediate(); },
       () => { compactMetadataStore(db); },
     ];
-    while (journal.next < stages.length) { await stages[journal.next](); journal.next++; writeDeletionJournal(journal); }
+    while (journal.next < stages.length) { await withStorageRecovery(stages[journal.next]); journal.next++; await withStorageRecovery(() => writeDeletionJournal(journal)); }
     removeDeletionJournal(journal.id);
     return { id: journal.id, state: "completed" };
   } catch {
     journal.state = "needs-retry";
     // If the volume itself is unwritable, the last durable journal still
     // blocks completion. Startup promotes it to retry before serving.
-    try { writeDeletionJournal(journal); } catch {}
+    try { await withStorageRecovery(() => writeDeletionJournal(journal)); } catch {}
     return status(journal);
   } finally { holder.prepared.delete(workKey(journal.id, db)); }
 }

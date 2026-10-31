@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { pictureListing, type PictureListing } from "@/lib/pictures/listing";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
@@ -522,7 +523,7 @@ export function duplicateMap(scope: AccountScope, id: string): MapWithLayers & D
 }
 
 export async function removeMap(scope: AccountScope, id: string, opts: { expectedRevision?: unknown } = {}): Promise<void> {
-  const { map, layerIds, removeImages } = metadataDb().transaction(() => {
+  const { map, layerIds, removeImages } = await withStorageRecovery(() => metadataDb().transaction(() => {
     const map = requireMapFor(scope, id, "delete");
     requireDocumentRevision(scope, { kind: "map", id, action: "delete", expectedRevision: opts.expectedRevision });
     const layerIds = listLayers(id).map((l) => l.id);
@@ -532,7 +533,7 @@ export async function removeMap(scope: AccountScope, id: string, opts: { expecte
     const removeImages = prepareThumbnailRemoval(scope, id);
     deleteMap(id); // layers (and their tile records) cascade
     return { map, layerIds, removeImages };
-  })();
+  })());
   if (map.publishToken) invalidatePublishedToken(map.publishToken);
   // Archives and thumbnails are files, not rows — remove them explicitly.
   await removeImages();

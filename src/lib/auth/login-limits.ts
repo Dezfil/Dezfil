@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -20,7 +21,7 @@ export async function withLoginLimit<T>(email: string, source: string, operation
   // An IPv6 source shares its address budget with the rest of its /64; a
   // NAT64 source is charged as the IPv4 client it carries.
   const sourceKey = `source:${secretHash(accountingSource(source))}`;
-  const reservations = db.transaction(() => {
+  const reservations = await withStorageRecovery(() => db.transaction(() => {
     // Read inside the reservation on every attempt, so a lowered count pauses
     // the next attempt and a raised one admits it, with no restart.
     const { failedPerAccount, failedPerAddress } = securitySettings(db);
@@ -50,7 +51,7 @@ export async function withLoginLimit<T>(email: string, source: string, operation
         .run(row.bucket, row.window_started_at, row.failures, row.pending + 1);
     }
     return rows.map(({ row }) => row);
-  }).immediate();
+  }).immediate());
   const finish = (outcome: "success" | "failure" | "started-cancellation" | "refund") => db.transaction(() => {
     for (const row of reservations) {
       // Started cancellations keep source capacity reserved until its window expires.
@@ -64,11 +65,11 @@ export async function withLoginLimit<T>(email: string, source: string, operation
   let result: T;
   try { result = await operation(); }
   catch (error) {
-    finish(error instanceof AuthError && ["invalid_credentials", "account_deactivated"].includes(error.code) ? "failure"
-      : error instanceof AuthenticationCancelled && error.derivationStarted ? "started-cancellation" : "refund");
+    await withStorageRecovery(() => finish(error instanceof AuthError && ["invalid_credentials", "account_deactivated"].includes(error.code) ? "failure"
+      : error instanceof AuthenticationCancelled && error.derivationStarted ? "started-cancellation" : "refund"));
     throw error;
   }
-  finish("success");
+  await withStorageRecovery(() => finish("success"));
   return result;
 }
 

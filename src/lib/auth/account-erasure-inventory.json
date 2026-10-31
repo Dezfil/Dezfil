@@ -900,6 +900,14 @@
     "memory:storage-writers": {
       "action": "retain",
       "rule": "Keep process-wide writer cancellation and settlement coordination until each owning operation drains. Account deletion drains those operation owners before erasing their material; the registry stores no account identity or file bytes of its own."
+    },
+    "file:storage-reserve": {
+      "action": "retain",
+      "rule": "Keep the instance reserve through account deletion. It holds allocated filler bytes, no account content."
+    },
+    "memory:storage-recovery": {
+      "action": "retain",
+      "rule": "Keep the recovery latch and refill timer. They serialize replayable work until its owner settles, without storing account identities or file content."
     }
   },
   "tables": {
@@ -7519,6 +7527,59 @@
       "stores": [
         "memory:storage-writers"
       ]
+    },
+    "location:src/lib/system/storage-reserve.ts#releaseSlice:reservePath": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "location:src/lib/system/storage-reserve.ts#replenishStorageReserve.fd:reservePath": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "location:src/lib/system/storage-reserve.ts#reservePath:dataDir": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/system/storage-reserve.ts#reservePath:path.join": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "writer:src/lib/system/storage-reserve.ts#releaseSlice:openSync": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "writer:src/lib/system/storage-reserve.ts#replenishStorageReserve.fd:openSync": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "memory:src/lib/system/storage-reserve.ts#state": {
+      "stores": [
+        "memory:storage-recovery"
+      ]
     }
   },
   "files": {
@@ -7582,6 +7643,9 @@
     "file:profile-pictures": [
       "profile-pictures/*.webp",
       "profile-pictures/*.webp.part"
+    ],
+    "file:storage-reserve": [
+      ".storage-reserve"
     ]
   },
   "accountReferences": {

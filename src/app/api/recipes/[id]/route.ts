@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 import { requireDocumentRevision } from "@/lib/metadata/revisions";
 import { revisionEnvelope } from "@/lib/metadata/document-results";
@@ -54,7 +55,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     const { id } = await params;
     // Deleting a workflow is its owner's act.
     requirePermitted(scope, "workflow", id, "delete");
-    if (!deleteRecipe(scope, id, undefined, { expectedRevision: _request.headers.get(EDIT_REVISION_HEADER) })) {
+    if (!await withStorageRecovery(() => deleteRecipe(scope, id, undefined, { expectedRevision: _request.headers.get(EDIT_REVISION_HEADER) }))) {
       throw resourceAbsent();
     }
     return NextResponse.json({
