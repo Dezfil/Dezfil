@@ -13,6 +13,8 @@ export async function register() {
     await ensureDataDir(dataDir());
     const { metadataDb } = await import("@/lib/metadata/db");
     metadataDb();
+    const { initializeExternalOwner } = await import("@/lib/auth/external-sign-in/owner");
+    initializeExternalOwner();
     const { discoverAccountDeletions } = await import("@/lib/auth/account-deletion-journal");
     discoverAccountDeletions();
     const { maintainCredentials } = await import("@/lib/auth/credential-maintenance");

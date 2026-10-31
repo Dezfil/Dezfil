@@ -9,7 +9,7 @@ export interface ExternalSignIn {
 }
 
 /** Raw Ed25519 public keys use unpadded base64url, with no private material. */
-export function parseExternalSignIn(env: NodeJS.ProcessEnv): ExternalSignIn {
+export function parseExternalSignIn(env: Readonly<Record<string, string | undefined>>): ExternalSignIn {
   const raw = env.DEZFIL_EXTERNAL_SIGN_IN_KEYS?.trim() ?? "";
   const audience = env.DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE?.trim() ?? "";
   if (raw && !audience) throw new Error("DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE is required with DEZFIL_EXTERNAL_SIGN_IN_KEYS.");
@@ -45,7 +45,7 @@ export function externalSignIn(): ExternalSignIn {
 }
 
 /** Called only while the store has no account. */
-export function firstOwnerConfiguration(env: NodeJS.ProcessEnv = process.env) {
+export function firstOwnerConfiguration(env: Readonly<Record<string, string | undefined>> = process.env) {
   return { id: env.DEZFIL_EXTERNAL_SIGN_IN_OWNER_ID?.trim() ?? "",
     email: env.DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL?.trim() ?? "",
     name: env.DEZFIL_EXTERNAL_SIGN_IN_OWNER_NAME?.trim() ?? "" };

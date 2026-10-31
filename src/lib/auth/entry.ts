@@ -1,3 +1,4 @@
+import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { readStoredSettings } from "@/lib/settings/store";
 import { settingDefinition } from "@/lib/settings/catalogue";
 import { NextResponse } from "next/server";
@@ -28,6 +29,7 @@ export async function entryInformation(request: Request): Promise<Response> {
 }
 export async function enter(request: Request, action: "setup" | "sign-in" | "redeem"): Promise<Response> {
   try {
+    if (action === "setup") requirePasswordSignIn();
     const ingress = requestIngress(request);
     assertRequestOrigin(request);
     const fields = action === "setup" ? ["name", "email", "password"] : action === "sign-in" ? ["email", "password"] : ["secret", "password"];

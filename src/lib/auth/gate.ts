@@ -1,3 +1,5 @@
+import { externalSignIn } from "./external-sign-in/config";
+import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { pictureRequestScope, PICTURE_WORK_HEADER } from "@/lib/pictures/credential";
 import { apiMethodResponse } from "./api-methods";
 import { isAnonymousAsset } from "./public-assets";
@@ -45,9 +47,10 @@ export function gateRequest(request: Request): Response {
     const ingress = requestIngress(request);
     const redirect = (destination: string) => privateResponse(NextResponse.redirect(new URL(destination, ingress.origin)));
     if (isEntryRequest(pathname, request.method)) {
+      if (pathname === "/setup") requirePasswordSignIn();
       assertRequestOrigin(request);
       if (pathname === "/setup" || pathname === "/sign-in") {
-        const setupRequired = !setupComplete();
+        const setupRequired = !externalSignIn().enabled && !setupComplete();
         if (setupRequired && pathname !== "/setup") return redirect("/setup");
         if (!setupRequired) {
           const context = requestAuth(request);
@@ -67,7 +70,7 @@ export function gateRequest(request: Request): Response {
     return response;
   } catch (error) {
     if (error instanceof AuthError && error.code === "authentication_required" && pathname !== "/api" && !pathname.startsWith("/api/")) {
-      return privateResponse(NextResponse.redirect(new URL(!setupComplete() ? "/setup" : "/sign-in", requestIngress(request).origin)));
+      return privateResponse(NextResponse.redirect(new URL(!externalSignIn().enabled && !setupComplete() ? "/setup" : "/sign-in", requestIngress(request).origin)));
     }
     return authFailure(error);
   }

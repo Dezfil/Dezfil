@@ -1,3 +1,4 @@
+import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -55,6 +56,7 @@ export function identityFields(name: string, email: string) {
 
 export async function createFirstAccount(input: { name: string; email: string; password: string },
   db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+  requirePasswordSignIn();
   maintainCredentials(db, now);
   // The write transaction repeats this check after asynchronous password work.
   if (setupComplete(db)) throw new AuthError("setup_complete", "This instance is already set up.", 409);
