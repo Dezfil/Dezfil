@@ -45,6 +45,7 @@ it.each(["delete", "upgrade"])("removes workflow runs and members on %s while th
     db.prepare("DELETE FROM recipes WHERE id = ?").run(recipe.id);
     const cleanup = MIGRATIONS.findIndex(sql => /DELETE FROM cascade_runs WHERE NOT EXISTS/.test(sql));
     expect(cleanup).toBeGreaterThanOrEqual(0);
+    db.exec("DROP TABLE assistant_keys");
     db.exec("DROP TRIGGER revoke_picture_work_on_inactive_owner; DROP TABLE map_pictures; ALTER TABLE accounts DROP COLUMN picture_version");
     db.exec(`DROP INDEX idx_accounts_external_identity;
       ALTER TABLE accounts DROP COLUMN external_identity;

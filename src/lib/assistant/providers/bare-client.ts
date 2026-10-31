@@ -14,8 +14,8 @@ export const OPENAI_PUBLIC_ADDRESS = "https://api.openai.com/v1";
 
 /** Each header the environment asks the SDK to add, cancelled. The SDK reads
  * the variable itself, so what it would add has to be named to be removed. */
-function cancelled(variable: string, env: Record<string, string | undefined>): Record<string, null> {
-  const names = (env[variable] ?? "").split("\n").flatMap((line) => {
+function cancelled(headers: string | undefined): Record<string, null> {
+  const names = (headers ?? "").split("\n").flatMap((line) => {
     const colon = line.indexOf(":");
     return colon > 0 ? [line.slice(0, colon).trim()] : [];
   });
@@ -29,7 +29,7 @@ export function bareAnthropicOptions(apiKey: string, env: Record<string, string 
     webhookKey: null,
     baseURL: ANTHROPIC_PUBLIC_ADDRESS,
     // The key is restated last, so a variable that names its header cannot replace it.
-    defaultHeaders: { ...cancelled("ANTHROPIC_CUSTOM_HEADERS", env), "x-api-key": apiKey },
+    defaultHeaders: { ...cancelled(env.ANTHROPIC_CUSTOM_HEADERS), "x-api-key": apiKey },
     // A redirect would carry the key's header to wherever it points.
     fetchOptions: { redirect: "error" as const },
     logLevel: "off" as const,
@@ -44,7 +44,7 @@ export function bareOpenAIOptions(apiKey: string, env: Record<string, string | u
     project: null,
     webhookSecret: null,
     baseURL: OPENAI_PUBLIC_ADDRESS,
-    defaultHeaders: { ...cancelled("OPENAI_CUSTOM_HEADERS", env), authorization: `Bearer ${apiKey}` },
+    defaultHeaders: { ...cancelled(env.OPENAI_CUSTOM_HEADERS), authorization: `Bearer ${apiKey}` },
     fetchOptions: { redirect: "error" as const },
     logLevel: "off" as const,
   };
