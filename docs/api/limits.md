@@ -2,7 +2,7 @@
 title: "Limits"
 summary: "Find every limit Dezfil holds requests to, what you get when you reach one, and the setting that changes it."
 read_when:
-  - "a request answers 408, 413, 422 or 429 and you want to know which limit it reached"
+  - "a request answers 408, 409, 413, 422 or 429 and you want to know which limit it reached"
   - "a query shows only its first rows, or answers query_result_too_large"
   - "you want to raise the largest upload, the query time limit or another limit"
   - "an assistant message, an agent's upload or a tool's download is too large"
@@ -70,6 +70,7 @@ On the **SQL** page the same query shows **Showing the first 1,000 of 1,001 rows
 | A request over a size | A 4xx status and an error code, before any work. Nothing changes. | 413 `upload_too_large` |
 | An answer, or the work, over a size or memory budget | 422, or 400 for the memory of people's SQL, and a code. No part of the answer comes back. | 422 `query_result_too_large` |
 | Work that runs past its time | 408, or 504 for a link import's download, and a code that names the limit. The work stops. | 408 `query_timeout` |
+| A creation at the instance count limit | 409 `instance_limit_reached`. Nothing is created. | A new map when the instance holds its map limit |
 | A full queue, or too many requests | 409, 429 or 503. Retry later. | 429 `rate_limited` |
 
 An MB, here, in **Settings** and in Dezfil's messages, is 1,048,576 bytes, a MiB: the 32 MB that `query_result_too_large` names is 33,554,432 bytes. Only **Engine memory** and **Trusted engine memory** count an MB as 1,000,000 bytes.
@@ -119,7 +120,7 @@ Run it with `node change-limit.mjs`.
 - A key that a variable sets answers 409 `setting_locked`, and nothing changes.
 - To go back to the default, send `{"previewRows": null}`.
 
-`GET /api/instance/settings` reads every limit in effect, for an admin. Any signed-in account reads `previewRows` and `renderCapFeatures` from `GET /api/config`.
+Read `previewRows` and `renderCapFeatures` through `GET /api/config`.
 
 > [!NOTE]
 > A change applies to new work. A query, upload or tool run that has already started keeps the limit it started with.
@@ -324,6 +325,36 @@ When all eight are taken, the pane says **The assistant is at capacity: eight re
 A detail Dezfil leaves out of what it tells the model comes with the address the model reads it from. When even the names do not fit, the message is refused.
 
 To upload a bigger file, use **Add data** in the app or `POST /api/tables` over HTTP.
+
+## Maps, projects and people
+
+| Setting | What counts |
+|---|---|
+| **Maps on this instance** | Every map across all owners and projects, including duplicates and template copies. Installed templates do not count. |
+| **Projects on this instance** | Every project. Copying a template creates a project too. |
+| **People on this instance** | Invited, active, deactivated and deleting accounts, plus readable unfinished deletion journals, counted once per person. A finished deletion's retained identity does not count. |
+
+| Situation | What happens |
+|---|---|
+| Nothing set | Each count limit defaults to `0`, meaning no limit. |
+| A limit below the count | Nothing is deleted. Reading, editing, sharing, publishing, unpublishing, exporting and deleting continue. Ownership transfers change no count. |
+| Creation at or above a limit | `409 instance_limit_reached`. A refused template copy keeps its installation and creates no project, map or dataset. Delete an item or raise the limit. The message names the editable setting, or its locking variable and a restart. |
+| An unfinished account deletion | It occupies a place even after profile erasure. Finish it through [Users](../self-host/users.md#a-row-says-deletion-unfinished). Deactivating someone frees no place. |
+| The first owner | Creation is exempt. |
+| An invited person's arrival | Activates their existing account and consumes no extra place, in either sign-in mode. |
+
+Example refusal:
+
+```json title="Output"
+{"error":{"code":"instance_limit_reached","message":"This instance holds its limit of 20 maps. Delete one, or raise the limit. An admin can change \"Maps on this instance\".","key":"mapsLimit","limit":20,"count":20}}
+```
+
+Read `instanceLimits` through `GET /api/config` or, for admins, `GET /api/instance/settings`:
+
+| Field inside `instanceLimits` | What it holds |
+|---|---|
+| `maps`, `projects`, `people` | Each holds `key`, the setting's key; `limit`, with zero meaning unbounded; and `count`, the current instance-wide count. Names and private items are not disclosed. |
+| `instanceLimits.tokenLifetimeMax` | `none`, `30d`, `90d` or `1y`. See [Token lifetimes](../self-host/configuration/rules.md#token-lifetimes). |
 
 ## Request bodies
 
