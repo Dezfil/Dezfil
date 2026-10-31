@@ -4,10 +4,11 @@ import { insertAccount } from "@/lib/metadata/accounts";
 import { issueSession, authenticateSession, createApiToken, authenticateToken } from "./credentials";
 import { issueSignInLink } from "./admin";
 import { issueLink, revokeSignInCredentials, secretHash } from "./link-issuance.mjs";
+import { readAssistantKey, saveAssistantKey } from "@/lib/assistant/keys/store";
 
 const db = open(":memory:");
 const now = Date.parse("2026-01-01T00:00:00Z");
-afterEach(() => db.exec("DELETE FROM auth_links; DELETE FROM auth_sessions; DELETE FROM auth_tokens; DELETE FROM accounts"));
+afterEach(() => db.exec("DELETE FROM assistant_keys; DELETE FROM auth_links; DELETE FROM auth_sessions; DELETE FROM auth_tokens; DELETE FROM accounts"));
 function account() {
   return insertAccount({ id: "admin", name: "Ada", email: "ada@example.test", passwordHash: "old hash",
     isAdmin: true, status: "active", now: new Date(now).toISOString() }, db);
@@ -38,6 +39,35 @@ it("keeps ordinary admin reset at seven days and retains API tokens", () => {
   expect(authenticateSession(session.secret, db, now)).toBeNull();
   expect(authenticateToken(token.secret, db, now)?.account.id).toBe(user.id);
   expect(db.prepare("SELECT password_hash FROM accounts").get()).toEqual({ password_hash: null });
+});
+
+it("removes the account's own assistant key when a link is issued, and only that account's", () => {
+  const user = account();
+  insertAccount({ id: "member", name: "Lin", email: "lin@example.test", passwordHash: "hash", isAdmin: false, status: "active", now: new Date(now).toISOString() }, db);
+  saveAssistantKey("member", "openai", "sk-member-key-000000000000", db);
+  saveAssistantKey("admin", "anthropic", "sk-admin-key-0000000000000", db);
+  const actor = authenticateSession(issueSession(user, db, now).secret, db, now)!;
+  issueSignInLink(actor, "member", db, now);
+  expect(readAssistantKey("member", db)).toBeNull();
+  expect(readAssistantKey("admin", db)).toMatchObject({ key: "sk-admin-key-0000000000000" });
+});
+
+it("answers whether a key went, and rolls the removal back with the rest", () => {
+  account();
+  saveAssistantKey("admin", "openai", "sk-admin-key-0000000000000", db);
+  db.exec("CREATE TRIGGER reject_link BEFORE INSERT ON auth_links BEGIN SELECT RAISE(ABORT, 'injected failure'); END");
+  try {
+    expect(() => db.transaction(() => {
+      expect(revokeSignInCredentials("admin", db, now)).toEqual({ keyRemoved: true });
+      issueLink("admin", "reset", db, now);
+    }).immediate()).toThrow("injected failure");
+    expect(readAssistantKey("admin", db)).toMatchObject({ key: "sk-admin-key-0000000000000" });
+  } finally { db.exec("DROP TRIGGER reject_link"); }
+  db.transaction(() => {
+    expect(revokeSignInCredentials("admin", db, now)).toEqual({ keyRemoved: true });
+    expect(revokeSignInCredentials("admin", db, now)).toEqual({ keyRemoved: false });
+  }).immediate();
+  expect(readAssistantKey("admin", db)).toBeNull();
 });
 
 it("requires a caller transaction and rolls back revocations when insertion fails", () => {

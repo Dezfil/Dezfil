@@ -14,7 +14,9 @@ function requireTransaction(db) {
   if (!db.inTransaction) throw new Error("Link issuance requires a write transaction.");
 }
 
-/** The caller selects and authorizes the account in the same write transaction. */
+/** The caller selects and authorizes the account in the same write
+ * transaction. Whoever redeems the link becomes the account, so the account's
+ * own assistant key goes with the credentials: it answers whether one did. */
 export function revokeSignInCredentials(accountId, db, now, { revokeTokens = false } = {}) {
   requireTransaction(db);
   db.prepare("UPDATE accounts SET password_hash = NULL, updated_at = ? WHERE id = ?")
@@ -25,6 +27,7 @@ export function revokeSignInCredentials(accountId, db, now, { revokeTokens = fal
     db.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL")
       .run(now, accountId);
   }
+  return { keyRemoved: db.prepare("DELETE FROM assistant_keys WHERE account_id = ?").run(accountId).changes > 0 };
 }
 
 export function issueLink(accountId, kind, db, now, lifetimeMs = LINK_LIFETIME_MS) {
