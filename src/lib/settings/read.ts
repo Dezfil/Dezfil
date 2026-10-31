@@ -11,6 +11,7 @@ import { disclosedDefinition } from "./disclosure";
 import { readDeploymentSetting } from "./deployment-read";
 import { serviceAddressSetting } from "./service-address";
 import { lockedEnvironment, resolveNumericSettings } from "./resolver";
+import { effectiveTokenExpiry, offeredTokenLifetimes } from "./token-lifetime";
 import { tokenLifetimeMax } from "./instance-limit-values";
 import { readStoredSettings } from "./store";
 import type { NumericOverrides } from "./state";
@@ -48,7 +49,9 @@ export function readInstanceSettings(context: AuthContext, db: Database = metada
         source: definition.key in stored ? "stored" : "default", storedValue: stored[definition.key] ?? null,
         locked: false, invalidOverride: false,
       });
-      return [definition.key, { ...disclosedDefinition(definition), ...resolved }];
+      return [definition.key, { ...disclosedDefinition(definition), ...resolved,
+        ...(definition.key === "tokens.expiry" ? { value: effectiveTokenExpiry(stored), write: { kind: "choice" as const, values: offeredTokenLifetimes(stored) } } : {}),
+      }];
     }));
     const mode = externalSignIn(), generations = readGenerations(db);
     return { externalSignIn: { enabled: mode.enabled, keyCount: mode.keys.length, signOutGeneration: generations.sign_out_generation, doorGeneration: generations.door_generation }, settings, capacities: { geocodeRows: maxBatchRows(budget), isochroneOrigins: maxIsochroneOrigins(budget) },
