@@ -15,9 +15,9 @@ moved_from:
   - "/docs/operate/runbook/"
 ---
 
-Everything your instance keeps is in one folder, the data folder: `/data` in the container, held in the `dezfil-data` volume. A backup is a copy of that folder, made while Dezfil is stopped. The variables you start Dezfil with stay outside it.
+Back up the whole data folder while Dezfil is stopped. In the container, `/data` lives in the `dezfil-data` volume. Startup variables stay outside the backup.
 
-The commands use the names from [Install](../start/install.md): a container called `dezfil`, the image `ghcr.io/dezfil/dezfil` and a volume called `dezfil-data`. They work the same with Docker Compose, whose container is also called `dezfil`. If you run a version by its tag, add the tag to the image name.
+The commands use [Install](../start/install.md)'s container `dezfil`, image `ghcr.io/dezfil/dezfil` and volume `dezfil-data`, including with Compose. If you use an image tag, keep it in these commands.
 
 ## Back up
 
@@ -69,6 +69,8 @@ To see the sizes before you copy, sign in as an admin and open **Settings** > **
 | `tmp/`, `exports/` | Work in progress, removed at the next start | **Leftover files** |
 
 Other folders hold Dezfil's own records, such as who owns each file. Publishing a map writes no files of its own. Copy the whole folder every time, as the command does.
+
+The `.storage-reserve` file holds no account data. Keep it with the whole-folder backup. After a restore, Dezfil refills missing reserve space when the volume has room above the [storage threshold](../api/limits.md#storage-space).
 
 For a smaller copy, click **Clear all** in the **Service caches** row before you back up. Dezfil asks the services again the next time it needs an answer.
 

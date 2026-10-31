@@ -63,6 +63,7 @@ The data folder is `DEZFIL_DATA_DIR`, with its default in [Storage and programs]
 | Picture renderer | `src/lib/export/`, `src/lib/pictures/`, `src/app/render/` | Headless Chromium opens the app's own render page and takes a screenshot, for image exports and the pictures on map cards |
 | MCP endpoint | `src/app/api/mcp/`, `src/lib/mcp/`, `src/lib/tools/` | The documented operations as MCP tools. Each tool call is an HTTP request to the API. |
 | Assistant | `src/lib/assistant/` | The in-app assistant, which calls the same tools as an MCP client |
+| Storage admission and recovery | `src/lib/system/storage-*.ts` | Reads volume capacity, admits file work, classifies no-space errors and fences writers before releasing the recovery reserve |
 | Startup | `src/instrumentation.ts` | Checks that the data folder is writable, opens the metadata store, removes leftover files, settles interrupted runs and starts the map picture work |
 
 ## The container image
@@ -92,6 +93,29 @@ The image runs as the unprivileged `node` user, listens on port 3000 and keeps i
 5. The answer carries GeoJSON for deck.gl. A point layer over the [render limits](../api/limits.md) answers with tiles instead, which `src/lib/tiles/build.ts` builds in the background.
 
 The SQL workspace takes the same road through `POST /api/query`, and a published map through `GET /api/published/<token>`. The browser reaches the engine only through the API.
+
+## Storage admission and recovery
+
+`storage-state.ts` reads the data volume for every admission. Public reads round capacity only after the threshold comparison.
+
+The admin's cached directory walk cannot delay a storage refusal.
+
+| Boundary | Rule |
+|---|---|
+| New file work | Register its writer before creating artifacts. Check declared size against free bytes above the threshold; undeclared receivers check as they grow. |
+| Destination failure | Classify no-space errors before a format or source wrapper. Filesystem ENOSPC, SQLite SQLITE_FULL and the engine's no-space write error become `storage_exhausted`. Other I/O errors stay `internal`. |
+| Recovery write | Hold the recovery latch, fence disk-heavy writers, await settlement within 35 seconds, then release reserve space in bounded portions and retry. |
+| Retry | Retry only a rolled-back transaction or idempotent cleanup. Never replay a consumed request body or password derivation. |
+| Sign-in | Commit session, consumed ticket and bookkeeping in one transaction. Existing credentials can read without writing a renewal. |
+| Artifact publication | Write ownership records whole, then rename. Keep previous tile bytes and evidence until the metadata commit; restore them on failure. |
+
+The reserve contains allocated blocks. Ordinary writers cannot draw on it.
+
+Startup and a 30-second timer refill it only when free space exceeds the threshold plus the reserve.
+
+[Storage space](../api/limits.md#storage-space) defines sizes and public reads. [Storage errors](../api/errors.md#storage-errors) defines refusal and failure outcomes.
+
+New disk-heavy operations declare their storage behavior in OpenAPI so generated tools carry the same contract.
 
 ## Rules every change keeps
 
