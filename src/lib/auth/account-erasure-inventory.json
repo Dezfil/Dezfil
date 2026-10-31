@@ -2419,14 +2419,6 @@
         "tiles/*.pmtiles"
       ]
     },
-    "location:src/lib/tiles/build.ts#runBuild:tileArchivePath": {
-      "stores": [
-        "file:tiles"
-      ],
-      "roots": [
-        "tiles/*.pmtiles"
-      ]
-    },
     "location:src/lib/tiles/build.ts#runBuild.scratchBase:path.join": {
       "stores": [
         "file:tile-scratch"
@@ -4494,16 +4486,6 @@
       ],
       "roots": [
         "artifact-inputs/thumbnails/*.json"
-      ]
-    },
-    "writer:src/lib/tiles/build.ts#runBuild:rename": {
-      "stores": [
-        "file:tile-scratch",
-        "file:tiles"
-      ],
-      "roots": [
-        "tiles/*.pmtiles",
-        "tiles/scratch/*.*"
       ]
     },
     "writer:src/lib/tiles/build.ts#runBuild.{ value: featureCount, inputs }:exportGeoJsonSeq": {
@@ -7571,6 +7553,52 @@
     "memory:src/lib/system/storage-reserve.ts#state": {
       "stores": [
         "memory:storage-recovery"
+      ]
+    },
+    "location:src/lib/tiles/publish-archive.ts#publishTileArchive.archive:tileArchivePath": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "location:src/lib/tiles/publish-archive.ts#publishTileArchive.proof:tileEvidencePath": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#start.deletionWork": {
+      "stores": [
+        "memory:account-deletion-work"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#start.storage": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "writer:src/lib/tiles/build.ts#runBuild:publishTileArchive": {
+      "stores": [
+        "file:tile-scratch",
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/scratch/*.*"
+      ]
+    },
+    "writer:src/lib/tiles/publish-archive.ts#publishTileArchive:renameSync": {
+      "stores": [
+        "file:tile-scratch",
+        "file:tiles",
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json",
+        "tiles/*.pmtiles"
       ]
     }
   },

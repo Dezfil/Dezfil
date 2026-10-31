@@ -62,8 +62,8 @@ export async function tiledRender(
   if (status.state === "failed") {
     return errored(
       layer.id,
-      "tile_build_failed",
-      `Preparing tiles failed: ${status.error ?? "unknown error"}`,
+      status.errorCode ?? "tile_build_failed",
+      status.errorCode ? status.error! : `Preparing tiles failed: ${status.error ?? "unknown error"}`,
     );
   }
   const base = {
