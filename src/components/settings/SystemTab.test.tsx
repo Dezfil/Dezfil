@@ -216,7 +216,9 @@ describe("System", () => {
     const answer = globalThis.fetch;
     vi.stubGlobal("fetch", (url: string, init?: RequestInit) => { reads.push(url); return answer(url, init); });
     await open();
-    expect(byId("sys-assistant-status").textContent).toBe("Instance keyNot setNo instance key is set. Set ANTHROPIC_API_KEY or OPENAI_API_KEY and restart to use one.");
+    const { anthropicApiKey, openaiApiKey } = instanceReadFixture().settings;
+    expect(byId("sys-assistant-status").textContent).toBe(`Instance keyNot setNo instance key is set. Set ${anthropicApiKey.environment} or ${openaiApiKey.environment} and restart to use one.`);
+    expect(anthropicApiKey.environment).toBeTruthy();
     expect(byId("sys-assistant-provider").textContent).toBe("ProviderNone");
     expect(reads).not.toContain("/api/assistant");
   });
