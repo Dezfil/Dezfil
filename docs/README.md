@@ -145,6 +145,12 @@ Install, secure, configure and back up your own instance.
   - read when: the container stops right after it starts, or health answers unready; sign-in fails behind your reverse proxy, or your domain sends the browser to another address; an upload is refused as too large, or ends with the connection dropped; the assistant does not answer, or map cards show no pictures; you forgot the admin password
   - audience: operator
 
+- [Build a sign-in service](self-host/sign-in-service.md)
+  - path: `docs/self-host/sign-in-service.md`
+  - summary: Generate an Ed25519 key, sign a browser-bound ticket and return the person to an instance that trusts your service.
+  - read when: you build a service that signs people into Dezfil; you need the ticket claims, signing format and browser return address
+  - audience: developer, operator, agent
+
 ### Configuration
 
 - [General](self-host/configuration/general.md)

@@ -15,7 +15,7 @@ order: 7
 
 ![The Users page: the Invite button, the search box, and the list of people with their email, role, status and last sign-in, one of them under Deactivated](../images/self-host/users-list.webp)
 
-Admins manage every account on the **Users** page, in the side menu; members do not see it. Apart from the first account, made at setup, an admin adds each person.
+Admins manage every account on the **Users** page, in the side menu; members do not see it. An admin adds each person; the first account comes from setup or the configured external owner.
 
 | To | Do this on **Users** |
 |---|---|
@@ -29,15 +29,20 @@ Admins manage every account on the **Users** page, in the side menu; members do 
 
 ## Add a person
 
+| Mode | Invitation and recovery |
+|---|---|
+| Password | Follow the steps below. |
+| [External sign-in](configuration/external-sign-in.md) | Invite by verified email. The account gets no link or credential; its first ticket activates it and makes it available in the sharing directory. Password changes, links and local recovery are refused with `external_sign_in_only`. |
+
 1. On **Users**, click **Invite**. A row opens at the top of the list, with **Name** and **Email** fields.
 2. Type the person's name and email address. To make them an admin from the start, tick **Admin**.
 3. Click **Create account**. You should see **Account created for Ana Diaz**, and the row opens on the **Sign-in link**.
 4. Click **Copy link**. You should see **Copied** on the button.
 5. Send the link to the person yourself, by chat or email, then click **Done**.
 
-Dezfil sends no email. The link shows once: after **Done**, you can only make a new one. The person's **Status** reads **Invited** until they use it.
+The link shows once; Dezfil sends no email. **Status** stays **Invited** until the person uses it.
 
-They open the link, see **Choose your password**, type a **Password** and click **Set password**. Dezfil signs them in, and their status turns **Active**.
+They open the link, choose a password and click **Set password**. Dezfil signs them in as **Active**.
 
 The line under the field names the shortest password, and very common passwords are refused. A link lasts 7 days by default, and each keeps the lifetime it was made with. [Security and rules](configuration/rules.md) lists both settings.
 
@@ -49,7 +54,7 @@ The line under the field names the shortest password, and very common passwords 
 1. Click the person's row to open it.
 2. Click **Make admin**. You should see **Ana Diaz: admin access granted**, and **Admin** in the **Role** column.
 
-To take admin access away, open the row and click **Remove admin**. Everyone who is not an admin is a **Member**.
+**Remove admin** returns the account to **Member**.
 
 | An admin | A member |
 |---|---|
@@ -59,9 +64,11 @@ To take admin access away, open the row and click **Remove admin**. Everyone who
 
 Each account's maps, workflows and datasets are private, including from admins, until a project's owner shares the project. An admin reaches them as anyone does, through a project shared with them, as [Share and publish](../use/share-and-publish.md) describes.
 
-Your own row offers only **Change password**: you cannot remove your own admin access or deactivate yourself. Another admin does that, and Dezfil always keeps at least one active admin.
+In password mode your own row offers **Change password**: you cannot remove your own admin access or deactivate yourself. Another admin does that, and Dezfil always keeps at least one active admin.
 
 ## Reset a password
+
+These steps apply in password mode.
 
 1. Open the person's row and click **Reset password**. You should see **The current password and earlier links will stop working. Browser sessions will end; API tokens stay valid.**
 2. Click **Reset password** again to confirm. You should see the **Sign-in link** and when it expires.
@@ -111,7 +118,9 @@ To finish a deletion, Dezfil rewrites its metadata database, and answers no requ
 
 ## Recover the admin account
 
-If no admin can sign in, run the recovery script on the server. It prints a one-time link with which an admin account chooses a new password.
+Run the script with the instance's deployment environment. External mode refuses it before opening the store, and refuses every recovery link at redemption.
+
+In password mode, if no admin can sign in, run the recovery script on the server. It prints a one-time link with which an admin account chooses a new password.
 
 ::::tabs
 
@@ -200,7 +209,7 @@ A program outside Dezfil that keeps the database open, such as a replication too
 
 ### Copy link says "The link could not be copied. Select it and copy it manually."
 
-The browser lets a page copy only over HTTPS or at `localhost`. Click the link's field, which selects the link, and copy it with your keyboard. [Reverse proxy and HTTPS](reverse-proxy.md) serves Dezfil over HTTPS.
+Copying needs HTTPS or `localhost`. Otherwise, select the link and copy it with your keyboard. [Reverse proxy and HTTPS](reverse-proxy.md) serves Dezfil over HTTPS.
 
 ### The recovery script stops with a message
 
@@ -208,6 +217,7 @@ Nothing changes when the script stops. Find the start of its message:
 
 | The script says | Fix |
 |---|---|
+| "This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable." | Recover access through the sign-in service. |
 | "Run admin recovery in a terminal." | It had no terminal to print to. Add `-it` to `docker exec` or `docker run`. With Docker Compose, leave out `-T`. |
 | "Several active admins exist. Select one with --email." | Add `--email` with the email of the admin account you want back. |
 | "That email does not identify an active admin." | Check the spelling. The account must be an admin and active, and the script cannot change either: it never makes an admin, reactivates an account or sets up an instance. Another admin who can sign in does it on **Users**. |

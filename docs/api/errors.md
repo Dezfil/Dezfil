@@ -71,6 +71,7 @@ Some codes add a field beside the two:
 
 | Field | Comes with | What it holds |
 |---|---|---|
+| `account` | `already_signed_in` | The account already signed in to the arrival browser. Its session stays unchanged. |
 | `position` | `sql_error`, when the engine reports where | The `line` and `column` of the problem in your SQL, counted from 1. |
 | `retryAfter` | `rate_limited` from sign-in or a password check, and `authentication_busy` | The seconds to wait before you try again. The `Retry-After` header carries the same number. |
 | `retryAt` | `rate_limited` from sign-in or a password check | The time you may try again. |
@@ -96,6 +97,11 @@ Agents can read the same list from the [API description](openapi.json):
 | Code | Status | What happened | What to do |
 |---|---|---|---|
 | `authentication_required` | 401 | The request has no token, or one Dezfil doesn't accept: mistyped, revoked, or its account deactivated. | Send the header `Authorization: Bearer <YOUR_TOKEN>`. If it still fails, create a new token. |
+| `token_outdated` | 401 | **This token was made before everyone was signed out and no longer works. Create a new one.** | Sign in again and create a new API token. |
+| `invalid_ticket` | 401 | The external ticket, browser start, audience, time, generation or signature is invalid, or the ticket id was already accepted. | Begin again from the instance. See the [door guide](../self-host/sign-in-service.md). |
+| `already_signed_in` | 409 | The browser already holds the account in `error.account`. Nothing changed. | Sign out before starting another sign-in. |
+| `account_not_invited` | 403 | No account matches the verified identity, or that email is bound to another identity. | Ask an admin for an invitation using the verified email. |
+| `external_sign_in_only` | 403 | **This instance signs people in through its sign-in service. Passwords and sign-in links are unavailable.** | Use the sign-in service; email changes also come from it. |
 | `token_expired` | 401 | The token reached the expiry it was created with. | Create a new token and use it instead. |
 | `forbidden` | 403 | The operation is for admins, you can view the item but not change it, or a request signed in with the session cookie lacks the instance's `Origin`. Nothing changed. | Use an admin's token for admin operations. For an item you can't change, see [Who may do what](http-api.md#who-may-do-what); for the `Origin`, [Sign in](http-api.md#sign-in). |
 | `rule_refused` | 403 | An instance rule leaves you out, such as **Who may publish**. The `rule` field names it. Nothing changed. | Ask an admin to change the rule in **Settings**. |
