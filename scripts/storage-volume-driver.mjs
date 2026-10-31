@@ -24,8 +24,8 @@ try {
   fs.mkdirSync(scratch, { recursive: true }); assert.deepEqual(fs.readdirSync(scratch), [], 'Scratch directory must be empty'); owned = true;
   const disk = fs.statfsSync(scratch); assert.ok(disk.bavail * disk.bsize >= 3 * 1024 ** 3, 'At least 3 GB free is required');
   volume = path.join(scratch, 'volume'); image = path.join(scratch, 'bounded.dmg'); fs.mkdirSync(volume);
-  // UDRW is a fixed-size image. Sparse images do not establish this proof's bound.
-  command('hdiutil', ['create', '-size', '1536m', '-fs', 'HFS+', '-type', 'UDRW', '-volname', 'DezfilStorageProbe', image]);
+  // With no sparse type, this makes a fixed-size read-write image. A sparse one would not establish this proof's bound.
+  command('hdiutil', ['create', '-size', '1536m', '-fs', 'HFS+', '-volname', 'DezfilStorageProbe', image]);
   command('hdiutil', ['attach', '-nobrowse', '-mountpoint', volume, image]); attached = true;
   const directory = path.join(volume, 'data'), control = path.join(scratch, 'control');
   fs.mkdirSync(directory); fs.mkdirSync(control); fs.mkdirSync(path.join(directory, 'sqlite-tmp'));
