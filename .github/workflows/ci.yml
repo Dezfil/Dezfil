@@ -228,15 +228,36 @@ jobs:
               docker exec dezfil-transport-ci node /probes/transport-probe.mjs \
                 "http://127.0.0.1:$port" --server-log /data/transport-server.log --file-limit-only
             else
+              # Arrival only exists with external sign-in configured, so its bounds
+              # are probed on a second instance beside the first. The key is
+              # synthetic: the probe sends no ticket and never contacts the service.
+              external_port=3393
+              sign_in_key=$(docker run --rm --network=none dezfil:ci node -e "console.log(require('node:crypto').generateKeyPairSync('ed25519').publicKey.export({format:'jwk'}).x)")
+              docker run -d --rm --name dezfil-external-ci --network=container:dezfil-transport-ci \
+                -e PORT="$external_port" -e DEZFIL_DATA_DIR=/data \
+                -e DEZFIL_EXTERNAL_SIGN_IN_KEYS="$sign_in_key" \
+                -e DEZFIL_EXTERNAL_SIGN_IN_AUDIENCE=body-probe \
+                -e DEZFIL_EXTERNAL_SIGN_IN_URL=http://127.0.0.1:3899/sign-in \
+                -e DEZFIL_EXTERNAL_SIGN_IN_OWNER_ID=body-probe-owner \
+                -e DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL=owner@example.test \
+                dezfil:ci sh -c 'exec node --import=./scripts/ingress-preload.mjs server.js'
+              for i in $(seq 1 30); do
+                if docker exec dezfil-transport-ci node -e "fetch('http://127.0.0.1:$external_port/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then
+                  break
+                fi
+                sleep 1
+              done
               docker run --rm --network=container:dezfil-transport-ci \
                 --volumes-from dezfil-transport-ci -e DEZFIL_DATA_DIR=/data \
                 -v "$PWD/scripts:/probe/scripts:ro" dezfil-mcp-probe:ci \
                 node /probe/scripts/body-probe.mjs "http://127.0.0.1:$port" \
-                --server-log /data/transport-server.log
+                --server-log /data/transport-server.log \
+                --external-origin "http://127.0.0.1:$external_port"
+              docker stop dezfil-external-ci
             fi
             docker stop dezfil-transport-ci
           }
-          trap 'docker exec dezfil-transport-ci cat /data/transport-server.log 2>/dev/null || true; docker stop dezfil-transport-ci 2>/dev/null || true' EXIT
+          trap 'docker exec dezfil-transport-ci cat /data/transport-server.log 2>/dev/null || true; docker stop dezfil-external-ci 2>/dev/null || true; docker stop dezfil-transport-ci 2>/dev/null || true' EXIT
           run_transport transport 3391 257
           run_transport file-limit 3392 1
       # Direct/proxy source separation and sharing, refusals, expiry and missing ingress.

@@ -12,7 +12,7 @@ import { sizedJson, chunksOf, assertByteRefusal, assertValidation, assertNoBodyM
 /** Fields the server changes on its own while the probe runs: a token's last
  * use, and a map's picture, which the background picture worker makes or fails
  * whatever request is refused meanwhile. */
-const SERVER_DRIVEN = new Set(['lastUsedAt', 'picture', 'pictureState', 'pictureVersion']);
+const SERVER_DRIVEN = new Set(['lastUsedAt', 'picture', 'pictureState', 'pictureVersion', 'hasThumbnail', 'thumbnailBasemap']);
 
 /** Full served probe. The injectable transport is only for route-level tests;
  * the command always uses real HTTP, production fixtures and the transport arms.
