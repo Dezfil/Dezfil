@@ -1,3 +1,4 @@
+import { readInstanceLimits } from "@/lib/instance-limit-read";
 import { externalSignIn } from "@/lib/auth/external-sign-in/config";
 import { NextResponse } from "next/server";
 import {
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
     requireRequestAuth(request);
     const security = securitySettings();
     return privateResponse(NextResponse.json({
+      instanceLimits: readInstanceLimits(),
       externalSignIn: { enabled: externalSignIn().enabled },
       basemapUrl: basemapUrl(),
       basemapOverrideUrl: basemapOverrideUrl(),

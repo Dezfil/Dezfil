@@ -75,13 +75,16 @@ Some codes add a field beside the two:
 | `retryAfter` | `rate_limited` from sign-in or a password check, and `authentication_busy` | The seconds to wait before you try again. The `Retry-After` header carries the same number. |
 | `retryAt` | `rate_limited` from sign-in or a password check | The time you may try again. |
 | `rule` | `rule_refused` | The instance rule that refused you: `tokens.create`, `publishing.publish`, `connections.create` or `imports.links`. |
+| `key` | `instance_limit_reached` | The refused count setting: `mapsLimit`, `projectsLimit` or `peopleLimit`. |
+| `limit` | `instance_limit_reached` | The largest count the instance allows for this setting. |
+| `count` | `instance_limit_reached` | The current count across the instance for this setting. |
 | `setting` | `basemap_not_offered` | The basemap switch that refused it, such as `basemaps.satellite`. |
 | `issues` | `geometry_choice_invalid`, and `invalid_request` for a tool's arguments over MCP | Each reason the request fails: a `code` and a `message` for a geometry choice, a `message` and the argument's `path` for a tool call. |
 
 One operation adds a field of its own: the `already_signed_in` answer from an external sign-in arrival also holds `account`, the account already signed in to that browser. Its session stays unchanged.
 
 > [!NOTE]
-> Over MCP, a failed tool call is marked as an error. Its result holds an `error` object with `code`, `message` and, where they apply, `position` and `issues`. A tool takes the edit revision as its `expected_revision` argument. [Connect an AI agent](mcp.md#troubleshooting) helps with the client.
+> Over MCP, a failed call holds `error.code`, `message` and, where applicable, `position`, `issues`, or the count-limit fields above. A tool takes its revision as `expected_revision`. See [Connect an AI agent](mcp.md#troubleshooting).
 
 ## What to do about common codes
 
@@ -115,6 +118,7 @@ Agents can read the same list from the [API description](openapi.json):
 | `invalid_request` | 400, in a few cases 404, 409, 410 or 422 | The request is malformed, or a field fails validation. A change to a map or workflow that sends no edit revision, or a malformed one, answers this too. | Fix what the message names. Read a map or workflow before you change it, and send its `editRevision` in the `X-Edit-Revision` header, or over MCP as the `expected_revision` argument. |
 | `method_not_allowed` | 405 | The path exists, but not with this method. | Use a method from the `Allow` header. |
 | `stale_revision` | 409 | Someone changed the item after you read it. Your change was not applied. | Read the item again, then redo your change on what you find. |
+| `instance_limit_reached` | 409 | The instance holds its limit of maps, projects or people. Nothing is created. | Delete an item or raise the setting named by `key`. A locked setting needs its variable changed and a restart. See [Limits](limits.md#maps-projects-and-people). |
 | `name_taken` | 409, or 400 when you save a workflow step | A dataset of that name exists already. | Choose another name. |
 | `run_in_flight` | 409 | The workflow is already running, and a workflow runs one run at a time. | Wait for the run to finish, or cancel it, then start again. |
 | `refresh_in_flight` | 409 | A refresh of this dataset is already running. | Retry when it finishes. |

@@ -59,7 +59,7 @@ export const KIND_OF: Readonly<Record<WriteConstraint["kind"], SettingDefinition
   integer: "number", decimal: "number", switch: "boolean", text: "text", choice: "choice", sites: "list", address: "address",
 };
 
-export type NumericParsing = "positive" | "non-negative" | "positive-integer";
+export type NumericParsing = "positive" | "non-negative" | "positive-integer" | "non-negative-integer";
 export interface NumericDefinition extends SettingDefinition {
   readonly kind: "number";
   readonly defaultValue: number;

@@ -4,6 +4,9 @@ import { settingDefinition } from "@/lib/settings/catalogue";
 import { RULE_KEYS, type InstanceRules } from "@/lib/settings/instance-rules";
 import { readStoredSettings } from "@/lib/settings/store";
 
+import { effectiveTokenExpiry, TOKEN_LIFETIME_DAYS, type TokenExpiry } from "@/lib/settings/token-lifetime";
+export type { TokenExpiry } from "@/lib/settings/token-lifetime";
+
 const DAY_MS = 86_400_000;
 
 /** How long sign-ins and links last, when failed sign-ins pause, the
@@ -29,10 +32,6 @@ export interface SecuritySettings {
   readonly rules: InstanceRules;
 }
 
-export type TokenExpiry = "never" | "30d" | "90d" | "1y";
-/** A year is 365 days, like the other lifetimes counted in days. */
-const TOKEN_LIFETIME_DAYS: Readonly<Record<TokenExpiry, number | null>> = { never: null, "30d": 30, "90d": 90, "1y": 365 };
-
 /**
  * The Security rows, resolved from the store on every call: the stored value
  * where the catalogue accepts it, else the product's own. Nothing is kept
@@ -44,7 +43,7 @@ export function securitySettings(db: Database = metadataDb()): SecuritySettings 
   const stored = readStoredSettings(db);
   const value = (key: string) => Number(stored[key] ?? settingDefinition(key).defaultValue);
   const rules = Object.fromEntries(RULE_KEYS.map(key => [key, stored[key] ?? settingDefinition(key).defaultValue])) as unknown as InstanceRules;
-  const tokenExpiry: TokenExpiry = rules["tokens.expiry"];
+  const tokenExpiry = effectiveTokenExpiry(stored);
   const days = TOKEN_LIFETIME_DAYS[tokenExpiry];
   return {
     sessionMs: value("security.sessionDays") * DAY_MS,
@@ -54,6 +53,6 @@ export function securitySettings(db: Database = metadataDb()): SecuritySettings 
     passwordMin: value("security.passwordMin"),
     tokenExpiry,
     tokenLifetimeMs: days === null ? null : days * DAY_MS,
-    rules,
+    rules: { ...rules, "tokens.expiry": tokenExpiry },
   };
 }

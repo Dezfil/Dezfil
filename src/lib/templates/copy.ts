@@ -6,6 +6,7 @@ import path from "node:path";
 import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { BASEMAPS, type BasemapKey } from "@/lib/basemap";
+import { checkInstanceCreationLimit } from "@/lib/instance-limit-admission";
 import { saveThemedThumbnail } from "@/lib/map-thumbnails";
 import { metadataDb } from "@/lib/metadata/db";
 import { insertLayer, insertMap } from "@/lib/metadata/maps";
@@ -258,6 +259,8 @@ function writeCopy(scope: AccountScope, accountId: string, planned: Planned, db:
 }
 
 async function makeCopy(scope: AccountScope, accountId: string, source: CopySource, name: string | null, lease: AccountWorkLease, db: Database): Promise<Made> {
+  checkInstanceCreationLimit("projects", db);
+  checkInstanceCreationLimit("maps", db);
   const installed = await readInstalledVersion(source.folder);
   const { admitted, record } = installed;
   if (admitted.facts.id !== source.id || admitted.facts.version !== source.version) {

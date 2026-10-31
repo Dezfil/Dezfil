@@ -1,3 +1,4 @@
+import { INSTANCE_CREATION_LIMIT } from "./openapi-instance-limits";
 import { editRevisionResponses } from "./openapi-document-facts";
 import { DOCUMENT_FACT_PROPERTIES, DOCUMENT_RESULTS_SCHEMA } from "./openapi-document-facts";
 import { resultAccess } from "./openapi-result-access";
@@ -44,7 +45,7 @@ export const PROJECT_PATHS = {
     })),
     post: ownedCreationOp(projectAccess({
       summary: "Create a project",
-      description:
+      description: INSTANCE_CREATION_LIMIT +
         "The name is trimmed, must not be empty, and is at most 120 " +
         "characters; two projects may share one. `members` files " +
         "initial members in the same act — one invalid member means " +

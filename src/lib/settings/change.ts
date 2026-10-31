@@ -8,6 +8,7 @@ import { lockedEnvironment, resolveNumericSettings } from "./resolver";
 import { validateStoredValue } from "./validation";
 import { readStoredSettings, writeStoredSettings } from "./store";
 import { readInstanceSettings } from "./read";
+import { offeredTokenLifetimes, type TokenExpiry } from "./token-lifetime";
 import { settingsWarnings } from "./relationships";
 import type { SettingValue } from "./types";
 import type { NumericOverrides } from "./state";
@@ -74,6 +75,9 @@ export function changeInstanceSettings(context: AuthContext, input: unknown, db:
       problems.push(...settingsWarnings(numbers.queryTimeoutS.value, numbers.operationTimeoutS.value));
     }
     problems.push(...rowProblems(patch, resulting));
+    if (patch["tokens.expiry"] != null && !offeredTokenLifetimes(resulting).includes(patch["tokens.expiry"] as TokenExpiry)) {
+      problems.push(`tokens.expiry: Expected one of ${offeredTokenLifetimes(resulting).join(", ")}.`);
+    }
     if (problems.length) throw new ApiError(locked ? "setting_locked" : "invalid_request", problems.join(" "), locked ? 409 : 400);
     writeStoredSettings(patch, db);
     return readInstanceSettings(context, db, now);

@@ -52,6 +52,19 @@ describe('coded known-tool errors', () => {
       }
     } finally { await client.close(); }
   });
+  it('keeps count-limit diagnostics only for their documented code and valid values', () => {
+    const capacity = { key: 'mapsLimit', limit: 2, count: 3 };
+    const envelope = (fields: object) => sanitizeFailure({ ok: false, status: 409, body: { error: {
+      code: 'instance_limit_reached', message: 'The instance is full.', ...fields,
+    } } });
+    expect(envelope(capacity).body).toEqual({ error: { code: 'instance_limit_reached', message: 'The instance is full.', ...capacity } });
+    for (const invalid of [{ key: secret }, { limit: 0 }, { limit: 1.5 }, { count: -1 }, { count: Number.MAX_SAFE_INTEGER + 1 }, { code: 'not_found' }]) {
+      const result = envelope({ ...capacity, ...invalid });
+      expect(result.body).not.toHaveProperty('error.key');
+      expect(result.body).not.toHaveProperty('error.limit');
+      expect(result.body).not.toHaveProperty('error.count');
+    }
+  });
   it('an error envelope on a success response is still unusable', async () => {
     let dispatched = 0;
     const client = await testClient(() => { dispatched++; return Response.json({ error: { code: 'not_found', message: 'Missing.' } }); });

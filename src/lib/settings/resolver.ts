@@ -44,7 +44,8 @@ export function resolveNumericSetting(key: NumericSettingKey, input: NumericReso
   const locked = raw !== undefined && raw !== "";
   if (locked) {
     const number = Number(raw);
-    const accepted = Number.isFinite(number) && (definition.parsing === "non-negative" ? number >= 0 : number > 0);
+    const accepted = Number.isFinite(number) && (definition.parsing === "non-negative-integer" ? Number.isSafeInteger(number) && number >= 0
+      : definition.parsing === "non-negative" ? number >= 0 : number > 0);
     const value = accepted
       ? definition.parsing === "positive-integer" ? Math.max(1, Math.floor(number)) : number
       : definition.defaultValue;
@@ -65,4 +66,16 @@ export function resolveBoolean(key: "assistantAutoCheck"): boolean {
   if (configured === undefined || configured === "") return definition.defaultValue as boolean;
   const raw = configured.trim().toLowerCase();
   return !(raw === "0" || raw === "false" || raw === "off");
+}
+
+/** A choice beside its variable uses the same offer for stored and deployment values. */
+export function resolveChoice(key: string, stored: Readonly<Record<string, unknown>>): ResolvedSetting<string> {
+  const definition = settingDefinition(key);
+  if (definition.write?.kind !== "choice") throw new Error(`Not a choice setting: ${key}`);
+  const storedValue = typeof stored[key] === "string" && definition.write.values.includes(stored[key]) ? stored[key] : null;
+  const raw = settingEnvironment(definition), locked = !!lockedEnvironment(definition);
+  const accepted = locked && definition.write.values.includes(raw!);
+  return { key, value: locked ? accepted ? raw! : String(definition.defaultValue) : storedValue ?? String(definition.defaultValue),
+    source: locked ? accepted ? "environment" : "default" : storedValue === null ? "default" : "stored",
+    locked, invalidOverride: locked && !accepted, storedValue };
 }

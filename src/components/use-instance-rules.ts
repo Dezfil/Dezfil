@@ -59,3 +59,37 @@ export function useInstanceRule(key: RuleKey): unknown {
   }, [key]);
   return value;
 }
+
+const grouped = (count: number) => new Intl.NumberFormat("en-US").format(count);
+
+/** Where the instance stands against a count limit, "n of m", or null with no limit set. */
+export function limitMark(read: { readonly limit: number; readonly count: number } | undefined): string | null {
+  return read && read.limit > 0 ? `${grouped(read.count)} of ${grouped(read.limit)}` : null;
+}
+
+/**
+ * The mark a list heading shows, read from the runtime read each time
+ * `revision` changes, what the page knows has moved its count, its list or a
+ * refusal, and when the person comes back to the tab, since a change made
+ * elsewhere moves the count too. Nothing is read while it is null, before the
+ * page's own list has answered. Null while no limit is set, until the read
+ * answers, and when the first read fails; a later failure keeps the mark there is.
+ */
+export function useLimitMark(of: "maps" | "projects" | "people", revision: string | null): string | null {
+  const [mark, setMark] = useState<string | null>(null);
+  useEffect(() => {
+    if (revision === null) return;
+    let latest = 0;
+    const read = () => {
+      const asked = ++latest;
+      readJson("/api/config").then(config => {
+        const limits = (config as { instanceLimits?: Record<string, { limit: number; count: number }> }).instanceLimits;
+        if (asked === latest) setMark(limitMark(limits?.[of]));
+      }).catch(() => { /* without the read the heading draws no new mark */ });
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => { latest = -1; window.removeEventListener("focus", read); };
+  }, [of, revision]);
+  return mark;
+}

@@ -1,3 +1,4 @@
+import { admitInstanceCreation } from "@/lib/instance-limit-admission";
 import { externalSignIn } from "./external-sign-in/config";
 import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { randomUUID } from "node:crypto";
@@ -35,6 +36,7 @@ export function inviteAccount(context: AuthContext, input: { name: string; email
   return db.transaction(() => {
     requireAdmin(context, db, now);
     requireAvailableEmail(fields.email, null, db, true);
+    admitInstanceCreation("people", db);
     const account = insertAccount({ id: randomUUID(), ...fields, passwordHash: null, isAdmin: input.isAdmin === true,
       status: "invited", now: new Date(now).toISOString() }, db);
     return externalSignIn().enabled ? { account, secret: undefined, expiresAt: undefined } : makeLink(account.id, "invite", db, now);

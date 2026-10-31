@@ -1,5 +1,5 @@
 "use client";
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import { ErrorNote } from "@/components/ui/ErrorNote";
 import { Select, Textarea } from "@/components/ui/Field";
 import { writeInstanceSettings, type InstanceRead } from "./instance-read";
@@ -38,14 +38,22 @@ function cardKeys(card: RuleCard, settings: Settings): string[] {
 /** What a setting shows in its control: the listed sites as lines. */
 const shown = (key: string, value: unknown): Value => key === SITES ? sitesText(value) : value as Value;
 
+/** What a null write reads back as: the default, or, while a bound leaves the
+ * default out of the offer, the longest choice the read still offers. */
+function resetsTo(setting: ReadSetting, base: UnitControl): Value | undefined {
+  const offered = setting.write?.kind === "choice" ? setting.write.values : null;
+  return offered?.length && base.defaultValue !== undefined && !offered.includes(String(base.defaultValue)) ? offered[offered.length - 1] : base.defaultValue;
+}
+
 /** The save unit's view of a setting. The listed sites reset with the rest
  * of the card: their default, no site, in the lines the field shows. */
 function control(key: string, settings: Settings, row: string | undefined): UnitControl {
   const base = { ...unitControlFor(settings[key]), ...(row ? { row } : {}) };
-  return key === SITES && !base.locked ? { ...base, defaultValue: shown(key, settings[key].defaultValue) } : base;
+  if (key === SITES && !base.locked) return { ...base, defaultValue: shown(key, settings[key].defaultValue) };
+  return { ...base, ...(base.defaultValue !== undefined ? { defaultValue: resetsTo(settings[key], base) } : {}) };
 }
 
-function ruleUnit(card: RuleCard, settings: Settings): SaveUnit {
+function ruleUnit(card: RuleCard, settings: Settings, answered: (settings: Settings) => void): SaveUnit {
   const keys = cardKeys(card, settings);
   const rows = new Map(card.rows.filter(row => row.fields.length > 1).flatMap(row => row.fields.map(field => [field.key as string, row.id] as const)));
   const sites = keys.includes(SITES);
@@ -57,6 +65,7 @@ function ruleUnit(card: RuleCard, settings: Settings): SaveUnit {
       // Lines go as a list; Reset's null clears the list as it clears the choices.
       const request = Object.fromEntries(Object.entries(patch).map(([key, value]) => [key, key === SITES && value !== null ? sitesList(value) : value]));
       const answer = await writeInstanceSettings(request);
+      answered(answer.settings);
       return Object.fromEntries(keys.filter(key => key in answer.settings).map(key => [key, shown(key, answer.settings[key].value)]));
     },
     // Listed sites with none listed: the card's own check, before any request.
@@ -66,9 +75,12 @@ function ruleUnit(card: RuleCard, settings: Settings): SaveUnit {
 
 /** The card: its title, Reset then Undo, its rows, its note, and the Save
  * line while the listed sites wait. */
-export function RuleCardView({ card, settings }: { card: RuleCard; settings: Settings }) {
+export function RuleCardView({ card, settings: opened }: { card: RuleCard; settings: Settings }) {
   const root = useRef<HTMLElement>(null);
-  const [unit, snapshot] = useSaveUnit(card.id, () => ruleUnit(card, settings));
+  // A write answers with the whole read: what it offers now is what the rows offer.
+  const [answered, setAnswered] = useState<Settings | null>(null);
+  const settings = answered ?? opened;
+  const [unit, snapshot] = useSaveUnit(card.id, () => ruleUnit(card, opened, setAnswered));
   useUnitFocus(root, snapshot.focus);
   const typed = cardKeys(card, settings).includes(SITES);
   const rows = <Rows>{card.rows.map(row => <RuleRowView key={row.id} row={row} settings={settings} unit={unit} snapshot={snapshot} />)}</Rows>;

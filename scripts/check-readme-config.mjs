@@ -98,7 +98,7 @@ export function codeOf(file) {
  * and so cannot show that anything reads one. */
 const CATALOGUE_FILES = ["lib/settings/catalogue.ts", "lib/settings/numeric.ts"];
 /** The calls through which the code reads a catalogue setting by its key. */
-const BY_KEY = /\b(?:resolveNumber|resolveNumericSetting|resolveBoolean|resolveServiceAddress|serviceAddressConfigured|settingDefinition)\(\s*["'`]([A-Za-z0-9.]+)["'`]/g;
+const BY_KEY = /\b(?:resolveNumber|resolveNumericSetting|resolveChoice|resolveBoolean|resolveServiceAddress|serviceAddressConfigured|settingDefinition)\(\s*["'`]([A-Za-z0-9.]+)["'`]/g;
 
 const TEST_NAME = "DEZFIL_TEST_[A-Z0-9_]+";
 /** The forms a read of a DEZFIL_TEST_* name takes: a property of the

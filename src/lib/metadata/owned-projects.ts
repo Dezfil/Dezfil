@@ -1,3 +1,4 @@
+import { admitInstanceCreation } from "@/lib/instance-limit-admission";
 import { compareDocumentRevision } from "./revisions";
 import { documentResults } from "./document-results";
 import { recordFiling, filedDocuments, memberDocuments, requireFilingRevisions } from "./filing-recording";
@@ -118,6 +119,7 @@ export function createProject(scope: AccountScope, input: { name: unknown; note?
     const now = new Date().toISOString();
     const project = { id: randomUUID(), name: projects.projectName(input.name),
       note: input.note === undefined ? null : projects.projectNote(input.note), createdAt: now, updatedAt: now };
+    admitInstanceCreation("projects", db);
     db.prepare("INSERT INTO projects (owner_id, id, name, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(owner, project.id, project.name, project.note, now, now);
     if (input.members) {
@@ -126,7 +128,7 @@ export function createProject(scope: AccountScope, input: { name: unknown; note?
       recordFiling(scope, memberDocuments(input.members), () => projects.changeMembers(project.id, input.members!, db), db);
     }
     return requireOwnProject(scope, project.id, db);
-  })();
+  }).immediate();
 }
 /** Rename and note are the project owner's. */
 export function updateProject(scope: AccountScope, id: string, fields: { name?: unknown; note?: unknown }, db: Database = metadataDb()) {

@@ -31,6 +31,7 @@ Admins manage every account on the **Users** page, in the side menu; members do 
 
 | Mode | Invitation and recovery |
 |---|---|
+| Either | At the [people limit](../api/limits.md#maps-projects-and-people), invitations answer `409 instance_limit_reached`. Delete an account or raise the limit, then invite again. |
 | Password | Follow the steps below. |
 | [External sign-in](configuration/external-sign-in.md) | Invite by verified email. The account gets no link or credential: its row says **They sign in at the sign-in service with ana@example.org. There is no link to send.** Its first ticket activates it and makes it available in the sharing directory. Rows offer no **Reset password**, **New sign-in link** or **Change password**. Password changes, links and local recovery are refused with `external_sign_in_only`. |
 

@@ -30,7 +30,7 @@ describe("settings catalogue", () => {
         .filter(row => file === wiring ? row.table === "test-wiring" : row.table.startsWith("settings-")))
       .map(row => row.variable).filter(Boolean);
     const deployment = SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.environment);
-    expect(deployment).toHaveLength(75);
+    expect(deployment).toHaveLength(79);
     expect(TEST_WIRING).toHaveLength(4);
     expect([...deployment.map(d => d.environment), ...TEST_WIRING.map(d => d.environment)].sort()).toEqual(rows.sort());
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);

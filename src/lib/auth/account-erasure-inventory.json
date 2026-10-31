@@ -5844,6 +5844,11 @@
         "."
       ]
     },
+    "memory:src/lib/api/openapi-instance-limits.ts#INSTANCE_LIMITS_SCHEMA": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-instance-settings.ts#INSTANCE_DEFAULTS_SCHEMA": {
       "stores": [
         "memory:immutable-configuration"

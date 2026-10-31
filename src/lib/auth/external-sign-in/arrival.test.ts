@@ -95,3 +95,11 @@ it("a ticket from another browser changes no identity or credential", async () =
   const ticket = f.ticket(), other = f.ticket(), before = f.snapshot();
   const response = await arrive({ ...ticket, cookie: other.cookie }); expect(response.status).toBe(401); expect(f.snapshot()).toEqual(before);
 });
+
+it("activates an invited identity above the people limit without creating an account", async () => {
+  account("member");
+  writeStoredSettings({ peopleLimit: 1 }, f.db);
+  expect((await arrive(f.ticket({ sub: "member-id", email: "member@example.test" }))).status).toBe(200);
+  expect(f.db.prepare("SELECT count(*) AS n FROM accounts").get()).toEqual({ n: 2 });
+  expect(getAccountByEmail("member@example.test", f.db)?.status).toBe("active");
+});

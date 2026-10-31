@@ -110,6 +110,9 @@ describe("what the search finds", () => {
     expect(limits("tools waiting")[0].meta).toBe("Tools · 20");
     expect(limits("tile requests")[0].meta).toBe("Public requests · 600 every 10 seconds");
     expect(limits("largest image")[0].meta).toBe("Image export · 4,096 px per side");
+    expect(limits("maps on this instance")[0].meta).toBe("This instance · 0 · 0 now");
+    expect(limits("longest token")[0].meta).toBe("This instance · No limit");
+    expect(limits("longest token")[0].target).toEqual({ tab: "limits", anchor: "set-longest-token" });
   });
 
   it("finds a row by a keyword, by the words of its current value, and by a variable's name", () => {

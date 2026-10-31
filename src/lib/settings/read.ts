@@ -1,3 +1,4 @@
+import { readInstanceLimits } from "@/lib/instance-limit-read";
 import { externalSignIn } from "@/lib/auth/external-sign-in/config";
 import { readGenerations } from "@/lib/metadata/auth-generations";
 import type { Database } from "better-sqlite3";
@@ -11,6 +12,8 @@ import { disclosedDefinition } from "./disclosure";
 import { readDeploymentSetting } from "./deployment-read";
 import { serviceAddressSetting } from "./service-address";
 import { lockedEnvironment, resolveNumericSettings } from "./resolver";
+import { effectiveTokenExpiry, offeredTokenLifetimes } from "./token-lifetime";
+import { tokenLifetimeMax } from "./instance-limit-values";
 import { readStoredSettings } from "./store";
 import type { NumericOverrides } from "./state";
 import type { SettingDefinition, SettingValue } from "./types";
@@ -25,6 +28,7 @@ import { listLibraryStyles } from "@/lib/basemap-library";
  * stored value, else the default. */
 function besideItsVariable(definition: SettingDefinition, stored: Readonly<Record<string, SettingValue>>) {
   if (!definition.editable) return readDeploymentSetting(definition);
+  if (definition.key === "tokenLifetimeMax") return tokenLifetimeMax(stored);
   const storedValue = stored[definition.key] ?? null;
   if (lockedEnvironment(definition)) return { ...readDeploymentSetting(definition), storedValue };
   return { value: storedValue ?? definition.defaultValue, source: storedValue === null ? "default" as const : "stored" as const,
@@ -46,10 +50,12 @@ export function readInstanceSettings(context: AuthContext, db: Database = metada
         source: definition.key in stored ? "stored" : "default", storedValue: stored[definition.key] ?? null,
         locked: false, invalidOverride: false,
       });
-      return [definition.key, { ...disclosedDefinition(definition), ...resolved }];
+      return [definition.key, { ...disclosedDefinition(definition), ...resolved,
+        ...(definition.key === "tokens.expiry" ? { value: effectiveTokenExpiry(stored), write: { kind: "choice" as const, values: offeredTokenLifetimes(stored) } } : {}),
+      }];
     }));
     const mode = externalSignIn(), generations = readGenerations(db);
-    return { externalSignIn: { enabled: mode.enabled, keyCount: mode.keys.length, signOutGeneration: generations.sign_out_generation, doorGeneration: generations.door_generation }, settings, capacities: { geocodeRows: maxBatchRows(budget), isochroneOrigins: maxIsochroneOrigins(budget) },
+    return { instanceLimits: readInstanceLimits(db), externalSignIn: { enabled: mode.enabled, keyCount: mode.keys.length, signOutGeneration: generations.sign_out_generation, doorGeneration: generations.door_generation }, settings, capacities: { geocodeRows: maxBatchRows(budget), isochroneOrigins: maxIsochroneOrigins(budget) },
       maxImageDimension: EXPORT_MAX_DIMENSION, version, startedAt, warnings: settingsWarnings(numbers.queryTimeoutS.value, numbers.operationTimeoutS.value),
       // Each part's state, read without starting anything.
       parts: readPartStates({ imagesAtOnce: numbers.exportRenderConcurrency.value, metadataFile: db.name }),

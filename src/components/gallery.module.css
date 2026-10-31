@@ -32,6 +32,20 @@
   white-space: nowrap;
 }
 
+/* The title, and beside it a limit's mark while one is set. */
+.titleLine {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.limitMark {
+  color: var(--fg-muted);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .subLine {
   margin-top: 4px;
   color: var(--fg-muted);

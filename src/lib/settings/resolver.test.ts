@@ -46,7 +46,7 @@ describe("numeric environment precedence", () => {
       expect(JSON.stringify(result)).not.toContain("invalid-override-seed");
     }
   });
-  it.each(Object.entries(EDITABLE_NUMBERS))("keeps %s stored values shadowed even by an invalid override", (key, { min, max }) => {
+  it.each(Object.entries(EDITABLE_NUMBERS).filter(([key]) => !["mapsLimit", "projectsLimit", "peopleLimit"].includes(key)))("keeps %s stored values shadowed even by an invalid override", (key, { min, max }) => {
     const numericKey = key as Parameters<typeof resolveNumber>[0];
     const variable = key === "publicRateLimit" ? "DEZFIL_PUBLIC_RATE_LIMIT" : key === "publicTileRateLimit" ? "DEZFIL_PUBLIC_TILE_RATE_LIMIT"
       : LIMIT_FIXTURES.find(row => row[1] === key)![2];

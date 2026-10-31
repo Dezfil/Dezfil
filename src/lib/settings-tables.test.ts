@@ -105,7 +105,7 @@ describe("the settings tables", () => {
   });
 
   it("list the Limits tab's rows in its order, under its labels, before the limits a variable alone sets", () => {
-    const tab = limits.LIMITS_CARDS.flatMap((card) => card.rows).flatMap((entry) => entry.kind === "setting" ? [catalogue.settingDefinition(entry.key).environment] : []);
+    const tab = limits.LIMITS_CARDS.flatMap((card) => card.rows).flatMap((entry) => entry.key !== undefined ? [catalogue.settingDefinition(entry.key).environment] : []);
     expect(byTable("settings-limits").names.slice(0, tab.length)).toEqual(tab);
     expect(row("settings-limits", "DEZFIL_OPERATION_CONCURRENCY")[0]).toBe("**Tools running at once**");
     expect(row("settings-limits", "DEZFIL_PUBLIC_RATE_LIMIT")[3]).toBe("`60` every 10 seconds");

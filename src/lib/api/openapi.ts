@@ -35,6 +35,7 @@ import { GEOMETRY_RESOURCE_PATHS } from "./openapi-geometry-resource";
 import { GEOMETRY_RESOURCE_SCHEMAS } from "./openapi-geometry-schemas";
 import { GEOMETRY_EVIDENCE_SCHEMAS } from "./openapi-geometry";
 import { CAMERA_BOUNDS } from "@/lib/map-runtime-limits";
+import { INSTANCE_LIMITS_SCHEMA, TOKEN_LIFETIME_BOUND_NOTE } from "./openapi-instance-limits";
 import { ERROR_CATALOGUE, RESOURCE_ERROR_STATUSES } from "./error-catalogue";
 import { ENGINE_UNREADY } from "@/lib/system/readiness-reasons";
 import { TOKEN_LENGTH } from "@/lib/publish/token";
@@ -183,7 +184,7 @@ export function buildOpenApiDocument() {
       "/api/config": {
         get: op({
           summary: "Runtime client configuration",
-          description: "Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, whether the template catalogue is in use, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
+          description: TOKEN_LIFETIME_BOUND_NOTE + "instanceLimits carries the limits in force and the counts across every owner. Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, whether the template catalogue is in use, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
           tag: "System",
           tool: "get_config", mcp: LOCAL_READ,
           display: {"verb": "Read the instance configuration"},
@@ -899,6 +900,9 @@ export function buildOpenApiDocument() {
               properties: {
                 code: { type: "string", enum: Object.keys(ERROR_CATALOGUE) },
                 message: { type: "string" },
+                key: { type: "string", enum: ["mapsLimit", "projectsLimit", "peopleLimit"], description: "The setting that refused instance_limit_reached." },
+                limit: { type: "integer", minimum: 1, description: "The creation limit in force for instance_limit_reached." },
+                count: { type: "integer", minimum: 0, description: "The instance-wide count at admission for instance_limit_reached." },
                 retryAfter: { type: "integer", minimum: 1, description: "Seconds before retry after a login limit or temporary authentication capacity refusal." },
                 retryAt: { type: "string", format: "date-time", description: "When a login limit permits another attempt." },
                 rule: { type: "string", enum: [...WHO_MAY_RULES], description: "The instance rule that refused a rule_refused request, keyed as PATCH /api/instance/settings takes it." },
@@ -941,6 +945,7 @@ export function buildOpenApiDocument() {
         Config: {
           type: "object",
           properties: {
+            instanceLimits: INSTANCE_LIMITS_SCHEMA,
             basemapUrl: {
               type: "string",
               description: "The deployment default style (override or dark).",

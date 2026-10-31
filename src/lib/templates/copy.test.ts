@@ -12,6 +12,10 @@ import { dataDir } from "@/lib/config";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { accountFiles } from "@/lib/ingest/file-ownership";
 import { ingestFile } from "@/lib/ingest/ingest";
+import { testClient } from "@/lib/mcp/test-client";
+import { recordCreationAttempt } from "../../../test-support/instance-limit-assistant";
+import { instanceCounts } from "@/lib/instance-limits";
+import { createProject } from "@/lib/metadata/owned-projects";
 import { createMap } from "@/lib/map-service";
 import * as mapThumbnails from "@/lib/map-thumbnails";
 import { addStep, createRecipe } from "@/lib/metadata/recipes";
@@ -629,4 +633,67 @@ describe("by cookie, token and tool", () => {
     expect(count(f.db, "projects", "member")).toBe(0);
     expect(await tableFiles()).toEqual({});
   });
+});
+
+
+it.each(["mapsLimit", "projectsLimit"])("refuses a template copy at %s through session, token and tool, retaining only its installation", async key => {
+  createProject(testAccountScope(f.db, "member"), { name: "Existing" }, f.db);
+  const before = instanceCounts(f.db), files = await tableFiles(), installed = await folderHashes(shippedFolder);
+  expect(before).toEqual({ maps: 1, projects: 1, people: 2 });
+  writeStoredSettings({ [key]: 1 }, f.db);
+  const written: string[] = [];
+  const copyFile = copyArtifacts.copyDatasetFile;
+  vi.spyOn(copyArtifacts, "copyDatasetFile").mockImplementation(async (...args) => {
+    const artifact = await copyFile(...args);
+    // Observe the actual file before rollback can remove it.
+    expect((await readFile(path.join(dataDir(), artifact.file))).length).toBeGreaterThan(0);
+    written.push(artifact.file);
+    return artifact;
+  });
+  for (const headers of [byCookie(), byToken()]) {
+    const response = await copy("harbour-stations", headers);
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({ error: { code: "instance_limit_reached", key, limit: 1, count: 1 } });
+    expect(written).toEqual([]);
+  }
+  const tool = buildTools().find(t => t.name === "copy_template")!;
+  const result = await executeTool(tool, { id: "harbour-stations" }, ORIGIN,
+    (input, init) => dispatchAssistantTestRoute(new Request(input, init)), byToken());
+  expect(result).toMatchObject({ status: 409, body: { error: { code: "instance_limit_reached", key, limit: 1, count: 1 } } });
+  const client = await testClient(request => {
+    request.headers.set("authorization", `Bearer ${memberToken}`);
+    return dispatchAssistantTestRoute(request);
+  });
+  try {
+    const mcp = await client.callTool({ name: "copy_template", arguments: { id: "harbour-stations" } });
+    expect(mcp.isError).toBe(true);
+    expect(mcp.structuredContent).toMatchObject({ result: result.body });
+  } finally { await client.close(); }
+  const assistant = await recordCreationAttempt(testAccountScope(f.db, "member"), authenticateSession(f.member.secret, f.db)!, "copy_template", { id: "harbour-stations" });
+  expect(assistant.actions).toMatchObject([{ tool: "copy_template", status: "refused" }]);
+  expect(assistant.outcome).toEqual(result.body);
+  expect(written).toEqual([]);
+  expect(instanceCounts(f.db)).toEqual(before);
+  expect(await tableFiles()).toEqual(files);
+  expect(await folderHashes(shippedFolder)).toEqual(installed);
+  expect(f.db.prepare("SELECT count(*) AS n FROM data_tables").get()).toEqual({ n: 0 });
+});
+
+it.each(["mapsLimit", "projectsLimit"])("refuses and removes prepared files when %s fills after the advisory read", async key => {
+  const scope = testAccountScope(f.db, "member");
+  createProject(scope, { name: "Existing" }, f.db);
+  writeStoredSettings({ [key]: 2 }, f.db);
+  const copied = vi.spyOn(copyArtifacts, "copyDatasetFile");
+  setCopySeamForTests({ beforeTransaction() {
+    if (key === "mapsLimit") createMap(scope, "Last place");
+    else createProject(scope, { name: "Last place" }, f.db);
+  } });
+
+  const response = await copy("harbour-stations");
+  expect(response.status).toBe(409);
+  expect(response.body).toMatchObject({ error: { code: "instance_limit_reached", key, limit: 2, count: 2 } });
+  expect(copied).toHaveBeenCalledTimes(2);
+  expect(instanceCounts(f.db)).toEqual({ maps: key === "mapsLimit" ? 2 : 1, projects: key === "projectsLimit" ? 2 : 1, people: 2 });
+  expect(await tableFiles()).toEqual({});
+  expect(f.db.prepare("SELECT count(*) AS n FROM data_tables").get()).toEqual({ n: 0 });
 });

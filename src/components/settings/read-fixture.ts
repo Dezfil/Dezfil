@@ -21,6 +21,11 @@ export function instanceReadFixture(resolved: Readonly<Record<string, Resolution
     return [definition.key, setting as ReadSetting];
   }));
   return {
+    // As a fresh server reports them: no limit set, nothing made yet.
+    instanceLimits: {
+      maps: { key: "mapsLimit", limit: 0, count: 0 }, projects: { key: "projectsLimit", limit: 0, count: 0 },
+      people: { key: "peopleLimit", limit: 0, count: 0 }, tokenLifetimeMax: "none",
+    },
     settings, capacities: { geocodeRows: 27, isochroneOrigins: 13 }, maxImageDimension: 4096,
     version: "0.1.0", startedAt: "2026-10-04T09:00:00.000Z", warnings: [],
     // As a fresh server reports them: the engine not started, both programs found, the tile builder not yet run.

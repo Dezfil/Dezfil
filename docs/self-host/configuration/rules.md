@@ -12,7 +12,7 @@ checked: none
 order: 5
 ---
 
-An admin sets these on the **Security**, **Publishing** and **Data & services** tabs of **Settings**. They have no variables, so nothing locks them, and a change applies at once.
+An admin sets these on the **Security**, **Publishing** and **Data & services** tabs of **Settings**. These rules have no variables of their own, and a change applies at once. The token lifetime takes a separate bound from **Limits**.
 
 <!-- settings-rules:start -->
 
@@ -35,6 +35,25 @@ An admin sets these on the **Security**, **Publishing** and **Data & services** 
 
 - A rule refuses new actions and takes nothing away. A refused action answers `403 rule_refused`, with `error.rule` naming the rule, and the screens show that action disabled.
 - Every signed-in account and agent reads the rules it follows as `rules` in `GET /api/config`, with the shortest password as `passwordMin`.
+
+## Token lifetimes
+
+| **Longest token lifetime** on **Limits** | **New tokens expire after** offers |
+|---|---|
+| `none`, the default | `never`, `30d`, `90d`, `1y` |
+| `30d` | `30d` |
+| `90d` | `30d`, `90d` |
+| `1y` | `30d`, `90d`, `1y` |
+
+Set `tokenLifetimeMax` through the instance settings operation, or lock it with `DEZFIL_TOKEN_LIFETIME_MAX`. [Limits](../../api/limits.md#limits-an-operator-changes) lists its values and how to change it.
+
+A stored `tokens.expiry` above the bound reads as the bound in `GET /api/config` rules and in the settings row's `value`. Its `storedValue` stays unchanged.
+
+New tokens take that effective lifetime. Existing tokens keep their expiry, including tokens without one. Sign-in mode does not change the bound.
+
+For clients, the settings row's `write.values` contains the offered choices. Submitting a choice above the resulting bound answers `400 invalid_request`; the whole settings change is refused.
+
+Lowering the bound alone leaves the stored rule intact. Removing the bound makes that rule effective again.
 
 ## Sign everyone out
 

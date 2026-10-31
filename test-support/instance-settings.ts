@@ -8,13 +8,13 @@ import { getAccount } from "../src/lib/metadata/accounts";
 import { authenticateSession, createApiToken, issueSession } from "../src/lib/auth/credentials";
 import { socketRequest } from "../src/lib/assistant/testing/socket-request";
 
-export function instanceSettingsFixture() {
+export function instanceSettingsFixture(options: { file?: boolean } = {}) {
   const root = process.env.DEZFIL_DATA_DIR ?? path.join(process.cwd(), ".claude/test-data");
   for (const definition of SETTING_CATALOGUE) if (definition.environment) vi.stubEnv(definition.environment, undefined);
   mkdirSync(root, { recursive: true });
   const dir = mkdtempSync(path.join(root, "instance-read-"));
   vi.stubEnv("DEZFIL_DATA_DIR", dir);
-  const db = metadata.open(":memory:");
+  const db = metadata.open(options.file ? path.join(dir, "metadata.sqlite") : ":memory:");
   vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
   testAccountScope(db, "admin");
   testAccountScope(db, "member");

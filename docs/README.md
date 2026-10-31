@@ -232,7 +232,7 @@ Script Dezfil over HTTP, or connect an AI agent through MCP.
 - [Limits](api/limits.md)
   - path: `docs/api/limits.md`
   - summary: Find every limit Dezfil holds requests to, what you get when you reach one, and the setting that changes it.
-  - read when: a request answers 408, 413, 422 or 429 and you want to know which limit it reached; a query shows only its first rows, or answers query_result_too_large; you want to raise the largest upload, the query time limit or another limit; an assistant message, an agent's upload or a tool's download is too large; visitors to a published map get rate_limited
+  - read when: a request answers 408, 409, 413, 422 or 429 and you want to know which limit it reached; a query shows only its first rows, or answers query_result_too_large; you want to raise the largest upload, the query time limit or another limit; an assistant message, an agent's upload or a tool's download is too large; visitors to a published map get rate_limited
   - audience: developer, agent, operator
 
 ## Contribute
