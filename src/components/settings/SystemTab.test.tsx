@@ -35,6 +35,8 @@ let answers: Partial<Record<Part, PartTestAnswer>>;
 let tested: string[];
 /** What the storage read answers, or null to fail it. */
 let storage: StorageRead | null;
+/** What the runtime read says of the volume, or null to fail it. */
+let runtimeStorage: StorageRead["state"] | null;
 /** Each request's method and address, in order. */
 let calls: { method: string; url: string }[];
 let clearFails: boolean;
@@ -47,12 +49,15 @@ beforeEach(() => {
   vi.setSystemTime(Date.parse("2026-10-07T09:30:00.000Z"));
   resolved = { dataDir: { value: "/data", source: "environment", locked: true } };
   health = 200; failRead = false; requests = []; partReads = [{}]; answers = {}; tested = [];
-  storage = storageReadFixture(); calls = []; clearFails = false;
+  storage = storageReadFixture(); calls = []; clearFails = false; runtimeStorage = null;
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     requests.push(url);
     calls.push({ method: init?.method ?? "GET", url });
     if (url === "/api/instance/storage") {
       return storage ? Response.json(storage) : Response.json({ error: { code: "internal", message: "Storage could not be read." } }, { status: 500 });
+    }
+    if (url === "/api/config") {
+      return runtimeStorage ? Response.json({ storage: runtimeStorage }) : Response.json({ error: { code: "internal", message: "Unavailable." } }, { status: 500 });
     }
     if (url === "/api/instance/caches" && init?.method === "DELETE") {
       return clearFails ? Response.json({ error: { code: "internal", message: "The caches could not be cleared." } }, { status: 500 })
@@ -331,6 +336,66 @@ describe("System's Storage", () => {
     // The other kinds are as read; nothing was read again.
     expect(byId("sys-tables").textContent).toBe("Tables12.4 GB412 files");
     expect(calls.filter(call => call.url === "/api/instance/storage")).toHaveLength(1);
+  });
+
+  const FULL_NOTE = "Storage is full: 412 MB free. Storage counts as full at 512 MB free or less.";
+  const note = () => card("Storage").querySelectorAll('[data-storage-full]').map(element => element.textContent);
+  const MB = 1024 * 1024;
+  const fullDisk = { free: 412 * MB, total: 20480 * MB };
+
+  it("draws nothing about the state while there is room", async () => {
+    await open();
+    expect(note()).toEqual([]);
+    expect(card("Storage").textContent).not.toContain("Storage is full");
+    expect(card("Storage").textContent).not.toContain("512 MB");
+  });
+
+  it("highlights the state and names the threshold while full, from the storage read alone when the runtime read has no answer", async () => {
+    storage = storageReadFixture({}, fullDisk);
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
+    expect(card("Storage").querySelector("[data-storage-full]")!.getAttribute("data-tone")).toBe("warn");
+    expect(byId("sys-free").textContent).toBe("Free on the disk412 MB of 20 GB");
+  });
+
+  it("takes the fresh state over the storage read, the free row with it", async () => {
+    storage = storageReadFixture({}, { free: 4096 * MB, total: 20480 * MB });
+    runtimeStorage = { full: true, free: fullDisk.free, total: fullDisk.total, threshold: 512 * MB };
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
+    expect(byId("sys-free").textContent).toBe("Free on the disk412 MB of 20 GB");
+  });
+
+  it("reads the state again after Clear all, and the highlight goes once there is room", async () => {
+    storage = storageReadFixture({ service_caches: { bytes: 900 * MB, files: 120, finished: true } }, fullDisk);
+    runtimeStorage = { full: true, free: fullDisk.free, total: fullDisk.total, threshold: 512 * MB };
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
+    runtimeStorage = { full: false, free: 1312 * MB, total: fullDisk.total, threshold: 512 * MB };
+    await act(async () => clearAll().click());
+    await settle();
+    expect(note()).toEqual([]);
+    expect(byId("sys-free").textContent).toBe("Free on the disk1.3 GB of 20 GB");
+    // The kinds are still the storage read's and the clear's own.
+    expect(calls.filter(call => call.url === "/api/instance/storage")).toHaveLength(1);
+  });
+
+  it("does not read the state again when Clear all fails", async () => {
+    storage = storageReadFixture({}, fullDisk);
+    clearFails = true;
+    await open();
+    const reads = calls.filter(call => call.url === "/api/config").length;
+    await act(async () => clearAll().click());
+    await settle();
+    expect(calls.filter(call => call.url === "/api/config")).toHaveLength(reads);
+    expect(note()).toEqual([FULL_NOTE]);
+  });
+
+  it("still says so when the storage read fails and the runtime read answers", async () => {
+    storage = null;
+    runtimeStorage = { full: true, free: fullDisk.free, total: fullDisk.total, threshold: 512 * MB };
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
   });
 
   it("holds Clear all back while the caches are empty, and keeps it for caches it did not finish counting", async () => {
