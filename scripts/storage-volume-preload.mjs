@@ -37,7 +37,9 @@ const timer = setInterval(() => {
     writer.signal.addEventListener('abort', () => { abortedAt = performance.now(); append('writers.ndjson', { id, event: 'aborted', at: abortedAt, code: writer.signal.reason?.code }); }, { once: true });
     writer.settled.then(() => append('writers.ndjson', { id, event: 'settled', elapsedMs: abortedAt === undefined ? null : performance.now() - abortedAt }));
   }
-  fs.writeFileSync(path.join(directory, 'writers.json'), JSON.stringify({ live: writers.length, fenced: state?.fenced ?? false, cpuMicros: cpu.user + cpu.system }));
+  // Written every 10 ms and read at any moment: a rename never shows the reader a half-written file.
+  fs.writeFileSync(path.join(directory, 'writers.json.next'), JSON.stringify({ live: writers.length, fenced: state?.fenced ?? false, cpuMicros: cpu.user + cpu.system }));
+  fs.renameSync(path.join(directory, 'writers.json.next'), path.join(directory, 'writers.json'));
 }, 10); timer.unref();
 const info = console.info;
 console.info = (...args) => {
