@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/ErrorNote";
-import { useStorageState } from "@/components/use-instance-rules";
-import { STORAGE_KINDS, type StorageKind, type StorageRead, type StorageUse } from "@/lib/system/storage-answer";
+import { useStorageAnswers } from "@/components/use-instance-rules";
+import { STORAGE_KINDS, type StorageKind, type StorageRead, type StorageState, type StorageUse } from "@/lib/system/storage-answer";
 import { accountRequest, failureMessage } from "./api";
 import { useMoment } from "./ServiceChecks";
 import { RowError, Rows, SettingRow, ValueText } from "./SettingRows";
@@ -23,7 +23,9 @@ import styles from "./SystemTab.module.css";
  * the read holds none. While the volume is full the card says so and names
  * the threshold. The walk is read once, but the state and the free space are
  * cheap and fresh: they are read again after Clear all and on coming back to
- * the tab, since what frees space is usually done elsewhere.
+ * the tab, since what frees space is usually done elsewhere. Both come from one
+ * reading of the volume, whichever read answered last: each server reads the
+ * state as it answers, however long its walk took.
  */
 
 const STORAGE = "/api/instance/storage";
@@ -33,12 +35,13 @@ export function StorageCard() {
   const [storage, setStorage] = useState<StorageRead | null>(null);
   const [error, setError] = useState<string | null>(null), [attempt, setAttempt] = useState(0);
   const [clears, setClears] = useState(0);
-  const fresh = useStorageState(clears);
-  const state = fresh ?? storage?.state ?? null;
+  const [state, setState] = useState<StorageState | null>(null);
+  const answered = useCallback((answer: StorageState | null) => { if (answer) setState(answer); }, []);
+  useStorageAnswers(clears, answered);
   useEffect(() => {
     let cancelled = false;
     accountRequest<StorageRead>(STORAGE).then(body => {
-      if (!cancelled) { setStorage(body); setError(null); }
+      if (!cancelled) { setStorage(body); setState(body.state); setError(null); }
     }).catch(failure => { if (!cancelled) setError(failureMessage(failure)); });
     return () => { cancelled = true; };
   }, [attempt]);
@@ -51,7 +54,7 @@ export function StorageCard() {
       {STORAGE_KINDS.map(kind => kind === "service_caches"
         ? <CachesRow key={kind} use={storage.kinds[kind]} total={storage.total} onCleared={() => { setStorage(current => current && cachesCleared(current)); setClears(value => value + 1); }} />
         : <KindRow key={kind} kind={kind} use={storage.kinds[kind]} total={storage.total} />)}
-      <SettingRow id={FREE_ROW.id} label={FREE_ROW.label}><ValueText muted={!fresh && !storage.disk}>{freeWords(fresh ?? storage.disk)}</ValueText></SettingRow>
+      <SettingRow id={FREE_ROW.id} label={FREE_ROW.label}><ValueText muted={!state}>{freeWords(state)}</ValueText></SettingRow>
     </Rows>}
   </SettingsCard>;
 }

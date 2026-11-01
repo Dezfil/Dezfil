@@ -64,7 +64,7 @@ export function shareOf(use: StorageUse, total: StorageUse): number {
 }
 
 /** The free space of the total on the folder's volume, or Unknown. */
-export function freeWords(disk: StorageRead["disk"]): string {
+export function freeWords(disk: Pick<StorageState, "free" | "total"> | null): string {
   return disk ? `${sizeWords(disk.free)} of ${sizeWords(disk.total)}` : "Unknown";
 }
 

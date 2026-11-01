@@ -96,27 +96,34 @@ export function useLimitMark(of: "maps" | "projects" | "people", revision: strin
 }
 
 /**
- * The storage state as the runtime read reports it to the signed-in person,
- * read when the screen opens, each time `revision` changes, what the screen
- * knows may have moved the free space, and when the person comes back to the
- * tab. The latest question's answer stands. Null until the read answers and
- * when the first read fails; a later failure keeps the state there is.
+ * Each answer of the runtime read about the storage state, null when it
+ * carries none: read when the screen opens, each time `revision` changes, what
+ * the screen knows may have moved the free space, and when the person comes
+ * back to the tab. Only the latest question's answer is passed on; a failed
+ * read passes nothing on. `answered` must keep its identity across renders.
  */
-export function useStorageState(revision: string | number = 0): StorageState | null {
-  const [state, setState] = useState<StorageState | null>(null);
+export function useStorageAnswers(revision: string | number, answered: (state: StorageState | null) => void): void {
   useEffect(() => {
     let latest = 0;
     const read = () => {
       const asked = ++latest;
       readJson("/api/config").then(config => {
         const storage = (config as { storage?: StorageState }).storage;
-        if (asked === latest) setState(typeof storage?.full === "boolean" ? storage : null);
+        if (asked === latest) answered(typeof storage?.full === "boolean" ? storage : null);
       }).catch(() => { /* without the read the screen draws what it knew */ });
     };
     read();
     window.addEventListener("focus", read);
     return () => { latest = -1; window.removeEventListener("focus", read); };
-  }, [revision]);
+  }, [revision, answered]);
+}
+
+/** The storage state as the runtime read last answered it: null until the
+ * read answers and when the first read fails; a later failure keeps the state
+ * there is. */
+export function useStorageState(revision: string | number = 0): StorageState | null {
+  const [state, setState] = useState<StorageState | null>(null);
+  useStorageAnswers(revision, setState);
   return state;
 }
 
