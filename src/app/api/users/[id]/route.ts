@@ -12,7 +12,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const context = requireRequestAdmin(request);
     const { id } = await params, body = await accessBody(request);
-    return privateResponse(NextResponse.json({ account: changeAccountAccess(context, id, body) }));
+    const account = await withStorageRecovery(() => changeAccountAccess(context, id, body));
+    return privateResponse(NextResponse.json({ account }));
   } catch (error) { return authFailure(error); }
 }
 
