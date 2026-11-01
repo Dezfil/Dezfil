@@ -1,3 +1,4 @@
+import { isStorageExhausted } from "@/lib/system/storage-errors";
 import { credentialIsCurrent } from "@/lib/metadata/auth-generations";
 import { outdatedToken } from "./generations";
 import { randomUUID } from "node:crypto";
@@ -40,7 +41,7 @@ function authenticateWithRenewal(db: Database, read: (renew: boolean) => AuthCon
   try {
     return withBusyTimeout(db, 0, () => db.transaction(() => read(true)).immediate());
   } catch (error) {
-    if (!sqliteBusy(error)) throw error;
+    if (!sqliteBusy(error) && !isStorageExhausted(error)) throw error;
     return db.transaction(() => read(false))();
   }
 }

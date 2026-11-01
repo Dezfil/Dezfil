@@ -1,4 +1,4 @@
-import { STORAGE_KINDS, type StorageKind, type StorageRead, type StorageUse } from "@/lib/system/storage-answer";
+import { STORAGE_KINDS, storageFullLine, type StorageKind, type StorageRead, type StorageState, type StorageUse } from "@/lib/system/storage-answer";
 import { sizeWords } from "./data-table";
 
 /**
@@ -64,8 +64,13 @@ export function shareOf(use: StorageUse, total: StorageUse): number {
 }
 
 /** The free space of the total on the folder's volume, or Unknown. */
-export function freeWords(disk: StorageRead["disk"]): string {
+export function freeWords(disk: Pick<StorageState, "free" | "total"> | null): string {
   return disk ? `${sizeWords(disk.free)} of ${sizeWords(disk.total)}` : "Unknown";
+}
+
+/** What the card says while full: the state, and the threshold it is held against. */
+export function storageFullWords(state: StorageState): string {
+  return `${storageFullLine(state)} Storage counts as full at ${sizeWords(state.threshold)} free or less.`;
 }
 
 /** The read once Clear all has emptied the caches: the total is what the
@@ -77,5 +82,6 @@ export function cachesCleared(read: StorageRead): StorageRead {
     kinds,
     total: { bytes: uses.reduce((sum, use) => sum + use.bytes, 0), files: uses.reduce((sum, use) => sum + use.files, 0), finished: uses.every(use => use.finished) },
     disk: read.disk,
+    state: read.state,
   };
 }

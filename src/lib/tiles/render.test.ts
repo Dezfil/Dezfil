@@ -1,9 +1,29 @@
+import { readFileSync } from "node:fs";
+import { tileArchivePath, tileScratchDir } from "./paths";
+import { tileEvidencePath } from "./evidence";
+import { getTileRecord } from "@/lib/metadata/tiles";
+const storage = vi.hoisted(() => ({ full: false, failCommit: false, swapped: false, previous: Buffer.alloc(0) }));
+vi.mock("@/lib/system/storage-state", async original => {
+  const real = await original<typeof import("@/lib/system/storage-state")>();
+  return { ...real, readStorageState: () => storage.full ? { full: true, free: 0, total: 2 ** 30, threshold: real.STORAGE_FULL_BYTES } : real.readStorageState() };
+});
+vi.mock("@/lib/metadata/tiles", async original => {
+  const real = await original<typeof import("@/lib/metadata/tiles")>();
+  return { ...real, upsertTileRecord: (...args: Parameters<typeof real.upsertTileRecord>) => {
+    if (storage.failCommit && args[0].state === "ready") {
+      storage.swapped = !readFileSync(tileArchivePath(args[0].layerId)).equals(storage.previous);
+      storage.full = true;
+      throw Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+    }
+    return real.upsertTileRecord(...args);
+  } };
+});
 import { readDocumentRevision as readEditRevision } from "@/lib/metadata/revisions";
 import { getLayer as readEditLayer } from "@/lib/metadata/maps";
 import { privateTileAccess } from "@/lib/tiles/access";
 import { testAccountScope } from "@/lib/test-support/accounts";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { mkdtemp, rm, writeFile, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { closeMetadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
@@ -29,6 +49,7 @@ let dir: string;
 let layerId: string;
 
 beforeEach(async () => {
+  storage.full = storage.failCommit = storage.swapped = false;
   dir = await mkdtemp(path.join(process.cwd(), ".tmp-test-"));
   process.env.DEZFIL_DATA_DIR = path.join(dir, "data");
   closeMetadataDb();
@@ -51,6 +72,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  storage.full = storage.failCommit = false;
   await tileBuildsSettled();
   closeMetadataDb();
   resetQueryInstance();
@@ -156,4 +178,74 @@ describe("the render decision", () => {
     expect(failed.error?.code).toBe("tile_build_failed");
     expect(failed.error?.message).toMatch(/boom/);
   });
+});
+
+const render = (layer = requireLayer(testAccountScope(), layerId)) =>
+  renderLayer(testAccountScope(), layer, undefined, { tileAccess: privateTileAccess(testAccountScope(), layer.id) });
+
+it("answers storage_full initially for a new archive, keeps existing and inline renders, and retries after space returns", async () => {
+  process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
+  const original = requireLayer(testAccountScope(), layerId);
+  await render(original); await tileBuildsSettled();
+  const before = await readFile(tileArchivePath(layerId));
+  storage.full = true;
+  expect((await render(original)).tiles?.state).toBe("ready");
+  expect((await render({ ...original, sql: original.sql + " LIMIT 1" })).mode).toBe("inline");
+  const changed = { ...original, sql: original.sql + " WHERE id > 10" };
+  expect(await render(changed)).toMatchObject({ ok: false, error: { code: "storage_full" } });
+  expect(await readFile(tileArchivePath(layerId))).toEqual(before);
+  expect(await readdir(tileScratchDir())).toEqual([]);
+  storage.full = false;
+  expect((await render(changed)).tiles?.state).toBe("building");
+  await tileBuildsSettled();
+  expect((await render(changed)).tiles?.state).toBe("ready");
+});
+
+it("restores the archive and evidence after a post-swap record failure and renders the previous bytes", async () => {
+  process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
+  const original = requireLayer(testAccountScope(), layerId);
+  await render(original); await tileBuildsSettled();
+  const before = await render(original);
+  storage.previous = await readFile(tileArchivePath(layerId));
+  const evidence = await readFile(tileEvidencePath(layerId));
+  const record = getTileRecord(layerId);
+  const z = before.tiles!.maxZoom!;
+  const x = Math.floor(((13.37 + 180) / 360) * 2 ** z);
+  const radians = 52.44 * Math.PI / 180;
+  const y = Math.floor((1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2 * 2 ** z);
+  const tile = await readTile(layerId, z, x, y);
+  expect(tile?.byteLength).toBeGreaterThan(0);
+  storage.failCommit = true;
+  const changed = { ...original, sql: original.sql + " WHERE id > 10" };
+  await render(changed); await tileBuildsSettled();
+  expect(storage.swapped).toBe(true);
+  expect(await readFile(tileArchivePath(layerId))).toEqual(storage.previous);
+  expect(await readFile(tileEvidencePath(layerId))).toEqual(evidence);
+  expect(getTileRecord(layerId)).toEqual(record);
+  expect(await render(changed)).toMatchObject({ ok: false, error: { code: "storage_exhausted" } });
+  resetTileArchives();
+  expect((await render(original)).tiles?.state).toBe("ready");
+  expect(await readTile(layerId, z, x, y)).toEqual(tile);
+  expect(await readdir(tileScratchDir())).toEqual([]);
+  storage.full = storage.failCommit = false;
+  expect((await render(changed)).tiles?.state).toBe("building");
+  await tileBuildsSettled();
+  expect((await render(changed)).tiles?.state).toBe("ready");
+});
+
+it("reports a tiler's no-space failure without sticky state or scratch", async () => {
+  process.env.DEZFIL_RENDER_CAP_FEATURES = "10";
+  const fake = path.join(dir, "full-tippecanoe");
+  await writeFile(fake, '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "tippecanoe v0.0-test" >&2; exit 0; fi\necho "write: No space left on device" >&2\nexit 1\n', { mode: 0o755 });
+  process.env.DEZFIL_TIPPECANOE = fake;
+  expect((await render()).tiles?.state).toBe("building");
+  storage.full = true;
+  await tileBuildsSettled();
+  expect(await render()).toMatchObject({ ok: false, error: { code: "storage_exhausted" } });
+  expect(await readdir(tileScratchDir())).toEqual([]);
+  storage.full = false;
+  delete process.env.DEZFIL_TIPPECANOE;
+  expect((await render()).tiles?.state).toBe("building");
+  await tileBuildsSettled();
+  expect((await render()).tiles?.state).toBe("ready");
 });

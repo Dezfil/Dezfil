@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
@@ -76,7 +77,8 @@ export async function createFirstAccount(input: { name: string; email: string; p
   }).immediate();
 }
 
-export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number, signal?: AbortSignal) {
+export async function signIn(email: string, password: string, db: Database = metadataDb(), now?: number, signal?: AbortSignal,
+  recordSuccess?: () => void) {
   requirePasswordSignIn();
   maintainCredentials(db, now);
   const account = getAccountByEmail(email, db);
@@ -86,7 +88,7 @@ export async function signIn(email: string, password: string, db: Database = met
   requireAuthenticationWanted(signal, derivationStarted);
   const invalid = () => new AuthError("invalid_credentials", "Email or password is incorrect.", 401);
   if (!account || !hash || !valid) throw invalid();
-  return db.transaction(() => {
+  return withStorageRecovery(() => db.transaction(() => {
     requireAuthenticationWanted(signal, derivationStarted);
     const current = getAccount(account.id, db);
     // A reset or email change that won during password work invalidates this attempt.
@@ -96,8 +98,10 @@ export async function signIn(email: string, password: string, db: Database = met
     const at = now ?? Date.now();
     db.prepare("UPDATE accounts SET last_sign_in_at = ? WHERE id = ?")
       .run(new Date(at).toISOString(), account.id);
-    return issueSession(getAccount(account.id, db)!, db, at);
-  }).immediate();
+    const session = issueSession(getAccount(account.id, db)!, db, at);
+    recordSuccess?.();
+    return session;
+  }).immediate());
 }
 
 export async function changeOwnPassword(context: AuthContext, currentPassword: string, password: string,

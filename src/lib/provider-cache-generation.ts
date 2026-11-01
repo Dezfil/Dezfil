@@ -1,3 +1,4 @@
+import type { StorageRecovery } from "@/lib/system/storage-reserve";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import { PROVIDER_CACHES, type ProviderCache } from "./provider-caches";
@@ -20,13 +21,14 @@ export async function beginProviderCacheWrite(generation: number, cache: Provide
 }
 /** Empties the named caches, all three by default, once every write already
  * under way in them has landed. */
-export function purgeProviderAnswerFiles(directory: string, caches: readonly ProviderCache[] = PROVIDER_CACHES): Promise<void> {
+export function purgeProviderAnswerFiles(directory: string, caches: readonly ProviderCache[] = PROVIDER_CACHES,
+  recover: StorageRecovery = async work => work()): Promise<void> {
   const preceding = state.purge;
   state.generation++;
   for (const cache of caches) state.purgedAt[cache] = state.generation;
   const work = Promise.resolve(preceding).catch(() => {}).then(async () => {
     await Promise.all([...state.writers].filter(writer => caches.includes(writer.cache)).map(writer => writer.done.promise));
-    const results = await Promise.allSettled(caches.map(name => rm(path.join(directory, "cache", name), { recursive: true, force: true })));
+    const results = await Promise.allSettled(caches.map(name => recover(() => rm(path.join(directory, "cache", name), { recursive: true, force: true }))));
     for (const result of results) if (result.status === "rejected") throw result.reason;
   }).finally(() => { if (state.purge === work) state.purge = null; });
   state.purge = work; return work;

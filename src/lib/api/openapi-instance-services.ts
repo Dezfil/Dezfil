@@ -78,7 +78,7 @@ export const INSTANCE_SERVICES_PATHS = {
       "and a write already landing is waited for and then removed. Clearing an empty cache answers the same. Answers with the caches cleared. " +
       "The embedded assistant asks for confirmation before calling on pages admitting writes; SQL and workflow assistants refuse this operation. " +
       "MCP advertises that policy and adds no confirmation step.",
-    tag: "System", tool: "clear_service_caches", toolInput: { closed: true }, display: { verb: "Cleared service caches" },
+    tag: "System", storage: "recovery", tool: "clear_service_caches", toolInput: { closed: true }, display: { verb: "Cleared service caches" },
     effects: writes(resource("caches")), mcp: LOCAL_DELETE, confirm: true,
     confirmation: { target: "Clear cached service answers?",
       consequence: "This removes cached answers only. The next request for each asks its service again; settings and data are unchanged.",

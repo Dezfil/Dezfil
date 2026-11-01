@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { open } from "@/lib/metadata/db";
 import { testAccountScope } from "@/lib/test-support/accounts";
-import { admitAccountWork, drainAccountWork, registerRetainedStore } from "./account-deletion-admission";
+import { admitAccountWork, admittedReads, drainAccountWork, registerRetainedStore } from "./account-deletion-admission";
 const db = open(":memory:");
 afterEach(() => vi.restoreAllMocks());
 it("shares held leases and populated retained stores across two loaded module graphs", async () => {
@@ -34,4 +34,17 @@ it("retains failed cleanup across module copies until a successful retry while i
     expect(candidate).toBe("private candidate"); expect(() => control.assertCommit()).not.toThrow();
     blocked = false; await other.drainAccountWork("cleanup-target", store); expect(candidate).toBe("");
   } finally { blocked = false; await other.drainAccountWork("cleanup-target", store); control.release(); store.close(); }
+});
+it("recovers a retained cleanup write without locking the wait for live work", async () => {
+  const store = open(":memory:"); testAccountScope(store, "cleanup-full");
+  const lease = admitAccountWork(["cleanup-full"], store);
+  const cleanup = vi.fn<() => Promise<void>>()
+    .mockRejectedValueOnce(Object.assign(new Error("full"), { code: "ENOSPC" }))
+    .mockResolvedValue(undefined);
+  lease.retainCleanup(cleanup); lease.release();
+  try {
+    await drainAccountWork("cleanup-full", store);
+    expect(cleanup).toHaveBeenCalledTimes(2);
+    expect(admittedReads("cleanup-full", store)).toBe(0);
+  } finally { await drainAccountWork("cleanup-full", store); store.close(); }
 });

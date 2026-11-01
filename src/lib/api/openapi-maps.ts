@@ -142,7 +142,7 @@ export const MAP_RESOURCE_PATHS = {
     delete: op(mapAccess({
       summary: "Delete a map",
       tag: "Maps",
-      tool: "delete_map", mcp: LOCAL_DELETE,
+      storage: "recovery", tool: "delete_map", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
       effects: writes(resource("maps", "id"), resource("layers"), resource("publications", "id"), resource("projects")),
       confirmation: {"target": "Delete {target}?", "consequence": "This deletes the map and its layers and stops its published link.", "subject": {"path": "/api/maps/{id}", "argument": "id", "name": "name"}},
@@ -155,7 +155,7 @@ export const MAP_RESOURCE_PATHS = {
     post: op(mapAccess({
       summary: "Refresh a map picture",
       description: "Ask the server to picture the saved drawing as its owner. The owner or a project Editor may ask; a Viewer receives forbidden. Repeated requests coalesce with pending work. The previous complete picture stays served. This changes no edit revision, history or Last edited timestamp and requires no edit revision. Answers queued after admission to the quiet wait, or unavailable when the renderer is absent. Basemap services may be contacted by the background attempt.",
-      tag: "Maps", tool: "refresh_map_picture", mcp: MAP_LOOK,
+      tag: "Maps", storage: "write", tool: "refresh_map_picture", mcp: MAP_LOOK,
       display: { verb: "Requested a map picture" }, effects: writes(resource("maps", "id")),
       parameters: [pathParam("id", "Map id.")],
       responses: {
@@ -382,7 +382,7 @@ export const MAP_RENDER_PATHS = {
         "answer is render_timeout. Without a renderer browser on the " +
         "instance the answer is render_unavailable.",
       tag: "Maps",
-      tool: "look_at_map", mcp: MAP_LOOK,
+      storage: "write", tool: "look_at_map", mcp: MAP_LOOK,
       toolOutput: { binary: { representation: "json-image", nativeImage: false } },
       display: {"verb": "Checked the map"},
       effects: READ_ONLY,
@@ -465,7 +465,7 @@ export const MAP_RENDER_PATHS = {
         "abandonment count and hosts (never paths), counting repeated cuts " +
         "again. The server log names each abandonment as it happens.",
       tag: "Maps",
-      tool: "export_map_image", mcp: REMOTE_READ,
+      storage: "write", tool: "export_map_image", mcp: REMOTE_READ,
       toolOutput: { binary: { representation: "attachment", nativeImage: false } },
       display: {"verb": "Rendered the map {subject} to an image", "subject": {"resource": "maps", "argument": "id"}},
       effects: READ_ONLY,
@@ -587,7 +587,7 @@ export const MAP_PUBLISH_PATHS = {
       summary: "Unpublish a map",
       description: "The link stops resolving immediately. Revoking a publication is the map owner's alone.",
       tag: "Publish",
-      tool: "unpublish_map", mcp: LOCAL_REPLACE,
+      storage: "recovery", tool: "unpublish_map", mcp: LOCAL_REPLACE,
       display: {"verb": "Unpublished the map {subject}", "subject": {"resource": "maps", "argument": "id"}},
       effects: writes(resource("publications", "id")),
       confirmation: {"target": "Unpublish {target}?", "consequence": "Its published link will stop working.", "subject": {"path": "/api/maps/{id}", "argument": "id", "name": "name"}},

@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
@@ -64,37 +65,45 @@ export function acceptAccountDeletion(context: AuthContext, accountId: string, c
 async function continueDeletion(journal: DeletionJournal, db: Database): Promise<DeletionStatus> {
   const { accountId, content } = journal;
   try {
-    journal.state = "pending"; writeDeletionJournal(journal);
+    journal.state = "pending"; await withStorageRecovery(() => writeDeletionJournal(journal));
     // Stage numbers describe the next obligation. Replaying a stage after a
     // crash is safe, including dissolution whose transaction removes its source.
     const stages: (() => void | Promise<void>)[] = [
       async () => { await eraseAccountWork(accountId, content, db); await drainAccountWork(accountId, db); },
-      () => eraseAccountCredentials(accountId, db),
-      () => { eraseAccountContent(accountId, db); },
-      () => { dissolveAcceptedAccountProjects(accountId, journal.actorId, db); },
+      () => withStorageRecovery(() => eraseAccountCredentials(accountId, db)),
+      () => withStorageRecovery(() => { eraseAccountContent(accountId, db); }),
+      () => withStorageRecovery(() => { dissolveAcceptedAccountProjects(accountId, journal.actorId, db); }),
       async () => { if (!journal.invited) { await eraseAccountCopies(accountId, db); await captureCopies(journal.id, db); } },
       async () => {
-        for (const file of journal.files) registerAccountFile(accountId, file.file, file.directory);
+        for (const file of journal.files) await withStorageRecovery(() => registerAccountFile(accountId, file.file, file.directory));
         await eraseAccountFiles(accountId, content.datasets, db);
       },
       () => journal.invited ? undefined : eraseAccountDerivatives(accountId, content, db),
       () => journal.invited ? undefined : eraseAccountQueryState(accountId, db),
       () => journal.invited ? undefined : eraseProviderCaches(accountId, db),
-      () => { db.transaction(() => {
+      () => withStorageRecovery(() => { db.transaction(() => {
         if (journal.invited) db.prepare("DELETE FROM accounts WHERE id=? AND status='deleting'").run(accountId);
         else db.prepare(`UPDATE accounts SET status='deleted',name=NULL,email=NULL,password_hash=NULL,is_admin=NULL,
           created_at=NULL,updated_at=NULL,last_sign_in_at=NULL,picture_version=NULL,external_identity=NULL WHERE id=? AND status='deleting'`).run(accountId);
-      }).immediate(); },
+      }).immediate(); }),
+      // Compaction needs working space proportional to the store. Keep the
+      // reserve for small recovery writes while it waits for space.
       () => { compactMetadataStore(db); },
     ];
-    while (journal.next < stages.length) { await stages[journal.next](); journal.next++; writeDeletionJournal(journal); }
+    while (journal.next < stages.length) {
+      // Admitted work may need storage recovery to settle. Waiting for it
+      // under that same latch blocks both its settlement and pending replies.
+      await stages[journal.next]();
+      journal.next++;
+      await withStorageRecovery(() => writeDeletionJournal(journal));
+    }
     removeDeletionJournal(journal.id);
     return { id: journal.id, state: "completed" };
   } catch {
     journal.state = "needs-retry";
     // If the volume itself is unwritable, the last durable journal still
     // blocks completion. Startup promotes it to retry before serving.
-    try { writeDeletionJournal(journal); } catch {}
+    try { await withStorageRecovery(() => writeDeletionJournal(journal)); } catch {}
     return status(journal);
   } finally { holder.prepared.delete(workKey(journal.id, db)); }
 }

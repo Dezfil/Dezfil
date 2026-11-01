@@ -192,6 +192,7 @@ function limitsCards(read: InstanceRead): IndexCard[] {
   return LIMITS_CARDS.map(card => ({ id: card.id, title: card.title, keys: card.keys, rows: card.rows.map(row => {
     const value = row.kind === "capacity" ? capacityText(row.of, row.of === "geocode" ? read.capacities.geocodeRows : read.capacities.isochroneOrigins)
       : row.kind === "image" ? `${formatSettingNumber(read.maxImageDimension)} ${row.unit}`
+        : row.kind === "fixed" ? row.value
         : !read.settings[row.key] ? ""
           : row.kind === "choice" ? limitChoiceWords(row, read.settings[row.key].value)
             : row.kind === "counted" ? `${withShownUnit(row.key, read.settings[row.key].value, read.settings[row.key].unit)} · ${countedText(read.instanceLimits[row.of].count)}`

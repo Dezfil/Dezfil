@@ -436,7 +436,7 @@ describe("a disk that fills as the archive lands", () => {
     disk.full = (file) => file.startsWith(ingestScratchDir()) && path.basename(file) === "archive.zip";
     const failed = await fetchAs(MAP_ID).then(() => null, (error: unknown) => error);
     disk.full = null;
-    expect(failed).toMatchObject({ code: "ENOSPC" });
+    expect(failed).toMatchObject({ code: "storage_exhausted", status: 507 });
     expect(await dataFolder()).toEqual(before);
     expect(await readdir(ingestScratchDir()).catch(() => [])).toEqual([]);
     expect(await readdir(downloadedTemplatesDir()).catch(() => [])).toEqual([]);

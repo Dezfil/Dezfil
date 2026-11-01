@@ -1,3 +1,5 @@
+import { admitStorageWrite } from "@/lib/system/storage-admission";
+import { withStorageWrite, currentStorageWriter } from "@/lib/system/storage-fence";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import type { Database } from "better-sqlite3";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -262,6 +264,7 @@ async function makeCopy(scope: AccountScope, accountId: string, source: CopySour
   checkInstanceCreationLimit("projects", db);
   checkInstanceCreationLimit("maps", db);
   const installed = await readInstalledVersion(source.folder);
+  admitStorageWrite(Object.values(installed.record.files).reduce((total, file) => total + file.bytes, 0));
   const { admitted, record } = installed;
   if (admitted.facts.id !== source.id || admitted.facts.version !== source.version) {
     refuse("template_record_mismatch", `The installed folder of ${source.id} version ${source.version} holds another version.`);
@@ -285,6 +288,7 @@ async function makeCopy(scope: AccountScope, accountId: string, source: CopySour
       const planned: Planned = { installed, references, members, copied, name: name ?? projectName(admitted.facts.title), landed };
       try {
         const made = db.transaction(() => recordDocumentBatch(scope, () => {
+          currentStorageWriter()?.assertCanCommit();
           lease.assertCommit();
           return writeCopy(scope, accountId, planned, db);
         }, db)).immediate();
@@ -336,7 +340,7 @@ async function savePictures(scope: AccountScope, made: Made): Promise<void> {
 
 /** Make a copy of a template's version into a new project of the caller's.
  * Answers the project with its members. */
-export async function copyTemplate(scope: AccountScope, id: string, request: CopyRequest = {}, db: Database = metadataDb()): Promise<TemplateCopy> {
+async function copyTemplateWork(scope: AccountScope, id: string, request: CopyRequest = {}, db: Database = metadataDb()): Promise<TemplateCopy> {
   const accountId = requireAccountScope(scope, db);
   const name = request.name === undefined ? null : projectName(request.name);
   const source = await copySource(id, request.version ?? null, db);
@@ -351,3 +355,5 @@ export async function copyTemplate(scope: AccountScope, id: string, request: Cop
   notifyPicture(made.mapId, { inherited: true });
   return { project: await projectOverview(scope, made.projectId), members: await projectMembers(scope, made.projectId) };
 }
+
+export function copyTemplate(...args: Parameters<typeof copyTemplateWork>) { return withStorageWrite(() => copyTemplateWork(...args)); }

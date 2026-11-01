@@ -425,6 +425,7 @@ export const MAPS_LISTED = [
 
 /** The values in effect on a new instance, its palettes trimmed to two of the twenty-three. */
 export const CONFIG = {
+  storage: { full: false, free: 1073741824, total: 2147483648, threshold: 536870912 },
   instanceLimits: { maps: { key: "mapsLimit", limit: 0, count: 2 }, projects: { key: "projectsLimit", limit: 0, count: 0 }, people: { key: "peopleLimit", limit: 0, count: 1 }, tokenLifetimeMax: "none" },
   externalSignIn: { enabled: false },
   basemapUrl: "https://tiles.openfreemap.org/styles/dark",

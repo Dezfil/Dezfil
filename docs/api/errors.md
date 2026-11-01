@@ -154,7 +154,31 @@ Agents can read the same list from the [API description](openapi.json):
 |---|---|---|---|
 | `operation_queue_full` | 503 | Too many operations are already waiting to run. | Retry once some finish. |
 | `authentication_busy` | 503 | Too many sign-ins or password checks are waiting their turn. | Retry after the seconds in `Retry-After`. |
+| `storage_full` | 409 | Free space is at or below the fixed threshold, or a declared transfer will not fit above it. Nothing was written. | Free space, then retry. See [Storage errors](#storage-errors). |
+| `storage_exhausted` | 507 | The volume refused a write for lack of space, or recovery stopped the writing work. | Free space before trying again. See [Storage errors](#storage-errors). |
 | `internal` | 500 | The server failed in a way that has no code of its own. | Retry once. If it fails again, the operator finds the detail in the server log. |
+
+## Storage errors
+
+Both storage codes give this sentence, with the volume's free and total amounts filled in:
+
+```text title="Output"
+This instance's storage is full: <free> free of <total>. Delete datasets or maps you no longer need, or ask an admin to free space.
+```
+
+`storage_full` refuses before file work begins. `storage_exhausted` can follow admission when overlapping work or conversion output fills the volume. The assistant records a refused write for the former, and an uncertain write for the latter, as for other 5xx answers.
+
+Partial files are removed. The previous dataset generation, picture and saved map stay. Permissions, a read-only mount and other I/O failures still answer `internal`.
+
+| Where it occurs | What follows |
+|---|---|
+| A new tile archive is needed | The initial layer answer is `ok: false` with `storage_full`; other layers keep rendering. |
+| An admitted tile build fills the volume | Its layer answers `storage_exhausted`; scratch is removed and the previous archive stays. |
+| Space returns above the threshold | The next render may build again; neither storage error permanently fails the layer. |
+| A new sign-in cannot commit | No session is issued. A ticket is not consumed without its session and bookkeeping. |
+| An existing session cannot renew | It still reads with its recorded expiry, without an extension. |
+
+Do not immediately repeat a storage failure. Free space first, as [Troubleshooting](../self-host/troubleshooting.md#storage-is-full) describes. [Storage space](limits.md#storage-space) lists the threshold, reserve and work still available.
 
 ## Answers too large to return
 
@@ -213,7 +237,7 @@ Mexico City,Mexico,19028000
 - `name` names the file, here `largest_cities.csv`. Without it the file is `query_result.csv`.
 - curl prints the file. To save it instead, add `-o largest_cities.csv -w "%{http_code}\n"`: `200` means the file holds the rows, and any other status that it holds the error answer.
 
-The export still keeps to the **Query time limit** and **Engine memory**, so it can answer `query_timeout` or `query_memory_exceeded`. The [operation reference](https://dezfil.io/docs/api/reference/query/#post-api-query-export) gives every field.
+The export needs [storage space](limits.md#storage-space) and still keeps to the **Query time limit** and **Engine memory**, so it can answer `query_timeout` or `query_memory_exceeded`. The [operation reference](https://dezfil.io/docs/api/reference/query/#post-api-query-export) gives every field.
 
 Over MCP, the tool `export_sql_result` hands the file back to the agent, up to **Tool attachment size**. A larger file fails with `attachment_too_large`: download it over HTTP, or save the rows as a dataset with `run_operation`, as the next section shows.
 

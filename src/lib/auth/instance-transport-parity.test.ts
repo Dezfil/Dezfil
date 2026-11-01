@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
+import * as storage from "@/lib/system/storage-state";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { dispatchAssistantTestRoute } from "@/lib/assistant/testing/route-dispatch";
@@ -16,11 +17,14 @@ import { gateRequest } from "./gate";
 
 const origin = "http://127.0.0.1:3231", actors = ["alice", "bob", "admin"];
 const stops = [{ color: "#123456", position: 0 }, { color: "#abcdef", position: 1 }];
+const volume = { full: false, free: 2048 * storage.STORAGE_MB, total: 4096 * storage.STORAGE_MB, threshold: storage.STORAGE_FULL_BYTES };
 let db: Database, maps: Record<string, string>;
 let headers: Record<string, { session: Record<string, string>; token: Record<string, string> }>;
 let seen: { account: string; cookie: string | null; authorization: string | null }[];
 beforeEach(() => {
   db = metadata.open(":memory:"); vi.spyOn(metadata, "metadataDb").mockReturnValue(db);
+  // Every transport sees the same sample; real free space changes between calls.
+  vi.spyOn(storage, "roundedStorageState").mockReturnValue(volume);
   vi.stubEnv("PORT", "3231"); maps = {}; headers = {}; seen = [];
   for (const actor of actors) {
     maps[actor] = createMap(testAccountScope(db, actor), actor + " private map").id;
@@ -57,6 +61,7 @@ async function call(actor: string, kind: "session" | "token", surface: "mcp" | "
 it.each(["session", "token"] as const)("keeps shared catalogues, palette writes and private settings/map refusals in MCP and assistant %s parity", async kind => {
   for (const name of ["get_config", "list_palettes", "list_operations", "get_api_description", "list_geometry_projections"]) {
     const expected = await call("alice", kind, "mcp", name); expect(expected.ok).toBe(true);
+    if (name === "get_config") expect(expected.body).toMatchObject({ storage: volume });
     for (const actor of actors) for (const surface of ["mcp", "assistant"] as const) expect(await call(actor, kind, surface, name)).toEqual(expected);
   }
   const created = await call("alice", kind, "mcp", "create_palette", { label: "Shared", stops });

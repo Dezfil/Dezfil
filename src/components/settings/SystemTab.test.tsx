@@ -35,9 +35,14 @@ let answers: Partial<Record<Part, PartTestAnswer>>;
 let tested: string[];
 /** What the storage read answers, or null to fail it. */
 let storage: StorageRead | null;
+/** What the runtime read says of the volume, or null to fail it. */
+let runtimeStorage: StorageRead["state"] | null;
 /** Each request's method and address, in order. */
 let calls: { method: string; url: string }[];
 let clearFails: boolean;
+/** While set, the storage read or the runtime read answers only once it resolves. */
+let storageGate: Promise<void> | null;
+let runtimeGate: Promise<void> | null;
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
 let container: HostElement;
@@ -47,12 +52,17 @@ beforeEach(() => {
   vi.setSystemTime(Date.parse("2026-10-07T09:30:00.000Z"));
   resolved = { dataDir: { value: "/data", source: "environment", locked: true } };
   health = 200; failRead = false; requests = []; partReads = [{}]; answers = {}; tested = [];
-  storage = storageReadFixture(); calls = []; clearFails = false;
+  storage = storageReadFixture(); calls = []; clearFails = false; runtimeStorage = null; storageGate = null; runtimeGate = null;
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     requests.push(url);
     calls.push({ method: init?.method ?? "GET", url });
     if (url === "/api/instance/storage") {
+      await storageGate;
       return storage ? Response.json(storage) : Response.json({ error: { code: "internal", message: "Storage could not be read." } }, { status: 500 });
+    }
+    if (url === "/api/config") {
+      await runtimeGate;
+      return runtimeStorage ? Response.json({ storage: runtimeStorage }) : Response.json({ error: { code: "internal", message: "Unavailable." } }, { status: 500 });
     }
     if (url === "/api/instance/caches" && init?.method === "DELETE") {
       return clearFails ? Response.json({ error: { code: "internal", message: "The caches could not be cleared." } }, { status: 500 })
@@ -333,6 +343,105 @@ describe("System's Storage", () => {
     expect(calls.filter(call => call.url === "/api/instance/storage")).toHaveLength(1);
   });
 
+  const FULL_NOTE = "Storage is full: 412 MB free. Storage counts as full at 512 MB free or less.";
+  const note = () => card("Storage").querySelectorAll('[data-storage-full]').map(element => element.textContent);
+  const MB = 1024 * 1024;
+  const fullDisk = { free: 412 * MB, total: 20480 * MB };
+
+  it("draws nothing about the state while there is room", async () => {
+    await open();
+    expect(note()).toEqual([]);
+    expect(card("Storage").textContent).not.toContain("Storage is full");
+    expect(card("Storage").textContent).not.toContain("512 MB");
+  });
+
+  it("highlights the state and names the threshold while full, from the storage read alone when the runtime read has no answer", async () => {
+    storage = storageReadFixture({}, fullDisk);
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
+    expect(card("Storage").querySelector("[data-storage-full]")!.getAttribute("data-tone")).toBe("warn");
+    expect(byId("sys-free").textContent).toBe("Free on the disk412 MB of 20 GB");
+  });
+
+  it("takes a runtime read that answers after the storage read, the free row with it", async () => {
+    storage = storageReadFixture({}, { free: 4096 * MB, total: 20480 * MB });
+    runtimeStorage = { full: true, free: fullDisk.free, total: fullDisk.total, threshold: 512 * MB };
+    const runtime = Promise.withResolvers<void>();
+    runtimeGate = runtime.promise;
+    await open();
+    expect(note()).toEqual([]);
+    expect(byId("sys-free").textContent).toBe("Free on the disk4 GB of 20 GB");
+    await act(async () => runtime.resolve());
+    await settle();
+    expect(note()).toEqual([FULL_NOTE]);
+    expect(byId("sys-free").textContent).toBe("Free on the disk412 MB of 20 GB");
+  });
+
+  it("takes a full state from a storage read that answers after the runtime read said there is room", async () => {
+    runtimeStorage = { full: false, free: 4096 * MB, total: 20480 * MB, threshold: 512 * MB };
+    storage = storageReadFixture({}, fullDisk);
+    const walk = Promise.withResolvers<void>();
+    storageGate = walk.promise;
+    await open();
+    expect(note()).toEqual([]);
+    await act(async () => walk.resolve());
+    await settle();
+    expect(note()).toEqual([FULL_NOTE]);
+    expect(byId("sys-free").textContent).toBe("Free on the disk412 MB of 20 GB");
+  });
+
+  it("lets a runtime read that says there is room end the storage read's full state", async () => {
+    storage = storageReadFixture({}, fullDisk);
+    runtimeStorage = { full: false, free: 4096 * MB, total: 20480 * MB, threshold: 512 * MB };
+    const runtime = Promise.withResolvers<void>();
+    runtimeGate = runtime.promise;
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
+    await act(async () => runtime.resolve());
+    await settle();
+    expect(note()).toEqual([]);
+    expect(byId("sys-free").textContent).toBe("Free on the disk4 GB of 20 GB");
+  });
+
+  it("draws the state and the free space from one reading when the walk's own disk reading is older", async () => {
+    storage = { ...storageReadFixture({}, { free: 4096 * MB, total: 20480 * MB }), state: { full: true, free: fullDisk.free, total: fullDisk.total, threshold: 512 * MB } };
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
+    expect(byId("sys-free").textContent).toBe("Free on the disk412 MB of 20 GB");
+  });
+
+  it("reads the state again after Clear all, and the highlight goes once there is room", async () => {
+    storage = storageReadFixture({ service_caches: { bytes: 900 * MB, files: 120, finished: true } }, fullDisk);
+    runtimeStorage = { full: true, free: fullDisk.free, total: fullDisk.total, threshold: 512 * MB };
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
+    runtimeStorage = { full: false, free: 1312 * MB, total: fullDisk.total, threshold: 512 * MB };
+    await act(async () => clearAll().click());
+    await settle();
+    expect(note()).toEqual([]);
+    expect(byId("sys-free").textContent).toBe("Free on the disk1.3 GB of 20 GB");
+    // The kinds are still the storage read's and the clear's own.
+    expect(calls.filter(call => call.url === "/api/instance/storage")).toHaveLength(1);
+  });
+
+  it("does not read the state again when Clear all fails", async () => {
+    storage = storageReadFixture({}, fullDisk);
+    clearFails = true;
+    await open();
+    const reads = calls.filter(call => call.url === "/api/config").length;
+    await act(async () => clearAll().click());
+    await settle();
+    expect(calls.filter(call => call.url === "/api/config")).toHaveLength(reads);
+    expect(note()).toEqual([FULL_NOTE]);
+  });
+
+  it("still says so when the storage read fails and the runtime read answers", async () => {
+    storage = null;
+    runtimeStorage = { full: true, free: fullDisk.free, total: fullDisk.total, threshold: 512 * MB };
+    await open();
+    expect(note()).toEqual([FULL_NOTE]);
+  });
+
   it("holds Clear all back while the caches are empty, and keeps it for caches it did not finish counting", async () => {
     storage = storageReadFixture({ service_caches: { bytes: 0, files: 0, finished: true } });
     await open();
@@ -365,11 +474,11 @@ describe("System's Storage", () => {
     expect(text).not.toMatch(/\//);
   });
 
-  it("says Unknown for the free space when the system would not say", async () => {
+  it("says the state's free space when the walk's own disk reading came too late", async () => {
     storage = storageReadFixture({}, null);
     await open();
-    expect(byId("sys-free").textContent).toBe("Free on the diskUnknown");
-    expect(byId("sys-free").querySelector("[data-muted]")?.textContent).toBe("Unknown");
+    expect(byId("sys-free").textContent).toBe("Free on the disk1 GB of 1 GB");
+    expect(byId("sys-free").querySelector("[data-muted]")).toBeNull();
   });
 
   it("draws a failed storage read as the error note with Try again, the other cards drawn", async () => {

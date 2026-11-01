@@ -16,6 +16,7 @@ import { admitAccountWork } from "./account-deletion-admission";
 import { finishAccountDeletion } from "./account-deletion";
 import * as compaction from "@/lib/metadata/account-compaction.mjs";
 import { resetSecretKeyCache } from "@/lib/secrets";
+import { withLoginLimit } from "./login-limits";
 const root = process.env.DEZFIL_DATA_DIR!, origin = "http://instance.test";
 let directory: string, admin: AuthContext, cookie: string, token: string, memberCookie: string;
 const params = (id = "target") => ({ params: Promise.resolve({ id }) });
@@ -73,6 +74,8 @@ it.each(["session", "token"])("carries pending, retry, list recovery and complet
   const lookup = () => status(request(`/api/users/deletions/${accepted.id}`, "GET", undefined, headers), params(accepted.id));
   // The status also says the read admitted before the deletion is still held.
   expect(await (await lookup()).json()).toEqual({ ...accepted, admittedReads: 1 });
+  // A held read must leave the recovery latch available for sign-in too.
+  expect(await withLoginLimit("member@example.test", "192.0.2.1", async () => "signed in")).toBe("signed in");
   expect(await (await remove(request("/api/users/target", "DELETE", body, headers), params())).json()).toEqual(accepted);
   expect(await (await preview(request("/api/users/target/deletion-preview", "GET", undefined, headers), params())).json()).toEqual(accepted);
   expect(() => changeAccountAccess(admin, "target", { status: "active" })).toThrow(expect.objectContaining({ code: "deletion_in_progress" }));

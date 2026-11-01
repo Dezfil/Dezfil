@@ -1,3 +1,5 @@
+import { metadataDb } from "@/lib/metadata/db";
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { withTrustedOperation } from "@/lib/trusted-operation";
 import { copyFileWork, bindDeletionInputs } from "@/lib/auth/account-deletion-work";
@@ -377,8 +379,11 @@ export async function removeTable(scope: AccountScope, address: string): Promise
   const dependents = ownedDependentLayerIds(scope, name);
   // Every set it was in advances its clock before the cascade removes
   // the membership rows.
-  touchProjectsOf({ tableId: table.id });
-  deleteOwnedTable(scope, table);
+  await withStorageRecovery(() => metadataDb().transaction(() => {
+    registerAccountFile(scope.accountId, table.file);
+    touchProjectsOf({ tableId: table.id });
+    deleteOwnedTable(scope, table);
+  })());
   // Each cleanup step fails independently: a tile
   // reclamation error must not suppress the view drop, or SQL naming the
   // deleted table regains the artifact-path error this removes.
@@ -397,12 +402,11 @@ export async function removeTable(scope: AccountScope, address: string): Promise
       );
     }
   }
-  registerAccountFile(scope.accountId, table.file);
   retireArtifact(path.join(dataDir(), table.file));
 }
 
 export function exportTable(scope: AccountScope, name: string, format: ExportFormat, signal?: AbortSignal): Promise<TableExport> {
-  return withTrustedMutation({ kind: "export", name: "Dataset export", signal }, async operation => {
+  return withTrustedMutation({ kind: "export", name: "Dataset export", signal, storage: format !== "geoparquet" }, async operation => {
     const file = await copyFileWork(scope, [{ table: "data_tables", id: addressDataset(scope, name).table.id }], () => exportTableWork(scope, name, format));
     operation.defer(async () => { if (operation.signal.aborted) await file.cleanup(); });
     operation.assertCanCommit();

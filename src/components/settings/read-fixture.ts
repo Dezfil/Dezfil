@@ -67,5 +67,5 @@ export function storageReadFixture(kinds: Partial<StorageRead["kinds"]> = {}, di
   };
   const uses = Object.values(all);
   return { kinds: all, total: { bytes: uses.reduce((sum, use) => sum + use.bytes, 0), files: uses.reduce((sum, use) => sum + use.files, 0),
-    finished: uses.every(use => use.finished) }, disk };
+    finished: uses.every(use => use.finished) }, disk, state: { full: (disk?.free ?? GIB) <= 512 * MIB, free: disk?.free ?? GIB, total: disk?.total ?? GIB, threshold: 512 * MIB } };
 }

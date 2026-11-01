@@ -40,7 +40,7 @@ export const TABLE_COLLECTION_PATHS = {
         "Incomplete reception cancels on departure and removes its partial file. Complete uploads continue processing after departure. " +
         CSV_GEOMETRY_DESCRIPTION + " " + MCP_UPLOAD_BODY_GUIDANCE,
       tag: "Tables",
-      tool: "upload_table", mcp: LOCAL_ADD,
+      storage: "write", tool: "upload_table", mcp: LOCAL_ADD,
       toolInput: { multipart: { field: "file", filename: "filename", content: "content_base64" } },
       display: {"verb": "Uploaded a file"},
       effects: writes(resource("tables", "", ["id", "tables.*.id"]), resource("projects")),
@@ -95,7 +95,7 @@ export const TABLE_RESOURCE_PATHS = {
         "while its refresh runs answers 404 not_found and nothing is " +
         "replaced. " + GEOMETRY_REFRESH_DESCRIPTION,
       tag: "Tables",
-      tool: "refresh_table", mcp: REMOTE_REPLACE,
+      storage: "write", tool: "refresh_table", mcp: REMOTE_REPLACE,
       display: {"verb": "Refreshed the dataset {subject}", "subject": {"resource": "tables", "argument": "name"}},
       effects: writes(resource("tables", "name"), resource("connections")),
       parameters: [pathParam("name", "Table name.")],
@@ -196,7 +196,7 @@ export const TABLE_RESOURCE_PATHS = {
   },
   "/api/tables/{name}/export": {
     get: op(datasetAccess({
-      summary: "Download a table",
+      summary: "Download a table", storage: "download",
       description:
         "The table as a file download: geoparquet streams the " +
         "stored artifact byte-for-byte; geojson (spatial tables only) " +
@@ -255,7 +255,7 @@ export const TABLE_RESOURCE_PATHS = {
     delete: op(datasetAccess({
       summary: "Delete a table",
       tag: "Tables",
-      tool: "delete_table", mcp: LOCAL_DELETE,
+      storage: "recovery", tool: "delete_table", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted the dataset {subject}", "subject": {"resource": "tables", "argument": "name"}},
       effects: writes(resource("tables", "name"), resource("projects")),
       confirmation: {"target": "Delete {target}?", "consequence": "This deletes the dataset and its data. Layers that read it will lose their source.", "subject": {"path": "/api/catalogue/tables?names={name}", "argument": "name", "name": "name", "collection": "tables", "identity": "name"}},

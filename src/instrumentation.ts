@@ -11,6 +11,8 @@ export async function register() {
     const { ensureDataDir } = await import("@/lib/data-dir");
     const { dataDir } = await import("@/lib/config");
     await ensureDataDir(dataDir());
+    const { startStorageReserve } = await import("@/lib/system/storage-reserve");
+    await startStorageReserve();
     const { metadataDb } = await import("@/lib/metadata/db");
     metadataDb();
     const { initializeExternalOwner } = await import("@/lib/auth/external-sign-in/owner");

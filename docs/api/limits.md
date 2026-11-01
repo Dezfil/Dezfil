@@ -2,7 +2,7 @@
 title: "Limits"
 summary: "Find every limit Dezfil holds requests to, what you get when you reach one, and the setting that changes it."
 read_when:
-  - "a request answers 408, 409, 413, 422 or 429 and you want to know which limit it reached"
+  - "a request answers 408, 409, 413, 422, 429 or 507 and you want to know which limit it reached"
   - "a query shows only its first rows, or answers query_result_too_large"
   - "you want to raise the largest upload, the query time limit or another limit"
   - "an assistant message, an agent's upload or a tool's download is too large"
@@ -17,7 +17,7 @@ moved_from:
 order: 5
 ---
 
-At a limit, Dezfil either cuts an answer short and says so, or refuses the request with a status and an error code.
+At a limit, Dezfil cuts an answer short and says so, or refuses with a status and error code.
 
 Try the first kind. This query asks for 1,001 rows, one more than a query's answer holds unless an admin changes it:
 
@@ -71,6 +71,8 @@ On the **SQL** page the same query shows **Showing the first 1,000 of 1,001 rows
 | An answer, or the work, over a size or memory budget | 422, or 400 for the memory of people's SQL, and a code. No part of the answer comes back. | 422 `query_result_too_large` |
 | Work that runs past its time | 408, or 504 for a link import's download, and a code that names the limit. The work stops. | 408 `query_timeout` |
 | A creation at the instance count limit | 409 `instance_limit_reached`. Nothing is created. | A new map when the instance holds its map limit |
+| Storage at or below its free-space threshold | 409 `storage_full`, before new file work starts | An upload with too little space left |
+| A volume that refuses an admitted write | 507 `storage_exhausted`; partial files are removed | A conversion that fills the disk |
 | A full queue, or too many requests | 409, 429 or 503. Retry later. | 429 `rate_limited` |
 
 An MB, here, in **Settings** and in Dezfil's messages, is 1,048,576 bytes, a MiB: the 32 MB that `query_result_too_large` names is 33,554,432 bytes. Only **Engine memory** and **Trusted engine memory** count an MB as 1,000,000 bytes.
@@ -79,7 +81,7 @@ Most refusals at a setting's limit say in their `message` which setting changes 
 
 ## Limits an operator changes
 
-An admin changes most limits in **Settings** › **Limits**. A row with a lock is decided by the server: the line under it names the variable that changes it, except **Largest image**, which is fixed.
+An admin changes most limits in **Settings** › **Limits**. A row with a lock is decided by the server: the line under it names the variable that changes it. **Largest image** and **Storage full at** are fixed.
 
 From a script, send the new value with `<YOUR_ADMIN_TOKEN>`, a token an admin's account created; any other account's token answers 403 `forbidden`:
 
@@ -162,6 +164,39 @@ Read `previewRows` and `renderCapFeatures` through `GET /api/config`.
 | **Run history depth** | `DEZFIL_OPERATION_HISTORY_PER_SUBJECT` |  | `20` runs | Any number above 0, rounded down to a whole number of at least 1 | Runs kept in each run history, such as a workflow step's; its latest success is always kept. | By variable, after a restart |
 
 <!-- settings-limits:end -->
+
+## Storage space
+
+| What | Fixed limit, no setting | When reached |
+|---|---|---|
+| Free space on the data folder's volume, **Storage full at** on the **This instance** card | At or below 512 MB | New file work answers 409 `storage_full` |
+| A declared transfer | Its size must fit in the free space above 512 MB | Refused before reception |
+| A transfer without a declared size | Capacity checked every 4 MB received | Stopped at the threshold; its partial file is removed |
+| Work already admitted | No capacity reservation | Overlapping transfers and conversion output can fill the volume and answer 507 `storage_exhausted` |
+| Space held for recovery | 64 MB, released in 8 MB portions | Used only after disk-heavy writers stop; exhausted recovery answers 507 `storage_exhausted` |
+
+| Work while full | Behavior |
+|---|---|
+| Uploads, imports and refreshes from every source; saving SQL as a dataset; workflow runs; sketch changes | Refused before new file work |
+| Layer and query exports; CSV and GeoJSON downloads; project export preparation | Refused. Downloading a dataset's existing GeoParquet file stays available. |
+| Template downloads and copies; image exports; map and profile pictures | Refused. The previous picture stays. |
+| Inline renders, usable tile archives and published pages | Readable. A layer needing a new archive answers `storage_full` in its initial errored-layer answer. |
+| Map and layer saves, settings and token creation | Still admitted by the threshold |
+| Signing in, revoking, unpublishing, cache clearing; deleting datasets, maps, workflows, projects and accounts | Use the recovery reserve if needed |
+| Account compaction | Needs twice the metadata store's size free; deletion stays unfinished until space returns. |
+
+| Read | Capacity field | Caching |
+|---|---|---|
+| Signed-in `GET /api/config` | `storage` | Fresh on every call |
+| Admin `GET /api/instance/storage` | `state` | Fresh even when file counts are cached |
+
+| Field | Meaning |
+|---|---|
+| `full` | Whether free bytes are at or below the threshold, compared before rounding |
+| `free`, `total` | Bytes on the volume, rounded to the nearest MB |
+| `threshold` | 536,870,912 bytes, the fixed 512 MB threshold |
+
+See [Storage errors](errors.md#storage-errors).
 
 ## SQL results
 

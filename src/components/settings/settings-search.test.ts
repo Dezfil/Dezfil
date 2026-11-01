@@ -113,6 +113,8 @@ describe("what the search finds", () => {
     expect(limits("maps on this instance")[0].meta).toBe("This instance · 0 · 0 now");
     expect(limits("longest token")[0].meta).toBe("This instance · No limit");
     expect(limits("longest token")[0].target).toEqual({ tab: "limits", anchor: "set-longest-token" });
+    expect(limits("storage full")[0].meta).toBe("This instance · 512 MB free or less");
+    expect(limits("storage full")[0].target).toEqual({ tab: "limits", anchor: "set-storage-full" });
   });
 
   it("finds a row by a keyword, by the words of its current value, and by a variable's name", () => {

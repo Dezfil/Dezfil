@@ -4,7 +4,7 @@ summary: "Find the symptom your instance shows, from a container that stops at s
 read_when:
   - "the container stops right after it starts, or health answers unready"
   - "sign-in fails behind your reverse proxy, or your domain sends the browser to another address"
-  - "an upload is refused as too large, or ends with the connection dropped"
+  - "an upload is refused, its connection drops, or storage is full"
   - "the assistant does not answer, or map cards show no pictures"
   - "you forgot the admin password"
 audience:
@@ -13,7 +13,7 @@ checked: none
 order: 9
 ---
 
-Start with three checks: the container's state, its log and its health.
+Check the container, its log and its health.
 
 ::::tabs
 
@@ -191,6 +191,22 @@ List the host or its range in `DEZFIL_EGRESS_ALLOWLIST` and replace the containe
 | `Change DEZFIL_QUERY_TIMEOUT_S and restart to change "Query time limit".` | `DEZFIL_QUERY_TIMEOUT_S`, then replace the container |
 
 Both memory budgets come out of the machine's memory, so leave the container room for both. [Limits](../api/limits.md) lists every limit with its setting.
+
+## Storage is full
+
+```text title="Output"
+This instance's storage is full: <free> free of <total>. Delete datasets or maps you no longer need, or ask an admin to free space.
+```
+
+| Symptom | Action |
+|---|---|
+| New file work is refused | Sign in and delete unwanted datasets or maps. Admins can clear **Service caches** in **Settings** > **System**. |
+| Cleanup also answers `storage_exhausted` | The recovery reserve is finite. Free space elsewhere on the volume or enlarge it, keeping Dezfil's remaining files together. |
+| The **Data** page or **Add data** shows "Storage is full: <free> free.", or the **Storage** card names the threshold | It goes once free space is above the threshold. |
+| The log reports full or available storage | Each transition names the data folder and free bytes once. Repeated requests in the same state add no transition line. |
+| An account shows **Deletion unfinished** | Free space for compaction, then use **Finish deleting** in **Users**. See [Delete an account](users.md#deactivate-or-delete-an-account). |
+
+Retry above the [storage threshold](../api/limits.md#storage-space).
 
 ## The assistant and map pictures
 

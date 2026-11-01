@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as metadata from "@/lib/metadata/db";
+import * as storage from "@/lib/system/storage-state";
 import { testAccountRequest, testAccountScope } from "@/lib/test-support/accounts";
 import { createCustomPalette, listCustomPalettes } from "@/lib/metadata/palettes";
 import { GET as config } from "@/app/api/config/route";
@@ -62,6 +63,9 @@ it.each(catalogues)("authenticates the shared %s catalogue at both gate and adap
 });
 it.each(["session", "token"])("shares configured and built-in catalogues through %s without credential values or provider calls", async kind => {
   const saved = createCustomPalette({ label: "Shared ramp", stops }, db);
+  // Every actor sees the same sample: real free space moves between the reads.
+  const volume = { full: false, free: 2048 * storage.STORAGE_MB, total: 4096 * storage.STORAGE_MB, threshold: storage.STORAGE_FULL_BYTES };
+  const reading = vi.spyOn(storage, "roundedStorageState").mockReturnValue(volume);
   for (const [path, read] of catalogues) {
     const payloads = [];
     for (const actor of actors) {
@@ -77,6 +81,7 @@ it.each(["session", "token"])("shares configured and built-in catalogues through
     if (path === "/api/palettes") expect(payloads[0]).toMatchObject({ custom: [saved], curated: expect.any(Object) });
     if (path === "/api/assistant") expect(payloads[0]).toMatchObject({ enabled: true, provider: "openai", models: expect.arrayContaining([expect.objectContaining({ id: "gpt-5.6-terra" })]) });
   }
+  reading.mockRestore();
   expect(fetch).not.toHaveBeenCalled();
 });
 it("refuses anonymous and cross-site palette mutations at the adapter without changing the shared catalogue", async () => {

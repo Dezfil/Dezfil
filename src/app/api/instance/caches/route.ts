@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { NextResponse } from "next/server";
 import { requireRequestAdmin } from "@/lib/auth/admin-http";
 import { authFailure, privateResponse } from "@/lib/auth/http";
@@ -14,6 +15,6 @@ export async function DELETE(request: Request) {
     if (named.length > 1 || [...params.keys()].some(key => key !== "service") || (service !== null && !isProviderCache(service))) {
       throw new ApiError("invalid_request", "Name one cache to clear (geocode, isochrone or overpass), or none to clear all three.", 400);
     }
-    return privateResponse(NextResponse.json(await clearServiceCaches(context, service)));
+    return privateResponse(NextResponse.json(await withStorageRecovery(() => clearServiceCaches(context, service))));
   } catch (error) { return authFailure(error); }
 }

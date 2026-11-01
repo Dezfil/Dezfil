@@ -178,3 +178,37 @@ it("serves stored General values anonymously and restores defaults after clearin
   expect(await (await entryInformation(request("/api/auth/entry"))).json()).toEqual({ externalSignIn: { enabled: false, doorUrl: null }, instanceName: null,
     setupRequired: false, signInMessage: "", lostPasswordContact: "", landingPage: "home", passwordMin: 8 });
 });
+
+it.each(["session", "account", "bookkeeping"])("a full store rolls back password sign-in at %s and issues no cookie", async target => {
+  const signed = await first();
+  const sessions = rows();
+  const account = db.prepare("SELECT * FROM accounts").all();
+  db.exec("CREATE TABLE refused_write (bytes BLOB)");
+  const trigger = target === "session" ? "BEFORE INSERT ON auth_sessions"
+    : target === "account" ? "BEFORE UPDATE ON accounts"
+      : "BEFORE UPDATE ON auth_login_limits WHEN NEW.pending = 0 AND (SELECT count(*) FROM auth_sessions) > 1";
+  db.exec(`CREATE TRIGGER refused_sign_in ${trigger} BEGIN INSERT INTO refused_write VALUES(zeroblob(1048576)); END;
+    CREATE TRIGGER refused_renewal BEFORE UPDATE ON auth_sessions BEGIN INSERT INTO refused_write VALUES(zeroblob(1048576)); END;`);
+  db.pragma(`max_page_count = ${db.pragma("page_count", { simple: true })}`);
+  const response = await enter(request("/api/auth/sign-in", { email: "ada@example.test", password }), "sign-in");
+  expect(response.status).toBe(507);
+  expect((await response.json()).error.code).toBe("storage_exhausted");
+  expect(response.headers.get("set-cookie")).toBeNull();
+  expect(rows()).toEqual(sessions);
+  expect(db.prepare("SELECT * FROM accounts").all()).toEqual(account);
+  expect(authenticateSession(signed.secret, db)?.account.id).toBe(signed.account.id);
+  expect(rows()).toEqual(sessions);
+});
+
+it("leaves a sign-in link unspent if its session cannot be written", async () => {
+  const admin = await first();
+  const invitation = inviteAccount(authenticateSession(admin.secret, db)!, { name: "Lin", email: "lin@example.test" }, db);
+  const before = ["accounts", "auth_sessions", "auth_links", "auth_tokens"].map(table => db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all());
+  db.exec(`CREATE TABLE refused_write (bytes BLOB);
+    CREATE TRIGGER refused_session BEFORE INSERT ON auth_sessions BEGIN INSERT INTO refused_write VALUES(zeroblob(1048576)); END;`);
+  db.pragma(`max_page_count = ${db.pragma("page_count", { simple: true })}`);
+  const response = await enter(request("/api/auth/redeem", { secret: invitation.secret, password }), "redeem");
+  expect(response.status).toBe(507); expect((await response.json()).error.code).toBe("storage_exhausted");
+  expect(response.headers.get("set-cookie")).toBeNull();
+  expect(["accounts", "auth_sessions", "auth_links", "auth_tokens"].map(table => db.prepare(`SELECT * FROM ${table} ORDER BY 1`).all())).toEqual(before);
+});

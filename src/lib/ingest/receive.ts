@@ -1,3 +1,6 @@
+import { checkUndeclaredStorage } from "@/lib/system/storage-admission";
+import { StorageWriter } from "@/lib/system/storage-fence";
+import { isStorageExhausted, storageExhausted } from "@/lib/system/storage-errors";
 import { createUploadClock, nativeUploadReception, type UploadReception, type ReceptionRefusal } from "@/lib/auth/reception.mjs";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { registerAccountFile, removeAccountFile } from "./file-ownership";
@@ -59,7 +62,7 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     "The upload was interrupted or its multipart data is incomplete.",
     400,
   );
-  const storageFailure = () => new ApiError(
+  const storageFailure = (error?: unknown) => isStorageExhausted(error) ? storageExhausted() : new ApiError(
     "internal",
     "The upload could not be written to storage.",
     500,
@@ -88,21 +91,23 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
       for (const stream of streams) stream.destroy(failure);
     });
   };
-  const observe = (pending: Promise<void>, classify: () => ApiError) => {
-    const owned = pending.catch(() => { fail(classify()); });
+  const observe = (pending: Promise<void>, classify: (error?: unknown) => ApiError) => {
+    const owned = pending.catch(error => { fail(classify(error)); });
     work.push(owned);
     return owned;
   };
-  const own = <T extends Readable | Writable>(stream: T, classify: () => ApiError): T => {
+  const own = <T extends Readable | Writable>(stream: T, classify: (error?: unknown) => ApiError): T => {
     streams.add(stream);
     // End/error can precede asynchronous destruction. Own close itself,
     // so a pending disk operation or Web cancellation cannot outlive us.
     work.push(new Promise<void>((resolve) => stream.once("close", resolve)));
     // Record the origin before pipeline forwards its error to siblings.
-    stream.on("error", () => fail(classify()));
+    stream.on("error", error => fail(classify(error)));
     observe(finished(stream, { cleanup: true }), classify);
     return stream;
   };
+  const declared = Number(request.headers.get("content-length") ?? Number.NaN);
+  const writer = new StorageWriter(fail, declared);
   const abort = () => fail(new EvaluationCancelled());
   request.signal.addEventListener("abort", abort, { once: true });
 
@@ -117,7 +122,6 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     if (request.signal.aborted) abort();
     const contentType = request.headers.get("content-type") ?? "";
     // A body declared over its bound is refused before any of it is read.
-    const declared = Number(request.headers.get("content-length") ?? Number.NaN);
     if (limit.bodyBytes !== undefined && declared > limit.bodyBytes) throw tooLarge();
     const source = request.body
       ? own(Readable.fromWeb(request.body as import("stream/web").ReadableStream), interrupted)
@@ -134,8 +138,8 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     const tmpDir = path.join(dataDir(), "tmp");
     try {
       await mkdir(tmpDir, { recursive: true });
-    } catch {
-      throw storageFailure();
+    } catch (error) {
+      throw storageFailure(error);
     }
     if (failure) throw failure;
     tmpPath = path.join(tmpDir, randomUUID());
@@ -173,8 +177,8 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
       try {
         const destination = own(createWriteStream(tmpPath!), storageFailure);
         observe(pipeline(part, destination), storageFailure);
-      } catch {
-        fail(storageFailure());
+      } catch (error) {
+        fail(storageFailure(error));
       }
     });
     bb.on("filesLimit", () => fail(new ApiError(
@@ -187,6 +191,8 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     source.on("data", (chunk: Buffer) => {
       reception?.progress();
       arrived += chunk.byteLength;
+      try { checkUndeclaredStorage(arrived, chunk.byteLength, declared); }
+      catch (error) { fail(error as ApiError); }
       if (limit.bodyBytes !== undefined && arrived > limit.bodyBytes) fail(tooLarge());
     });
     source.once("end", () => reception?.endBody());
@@ -205,11 +211,12 @@ export async function receiveUpload(request: Request, accountId?: string, bounds
     return { tmpPath, filename, budget };
   } catch (error) {
     fail(error instanceof ApiError || error instanceof EvaluationCancelled
-      ? error : interrupted());
+      ? error : isStorageExhausted(error) ? storageExhausted() : interrupted());
     await Promise.all(work);
     if (tmpPath) await removeAccountFile(tmpPath, { force: true });
     throw failure;
   } finally {
+    writer.close();
     reception.complete();
     request.signal.removeEventListener("abort", abort);
   }

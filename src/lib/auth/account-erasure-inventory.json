@@ -892,6 +892,22 @@
       "action": "erase",
       "rule": "Erase the target's own assistant key: its encrypted envelope, provider, last four characters and saving time.",
       "fixture": "table:assistant_keys"
+    },
+    "memory:storage-state": {
+      "action": "retain",
+      "rule": "Keep only the full-state transition bit for once-per-transition logging. It holds no account identity or content."
+    },
+    "memory:storage-writers": {
+      "action": "retain",
+      "rule": "Keep process-wide writer cancellation and settlement coordination until each owning operation drains. Account deletion drains those operation owners before erasing their material; the registry stores no account identity or file bytes of its own."
+    },
+    "file:storage-reserve": {
+      "action": "retain",
+      "rule": "Keep the instance reserve through account deletion. It holds allocated filler bytes, no account content."
+    },
+    "memory:storage-recovery": {
+      "action": "retain",
+      "rule": "Keep the recovery latch and refill timer. They serialize replayable work until its owner settles, without storing account identities or file content."
     }
   },
   "tables": {
@@ -1572,7 +1588,7 @@
         "cache/isochrone/.*.*.tmp"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail:inDir": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1580,7 +1596,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail:thumbnailManifestPath": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork:thumbnailManifestPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1588,7 +1604,7 @@
         "thumbnails/*.json"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1596,7 +1612,7 @@
         "thumbnails/*.png"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail.dark:inDir": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork.dark:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1604,7 +1620,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail.light:inDir": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork.light:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1612,7 +1628,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#copyThumbnail.singleEvidence:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#copyThumbnailWork.singleEvidence:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1716,7 +1732,7 @@
         "thumbnails/*.png"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:inDir": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1724,7 +1740,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:thumbnailManifestPath": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:thumbnailManifestPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1732,7 +1748,7 @@
         "thumbnails/*.json"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1740,7 +1756,7 @@
         "thumbnails/*.png"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail.paired:inDir": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork.paired:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1748,7 +1764,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThumbnail:thumbnailManifestPath": {
+    "location:src/lib/map-thumbnails.ts#saveThumbnailWork:thumbnailManifestPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1756,7 +1772,7 @@
         "thumbnails/*.json"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThumbnail:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#saveThumbnailWork:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1764,7 +1780,7 @@
         "thumbnails/*.png"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThumbnail.single:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#saveThumbnailWork.single:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -1876,7 +1892,7 @@
         "tables/*.parquet"
       ]
     },
-    "location:src/lib/operations/materialize.ts#materialize:dataDir": {
+    "location:src/lib/operations/materialize.ts#materializeWork:dataDir": {
       "stores": [
         "file:tables"
       ],
@@ -1884,7 +1900,7 @@
         "."
       ]
     },
-    "location:src/lib/operations/materialize.ts#materialize:path.join": {
+    "location:src/lib/operations/materialize.ts#materializeWork:path.join": {
       "stores": [
         "file:tables"
       ],
@@ -2396,14 +2412,6 @@
       ]
     },
     "location:src/lib/tiles/build.ts#removeTileArtifacts:tileArchivePath": {
-      "stores": [
-        "file:tiles"
-      ],
-      "roots": [
-        "tiles/*.pmtiles"
-      ]
-    },
-    "location:src/lib/tiles/build.ts#runBuild:tileArchivePath": {
       "stores": [
         "file:tiles"
       ],
@@ -4373,7 +4381,7 @@
         "cache/isochrone/.*.*.tmp"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#copyThumbnail:writeAtomically": {
+    "writer:src/lib/map-thumbnails.ts#copyThumbnailWork:writeAtomically": {
       "stores": [
         "file:thumbnails"
       ],
@@ -4392,7 +4400,7 @@
         "thumbnails/*.json"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnail:writeAtomically": {
+    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:writeAtomically": {
       "stores": [
         "file:thumbnails"
       ],
@@ -4478,16 +4486,6 @@
       ],
       "roots": [
         "artifact-inputs/thumbnails/*.json"
-      ]
-    },
-    "writer:src/lib/tiles/build.ts#runBuild:rename": {
-      "stores": [
-        "file:tile-scratch",
-        "file:tiles"
-      ],
-      "roots": [
-        "tiles/*.pmtiles",
-        "tiles/scratch/*.*"
       ]
     },
     "writer:src/lib/tiles/build.ts#runBuild.{ value: featureCount, inputs }:exportGeoJsonSeq": {
@@ -4815,18 +4813,20 @@
     },
     "writer:src/lib/ingest/file-ownership.ts#registerAccountFile:mkdirSync": {
       "stores": [
-        "file:account-files"
+        "file:account-files",
+        "file:tmp"
       ],
       "roots": [
-        "file-owners"
+        "file-owners",
+        "tmp"
       ]
     },
     "writer:src/lib/ingest/file-ownership.ts#registerAccountFile:writeFileSync": {
       "stores": [
-        "file:account-files"
+        "file:tmp"
       ],
       "roots": [
-        "file-owners/*.json"
+        "tmp/ownership-*.tmp"
       ]
     },
     "writer:src/lib/ingest/gdal-formats.ts#ingestSpatialFile:registerAccountFile": {
@@ -4875,14 +4875,6 @@
       ],
       "roots": [
         "tables/*.parquet"
-      ]
-    },
-    "writer:src/lib/ingest/remote.ts#downloadToScratch:registerAccountFile": {
-      "stores": [
-        "file:account-files"
-      ],
-      "roots": [
-        "tmp/**"
       ]
     },
     "writer:src/lib/ingest/remote.ts#resolveCredentialedObjectSource:registerAccountFile": {
@@ -5410,7 +5402,7 @@
         "memory:request-closures"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#saveThemedThumbnail.partnerInputs:inDir": {
+    "location:src/lib/map-thumbnails.ts#saveThemedThumbnailWork.partnerInputs:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -5423,7 +5415,7 @@
         "memory:account-deletion-work"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnail:writeImageCandidate": {
+    "writer:src/lib/map-thumbnails.ts#saveThemedThumbnailWork:writeImageCandidate": {
       "stores": [
         "file:thumbnails"
       ],
@@ -5431,7 +5423,7 @@
         "thumbnails/*"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#saveThumbnail:writeImageCandidate": {
+    "writer:src/lib/map-thumbnails.ts#saveThumbnailWork:writeImageCandidate": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7037,7 +7029,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#savePictureSet:inDir": {
+    "location:src/lib/map-thumbnails.ts#savePictureSetWork:inDir": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7045,7 +7037,7 @@
         "thumbnails/*"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#savePictureSet:thumbnailManifestPath": {
+    "location:src/lib/map-thumbnails.ts#savePictureSetWork:thumbnailManifestPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7053,7 +7045,7 @@
         "thumbnails/*.json"
       ]
     },
-    "location:src/lib/map-thumbnails.ts#savePictureSet:thumbnailPath": {
+    "location:src/lib/map-thumbnails.ts#savePictureSetWork:thumbnailPath": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7061,7 +7053,7 @@
         "thumbnails/*.png"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#savePictureSet:writeAtomically": {
+    "writer:src/lib/map-thumbnails.ts#savePictureSetWork:writeAtomically": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7070,7 +7062,7 @@
         "thumbnails/*.json"
       ]
     },
-    "writer:src/lib/map-thumbnails.ts#savePictureSet:writeImageCandidate": {
+    "writer:src/lib/map-thumbnails.ts#savePictureSetWork:writeImageCandidate": {
       "stores": [
         "file:thumbnails"
       ],
@@ -7407,6 +7399,207 @@
       "stores": [
         "memory:assistant-cleanups"
       ]
+    },
+    "location:src/lib/system/storage-state.ts#readStorageState.folder:dataDir": {
+      "stores": [
+        "data-directory"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "memory:src/lib/system/storage-state.ts#transition": {
+      "stores": [
+        "memory:storage-state"
+      ]
+    },
+    "writer:src/lib/ingest/file-ownership.ts#registerAccountFile:renameSync": {
+      "stores": [
+        "file:account-files",
+        "file:tmp"
+      ],
+      "roots": [
+        "file-owners/*.json",
+        "tmp/ownership-*.tmp"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#registerAccountFile.candidate:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp/ownership-*.tmp"
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#registerAccountFile.scratch:dataDir": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/ingest/file-ownership.ts#registerAccountFile.scratch:path.join": {
+      "stores": [
+        "file:tmp"
+      ],
+      "roots": [
+        "tmp"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#context": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#fenceStorageWriters.error": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#fenceStorageWriters.reason": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#fenceStorageWriters.timer": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#fenceStorageWriters.writers": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#state": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#state.writers": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#StorageWriter.completion": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#StorageWriter.controller": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#StorageWriter.settled": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "memory:src/lib/system/storage-fence.ts#StorageWriter.signal": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "location:src/lib/system/storage-reserve.ts#releaseSlice:reservePath": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "location:src/lib/system/storage-reserve.ts#replenishStorageReserve.fd:reservePath": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "location:src/lib/system/storage-reserve.ts#reservePath:dataDir": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        "."
+      ]
+    },
+    "location:src/lib/system/storage-reserve.ts#reservePath:path.join": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "writer:src/lib/system/storage-reserve.ts#releaseSlice:openSync": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "writer:src/lib/system/storage-reserve.ts#replenishStorageReserve.fd:openSync": {
+      "stores": [
+        "file:storage-reserve"
+      ],
+      "roots": [
+        ".storage-reserve"
+      ]
+    },
+    "memory:src/lib/system/storage-reserve.ts#state": {
+      "stores": [
+        "memory:storage-recovery"
+      ]
+    },
+    "location:src/lib/tiles/publish-archive.ts#publishTileArchive.archive:tileArchivePath": {
+      "stores": [
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/*.pmtiles"
+      ]
+    },
+    "location:src/lib/tiles/publish-archive.ts#publishTileArchive.proof:tileEvidencePath": {
+      "stores": [
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#start.deletionWork": {
+      "stores": [
+        "memory:account-deletion-work"
+      ]
+    },
+    "memory:src/lib/tiles/build.ts#start.storage": {
+      "stores": [
+        "memory:storage-writers"
+      ]
+    },
+    "writer:src/lib/tiles/build.ts#runBuild:publishTileArchive": {
+      "stores": [
+        "file:tile-scratch",
+        "file:tiles"
+      ],
+      "roots": [
+        "tiles/scratch/*.*"
+      ]
+    },
+    "writer:src/lib/tiles/publish-archive.ts#publishTileArchive:renameSync": {
+      "stores": [
+        "file:tile-scratch",
+        "file:tiles",
+        "file:tile-inputs"
+      ],
+      "roots": [
+        "artifact-inputs/tiles/*.json",
+        "tiles/*.pmtiles"
+      ]
     }
   },
   "files": {
@@ -7470,6 +7663,9 @@
     "file:profile-pictures": [
       "profile-pictures/*.webp",
       "profile-pictures/*.webp.part"
+    ],
+    "file:storage-reserve": [
+      ".storage-reserve"
     ]
   },
   "accountReferences": {

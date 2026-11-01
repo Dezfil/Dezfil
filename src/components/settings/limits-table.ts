@@ -1,3 +1,4 @@
+import { STORAGE_FULL_BYTES, STORAGE_MB } from "@/lib/system/storage-answer";
 import { formatSettingNumber } from "./server-set";
 
 /**
@@ -13,6 +14,9 @@ import { formatSettingNumber } from "./server-set";
  * run have under the current time limits, and the largest image the
  * server renders. Both come from the read's own facts. A capacity row is
  * marked when the read reports its service's address not set.
+ *
+ * One row is neither: the free space at which storage counts as full, fixed
+ * in the code the server admits work with, so it needs no read to be right.
  *
  * A counted row is a setting with the instance's count beside its value,
  * from the read's own count. A choice row draws the values the read offers
@@ -31,7 +35,8 @@ export type LimitsRow =
   | { readonly kind: "capacity"; readonly of: "geocode" | "travel"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly key?: undefined;
     /** The read's setting for the address of the service the tool calls. */
     readonly service: string }
-  | { readonly kind: "image"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly key?: undefined; readonly unit: string };
+  | { readonly kind: "image"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly key?: undefined; readonly unit: string }
+  | { readonly kind: "fixed"; readonly id: string; readonly label: string; readonly meta?: string; readonly keys: string; readonly key?: undefined; readonly value: string };
 
 export interface LimitsCard {
   readonly id: string;
@@ -90,6 +95,8 @@ export const LIMITS_CARDS: readonly LimitsCard[] = [
     { kind: "choice", key: "tokenLifetimeMax", id: "set-longest-token", label: "Longest token lifetime", keys: "api mcp token expiry expire lifetime bound maximum",
       words: { none: "No limit", "30d": "30 days", "90d": "90 days", "1y": "1 year" },
       noteUnless: "none", note: "Tokens made earlier keep their own expiry." },
+    { kind: "fixed", id: "set-storage-full", label: "Storage full at", keys: "disk storage space free full threshold volume refused",
+      meta: "Uploads, imports and exports stop. Reading and deleting keep working.", value: `${STORAGE_FULL_BYTES / STORAGE_MB} MB free or less` },
   ] },
 ];
 

@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { admitAccountWork } from "@/lib/auth/account-deletion-admission";
@@ -87,6 +88,7 @@ export async function buildArtifact(
         `COPY (${plan.select}) TO ${lit(artifact)} (FORMAT PARQUET)`,
       );
     } catch (error) {
+      rethrowStorageFailure(error);
       if (isTrustedOperationRefusal(error)) throw error;
       throw new ApiError(
         "malformed_file",

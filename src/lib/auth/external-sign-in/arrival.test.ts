@@ -103,3 +103,28 @@ it("activates an invited identity above the people limit without creating an acc
   expect(f.db.prepare("SELECT count(*) AS n FROM accounts").get()).toEqual({ n: 2 });
   expect(getAccountByEmail("member@example.test", f.db)?.status).toBe("active");
 });
+
+it.each(["session", "account", "ticket", "bookkeeping"])("a full store rolls back ticket arrival at %s, leaving the ticket reusable", async target => {
+  const reader = account("reader", "active");
+  const signed = issueSession(reader, f.db, Date.now() - 2_000_000);
+  const ticket = f.ticket(), before = f.snapshot();
+  const budgets = f.db.prepare("SELECT * FROM auth_login_limits").all();
+  const triggers = { session: "BEFORE INSERT ON auth_sessions", account: "BEFORE UPDATE ON accounts",
+    ticket: "BEFORE INSERT ON auth_ticket_ids", bookkeeping: "BEFORE INSERT ON auth_login_limits" };
+  f.db.exec(`CREATE TABLE refused_write (bytes BLOB);
+    CREATE TRIGGER refused_arrival ${triggers[target as keyof typeof triggers]} BEGIN INSERT INTO refused_write VALUES(zeroblob(1048576)); END;
+    CREATE TRIGGER refused_renewal BEFORE UPDATE ON auth_sessions BEGIN INSERT INTO refused_write VALUES(zeroblob(1048576)); END;`);
+  f.db.pragma(`max_page_count = ${f.db.pragma("page_count", { simple: true })}`);
+  const response = await arrive(ticket);
+  expect(response.status).toBe(507);
+  expect((await response.json()).error.code).toBe("storage_exhausted");
+  // Clearing the start cookie is required on a failed arrival. No session is issued.
+  expect(response.headers.get("set-cookie")).not.toMatch(/dz_session|dezfil_session=/);
+  expect(f.snapshot()).toEqual(before);
+  expect(f.db.prepare("SELECT * FROM auth_login_limits").all()).toEqual(budgets);
+  expect(authenticateSession(signed.secret, f.db)?.account.id).toBe(reader.id);
+  expect(f.snapshot()).toEqual(before);
+  f.db.exec("DROP TRIGGER refused_arrival; DROP TRIGGER refused_renewal");
+  f.db.pragma("max_page_count = 1000000");
+  expect((await arrive(ticket)).status).toBe(200);
+});

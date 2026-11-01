@@ -220,3 +220,13 @@ describe("receiveUpload — the singular contract", () => {
     }
   });
 });
+
+it.each([['ENOSPC', 507, 'storage_exhausted'], ['EACCES', 500, 'internal']] as const)("classifies a partial destination write: %s", async (code, status, answer) => {
+  factory = target => new Writable({ write(chunk, _enc, done) {
+    writeFileSync(target, chunk);
+    done(Object.assign(new Error("destination refused"), { code }));
+  } });
+  await expect(receiveUpload(multipartRequest("x,y\n1,2\n"), "writer")).rejects.toMatchObject({ code: answer, status });
+  expect(await readdir(path.join(dir, "data", "tmp"))).toEqual([]);
+  expect(await readdir(path.join(dir, "data", "file-owners"))).toEqual([]);
+});

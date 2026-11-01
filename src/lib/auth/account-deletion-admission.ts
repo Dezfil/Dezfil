@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { metadataDb } from "@/lib/metadata/db";
 import { resourceAbsent } from "./owned-resource";
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 
 export interface RetainedStore { drain(): Promise<void>; busy(): boolean; clear(): void }
 interface Work { database: string; accounts: Set<string>; settled: Promise<void>; cleanups: Set<() => Promise<void>>; released: boolean; retrying?: Promise<void> }
@@ -82,7 +83,7 @@ async function drainUntilSettled(accountId: string, db: Database): Promise<void>
       // A refused output still owns its failed removal. Later continuation
       // retries that exact cleanup; dropping its lookup is never settlement.
       return w.retrying ??= (async () => {
-        const results = await Promise.allSettled([...w.cleanups].map(cleanup => cleanup()));
+        const results = await Promise.allSettled([...w.cleanups].map(cleanup => withStorageRecovery(cleanup)));
         const failed = results.find(result => result.status === "rejected");
         if (failed?.status === "rejected") throw failed.reason;
         w.cleanups.clear(); w.accounts.clear(); holder.work.delete(w);

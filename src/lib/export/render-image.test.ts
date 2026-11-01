@@ -436,3 +436,9 @@ it("cancellation while launch is pending answers at once, releases the deadline 
     expect(renderQueueState()).toEqual({ active: 0, waiting: 0 });
   } finally { late.resolve(browser.browser); vi.useRealTimers(); }
 });
+
+it.each([['ENOSPC', 507, 'storage_exhausted'], ['EACCES', 500, 'internal']] as const)("names a renderer destination failure: %s", async (code, status, answer) => {
+  const failed = browserStub({ render: async () => { throw Object.assign(new Error("destination refused"), { code }); } });
+  await expect(renderMapImage(testAccountScope(), { mapId: "m1", definition: def(), baseUrl: "http://fixture.test", credential: "", driver: driverOf(failed.browser) })).rejects.toMatchObject({ code: answer, status });
+  expect(renderQueueState()).toMatchObject({ active: 0, waiting: 0 });
+});

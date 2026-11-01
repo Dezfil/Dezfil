@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { largeJsonValue } from "@/lib/api/json-body";
 import { metadataDb } from "@/lib/metadata/db";
 import { filedDocuments } from "@/lib/metadata/filing-recording";
@@ -56,11 +57,11 @@ export async function DELETE(_request: Request, { params }: Params) {
     const scope = requireRequestScope(_request);
     const { id } = await params;
     requirePermitted(scope, "project", id, "dissolve");
-    const revisions = metadataDb().transaction(() => {
+    const revisions = await withStorageRecovery(() => metadataDb().transaction(() => {
       const documents = filedDocuments(id, metadataDb());
       deleteProject(scope, id);
       return documentResults(scope, documents);
-    })();
+    })());
     return NextResponse.json({
       revisions,
       deleted: true,

@@ -20,7 +20,7 @@ vi.mock("@/lib/tiles/export", () => ({ exportGeoJsonSeq: async (...args: unknown
   await writeFile(args[2] as string, [13, 14].map(lon => JSON.stringify({ type: "Feature", geometry: { type: "Point", coordinates: [lon, 52] }, properties: { value: lon } })).join("\n") + "\n");
   effects.afterExport?.(); return 2;
 } }));
-vi.mock("node:fs/promises", async original => { const actual = await original<typeof import("node:fs/promises")>(); return { ...actual, rename: async (...args: Parameters<typeof actual.rename>) => { await actual.rename(...args); effects.afterRename?.(); } }; });
+vi.mock("node:fs", async original => { const actual = await original<typeof import("node:fs")>(); return { ...actual, renameSync: (...args: Parameters<typeof actual.renameSync>) => { actual.renameSync(...args); if (String(args[1]).endsWith(".pmtiles")) effects.afterRename?.(); } }; });
 vi.mock("@/lib/tiles/serve", async original => ({ ...await original<typeof import("@/lib/tiles/serve")>(), readTile: effects.read }));
 let dir: string, previous: string | undefined, scopes: Record<string, AccountScope>, layers: Record<string, string>;
 const accounts = ["alice", "bob", "admin"];
@@ -61,8 +61,9 @@ it("does not export a private build whose owner was deactivated while queued", a
   expect(effects.export).toHaveBeenCalledOnce(); expect(getTileRecord(layers.bob)?.state).toBe("ready"); expect(existsSync(tileArchivePath(layers.alice))).toBe(false);
 });
 it.each(["export", "rename"])("removes staged and final archives after owner deactivation at %s", async phase => {
-  if (phase === "export") effects.afterExport = () => deactivate("alice"); else effects.afterRename = () => deactivate("alice");
-  build("alice"); await tileBuildsSettled(); expect(getTileRecord(layers.alice)?.state).not.toBe("ready"); expect(existsSync(tileArchivePath(layers.alice))).toBe(false); expect(await readdir(tileScratchDir())).toEqual([]);
+  const deactivateOwner = vi.fn(() => deactivate("alice"));
+  if (phase === "export") effects.afterExport = deactivateOwner; else effects.afterRename = deactivateOwner;
+  build("alice"); await tileBuildsSettled(); expect(deactivateOwner).toHaveBeenCalledOnce(); expect(getTileRecord(layers.alice)?.state).not.toBe("ready"); expect(existsSync(tileArchivePath(layers.alice))).toBe(false); expect(await readdir(tileScratchDir())).toEqual([]);
 });
 it("withholds private tile bytes if activity is lost during the read", async () => {
   const { GET } = await import("@/app/api/layers/[id]/tiles/[z]/[x]/[y]/route");

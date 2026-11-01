@@ -1,3 +1,4 @@
+import { isStorageExhausted } from "@/lib/system/storage-errors";
 import type { Database } from "better-sqlite3";
 import { sqliteBusy, withBusyTimeout } from "@/lib/metadata/busy";
 import { metadataDb } from "@/lib/metadata/db";
@@ -34,7 +35,7 @@ export function credentialMaintenance() {
         return { examined, removed, complete };
       });
     } catch (error) {
-      if (!sqliteBusy(error)) throw error;
+      if (!sqliteBusy(error) && !isStorageExhausted(error)) throw error;
       return null;
     }
   };

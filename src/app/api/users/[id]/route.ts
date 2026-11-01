@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { NextResponse } from "next/server";
 import { changeAccountAccess } from "@/lib/auth/admin";
 import { accessBody, deletionBody, requireRequestAdmin } from "@/lib/auth/admin-http";
@@ -11,7 +12,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const context = requireRequestAdmin(request);
     const { id } = await params, body = await accessBody(request);
-    return privateResponse(NextResponse.json({ account: changeAccountAccess(context, id, body) }));
+    const account = await withStorageRecovery(() => changeAccountAccess(context, id, body));
+    return privateResponse(NextResponse.json({ account }));
   } catch (error) { return authFailure(error); }
 }
 
@@ -19,7 +21,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     const context = requireRequestAdmin(request), { id } = await params;
     const { pending } = deletionEligibility(context, id, metadataDb());
-    const accepted = confirmAccountDeletion(context, id, await deletionBody(request));
+    const body = await deletionBody(request);
+    const accepted = await withStorageRecovery(() => confirmAccountDeletion(context, id, body));
     return pending ? deletionResponse(accepted) : await advanceDeletionResponse(context, accepted.id);
   } catch (error) { return authFailure(error); }
 }

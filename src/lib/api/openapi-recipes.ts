@@ -143,7 +143,7 @@ export const RECIPE_PATHS = {
         "**The datasets its steps produced remain in the workspace.** " +
         "A recipe records how they were made; it does not own them.",
       tag: "Recipes",
-      tool: "delete_recipe", mcp: LOCAL_DELETE,
+      storage: "recovery", tool: "delete_recipe", mcp: LOCAL_DELETE,
       display: {"verb": "Deleted the workflow {subject}", "subject": {"resource": "recipes", "argument": "id"}},
       effects: writes(resource("recipes", "id"), resource("projects")),
       confirmation: {"target": "Delete {target}?", "consequence": "This deletes the workflow and its run records. Its output datasets remain in the workspace.", "subject": {"path": "/api/recipes/{id}", "argument": "id", "name": "recipe.name"}},
@@ -527,7 +527,7 @@ export const RECIPE_PATHS = {
         "run remains with the refusal member and no attempt. The run " +
         "stays with the recipe after the step is removed.",
       tag: "Recipes",
-      tool: "run_recipe_step", mcp: WORKFLOW_RUN,
+      storage: "write", tool: "run_recipe_step", mcp: WORKFLOW_RUN,
       display: {"verb": "Ran a step of the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: writes(resource("recipes", "id"), resource("runs", "", "run.id"), resource("tables")),
       parameters: [editRevisionParam,
@@ -592,7 +592,7 @@ export const RECIPE_PATHS = {
         "attempted has none; every member keeps its step's operation " +
         "and name after the step is removed.",
       tag: "Recipes",
-      tool: "run_recipe", mcp: WORKFLOW_RUN,
+      storage: "write", tool: "run_recipe", mcp: WORKFLOW_RUN,
       display: {"verb": "Ran the workflow {subject}", "planningVerb": "Planned the workflow {subject}", "subject": {"resource": "recipes", "argument": "id", "name": ["recipe.name", "name"]}},
       effects: planning("plan", writes(resource("recipes", "id"), resource("runs", "", "run.id"), resource("tables"))),
       confirmation: {"target": "Run {target}?", "consequence": "This runs the listed nodes in order and creates or replaces their output datasets.", "subject": {"path": "/api/recipes/{id}", "argument": "id", "name": "recipe.name"}},

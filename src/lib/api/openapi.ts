@@ -1,3 +1,4 @@
+import { STORAGE_STATE_SCHEMA } from "./openapi-storage";
 import { EXTERNAL_SIGN_IN_PATHS, EXTERNAL_SIGN_IN_SCHEMAS } from "./openapi-external-sign-in";
 import { SMALL_JSON_BODY_MAX_BYTES } from "./request-bounds";
 import { withAutomaticMethods } from "./openapi-methods";
@@ -184,7 +185,7 @@ export function buildOpenApiDocument() {
       "/api/config": {
         get: op({
           summary: "Runtime client configuration",
-          description: TOKEN_LIFETIME_BOUND_NOTE + "instanceLimits carries the limits in force and the counts across every owner. Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, whether the template catalogue is in use, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
+          description: "storage reports the current volume state, including the fixed 512 MB threshold and free and total bytes rounded to whole MB. " + TOKEN_LIFETIME_BOUND_NOTE + "instanceLimits carries the limits in force and the counts across every owner. Instance-wide basemaps, built-in palettes, client limits, the defaults new maps, layers and screens start with, whether the template catalogue is in use, the rules every account follows and the shortest password, shared by every authenticated account. Includes deployment-configured basemap choices and provider availability, never server-side AI or geocoder credentials. Private, no-store.",
           tag: "System",
           tool: "get_config", mcp: LOCAL_READ,
           display: {"verb": "Read the instance configuration"},
@@ -463,7 +464,7 @@ export function buildOpenApiDocument() {
             "<name>.<ext>; through the agent tool it arrives as a base64 " +
             "attachment envelope.",
           tag: "Query",
-          tool: "export_sql_result", mcp: LOCAL_TRANSIENT_READ,
+          storage: "write", tool: "export_sql_result", mcp: LOCAL_TRANSIENT_READ,
           toolOutput: { binary: { representation: "attachment", nativeImage: false } },
           display: {"verb": "Exported a query result"},
           relevance: ["sql"],
@@ -944,7 +945,9 @@ export function buildOpenApiDocument() {
         ...settings.schemas,
         Config: {
           type: "object",
+          required: ["storage"],
           properties: {
+            storage: STORAGE_STATE_SCHEMA,
             instanceLimits: INSTANCE_LIMITS_SCHEMA,
             basemapUrl: {
               type: "string",

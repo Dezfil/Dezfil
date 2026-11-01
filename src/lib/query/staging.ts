@@ -1,5 +1,7 @@
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { randomUUID } from "node:crypto";
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
+import { isStorageExhausted } from "@/lib/system/storage-errors";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -114,7 +116,15 @@ export function leaseStagingInputs(scope: DatasetScope, inputs: readonly Staging
 }
 
 export async function eraseAccountStaging(accountId: string): Promise<void> {
-  await Promise.all([...stages].filter(([, stage]) => stage.owner === accountId).map(([input]) => removeStagingInput(input)));
+  await Promise.all([...stages].filter(([, stage]) => stage.owner === accountId).map(async ([input]) => {
+    try { await removeStagingInput(input); }
+    catch (error) {
+      if (!isStorageExhausted(error)) throw error;
+      // Even a cleanup inherited from an earlier caller has now drained
+      // its readers and failed removal. Only that removal is retried.
+      await withStorageRecovery(() => removeStagingInput(input));
+    }
+  }));
 }
 export function stagingForTests(): { owner: string; file: string; readers: number }[] {
   return [...stages.values()].map(({ owner, file, readers }) => ({ owner, file, readers }));

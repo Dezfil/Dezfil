@@ -148,7 +148,7 @@ Install, secure, configure and back up your own instance.
 - [Troubleshooting](self-host/troubleshooting.md)
   - path: `docs/self-host/troubleshooting.md`
   - summary: Find the symptom your instance shows, from a container that stops at start-up to a refused upload, and fix it.
-  - read when: the container stops right after it starts, or health answers unready; sign-in fails behind your reverse proxy, or your domain sends the browser to another address; an upload is refused as too large, or ends with the connection dropped; the assistant does not answer, or map cards show no pictures; you forgot the admin password
+  - read when: the container stops right after it starts, or health answers unready; sign-in fails behind your reverse proxy, or your domain sends the browser to another address; an upload is refused, its connection drops, or storage is full; the assistant does not answer, or map cards show no pictures; you forgot the admin password
   - audience: operator
 
 - [Build a sign-in service](self-host/sign-in-service.md)
@@ -232,7 +232,7 @@ Script Dezfil over HTTP, or connect an AI agent through MCP.
 - [Limits](api/limits.md)
   - path: `docs/api/limits.md`
   - summary: Find every limit Dezfil holds requests to, what you get when you reach one, and the setting that changes it.
-  - read when: a request answers 408, 409, 413, 422 or 429 and you want to know which limit it reached; a query shows only its first rows, or answers query_result_too_large; you want to raise the largest upload, the query time limit or another limit; an assistant message, an agent's upload or a tool's download is too large; visitors to a published map get rate_limited
+  - read when: a request answers 408, 409, 413, 422, 429 or 507 and you want to know which limit it reached; a query shows only its first rows, or answers query_result_too_large; you want to raise the largest upload, the query time limit or another limit; an assistant message, an agent's upload or a tool's download is too large; visitors to a published map get rate_limited
   - audience: developer, agent, operator
 
 ## Contribute

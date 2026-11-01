@@ -39,7 +39,7 @@ export const ACCOUNT_PATHS = {
       responses: { "201": jsonOk("#/components/schemas/CreatedApiToken"), ...errors } }), security: AUTH_SECURITY },
   },
   "/api/account/tokens/{id}": { delete: { ...op({ summary: "Revoke your API token", description: privacy + "Permanently refuses this token on later requests. Only your own tokens can be revoked; unknown or other-account IDs return not_found without changes. Repeated revocation is harmless.",
-    tag: "Accounts", tool: "revoke_api_token", effects: writes(resource("accounts")), mcp: LOCAL_DELETE, display: { verb: "Revoked an API token" }, confirm: true,
+    tag: "Accounts", storage: "recovery", tool: "revoke_api_token", effects: writes(resource("accounts")), mcp: LOCAL_DELETE, display: { verb: "Revoked an API token" }, confirm: true,
     confirmation: { target: "Revoke {target}?", consequence: "Clients using this token will lose access.", subject: { path: "/api/account/tokens", argument: "id", name: "name", collection: "tokens", identity: "id" } },
     parameters: [pathParam("id", "Your token's ID, never its secret.")],
     responses: { "200": jsonOk("#/components/schemas/TokenRevoked"), ...errors, "404": ERROR_RESPONSE } }), security: AUTH_SECURITY } },

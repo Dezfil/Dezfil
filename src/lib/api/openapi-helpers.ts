@@ -1,3 +1,4 @@
+import { STORAGE_NOTES, type StorageContract } from "./openapi-storage";
 import type { OutputAdaptation } from "@/lib/tools/output-schema";
 import type { McpConsequences } from "./operation-mcp";
 import type { AssistantPage, ConfirmationWords, OperationDisplay, OperationEffects } from "./operation-metadata";
@@ -14,6 +15,7 @@ export const ERROR_RESPONSE = {
 
 export function op(config: {
   summary: string;
+  storage?: StorageContract;
   description?: string;
   tag: string;
   /** Curated agent-tool name for this operation (spec the tool set is
@@ -54,7 +56,8 @@ export function op(config: {
   const requestBody = bound ? { ...config.requestBody as object, "x-byte-error": code } : config.requestBody;
   return {
     summary: config.summary,
-    description: admission + (config.description ?? ""),
+    description: admission + (config.storage ? STORAGE_NOTES[config.storage] : "") + (config.description ?? ""),
+    ...(config.storage ? { "x-storage": config.storage } : {}),
     tags: [config.tag],
     "x-tool": config.tool,
     ...(config.toolInput ? { "x-tool-input": config.toolInput } : {}),
@@ -67,7 +70,7 @@ export function op(config: {
     ...(config.confirm ? { "x-confirm": config.confirm } : {}),
     ...(config.parameters ? { parameters: config.parameters } : {}),
     ...(requestBody ? { requestBody } : {}),
-    responses: { ...config.responses, ...(bound ? { "413": ERROR_RESPONSE } : {}), default: ERROR_RESPONSE },
+    responses: { ...(config.storage && config.storage !== "tiles" ? { "507": ERROR_RESPONSE, ...(config.storage !== "recovery" ? { "409": ERROR_RESPONSE } : {}) } : {}), ...config.responses, ...(bound ? { "413": ERROR_RESPONSE } : {}), default: ERROR_RESPONSE },
   };
 }
 

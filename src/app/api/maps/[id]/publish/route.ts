@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { EDIT_REVISION_HEADER } from "@/lib/edit-basis";
 import { requireRequestScope } from "@/lib/auth/scope-http";
 import { NextResponse } from "next/server";
@@ -48,7 +49,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     const scope = requireRequestScope(_request);
     const { id } = await params;
-    return NextResponse.json(unpublishMap(scope, id, { expectedRevision: _request.headers.get(EDIT_REVISION_HEADER) }));
+    return NextResponse.json(await withStorageRecovery(() => unpublishMap(scope, id, { expectedRevision: _request.headers.get(EDIT_REVISION_HEADER) })));
   } catch (error) {
     return errorResponse(error);
   }

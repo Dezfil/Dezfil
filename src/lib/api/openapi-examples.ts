@@ -386,7 +386,7 @@ export const WORKED_EXAMPLES: WorkedExamples = {
   "GET /api/config": {
     newInstance: {
       summary: "Read the values in effect",
-      description: "Needs a token. After the quickstart and MCP examples have each created a map, with its palettes trimmed to two of the twenty-three.",
+      description: "Needs a token. After the quickstart and MCP examples have each created a map, with its palettes trimmed to two of the twenty-three. Storage capacity is illustrative; the live read measures its own volume.",
       response: answer("200", CONFIG),
     },
   },

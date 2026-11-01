@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { currentTrustedOperation, isTrustedOperationRefusal, type TrustedOperationOptions } from "@/lib/trusted-operation";
 import { captureIngestBudget, type IngestBudget } from "./budget";
@@ -173,7 +174,8 @@ async function enumerateDataset(
     );
     rows = read.getRowObjects() as Record<string, unknown>[];
   } catch (error) {
-    if (isTrustedOperationRefusal(error)) throw error;
+    rethrowStorageFailure(error);
+      if (isTrustedOperationRefusal(error)) throw error;
     throw malformed(
       format,
       error instanceof Error ? error.message : "unreadable file",
@@ -308,7 +310,8 @@ export async function buildLayerArtifact(
     await conn.run(`COPY (${select}) TO ${lit(artifact)} (FORMAT PARQUET)`);
   } catch (error) {
     await removeAccountFile(artifact, { force: true });
-    if (isTrustedOperationRefusal(error)) throw error;
+    rethrowStorageFailure(error);
+      if (isTrustedOperationRefusal(error)) throw error;
     throw malformed(
       format,
       error instanceof Error ? error.message : "unknown parse error",

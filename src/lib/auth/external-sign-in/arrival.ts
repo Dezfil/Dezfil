@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { assistantBeginMark } from "@/lib/assistant/retained-work";
 import { interruptOlderAssistantWork } from "../sign-out-everyone";
 import { adoptDoorGeneration, readGenerations } from "@/lib/metadata/auth-generations";
@@ -40,11 +41,11 @@ export async function arriveExternalSignIn(request: Request, db: Database = meta
     let encoded: string;
     try { encoded = await ticketBody(request); }
     catch (error) {
-      db.transaction(() => recordAddressAttempt(addressBudget(ingress!.source, db, now ?? Date.now()), true, db)).immediate();
+      await withStorageRecovery(() => db.transaction(() => recordAddressAttempt(addressBudget(ingress!.source, db, now ?? Date.now()), true, db)).immediate());
       throw error;
     }
     const mark = assistantBeginMark();
-    const result = db.transaction(() => {
+    const result = await withStorageRecovery(() => db.transaction(() => {
       const at = now ?? Date.now(); requireAuthenticationWanted(request.signal);
       refuseSignedIn(request, db, at);
       const budget = addressBudget(ingress!.source, db, at);
@@ -67,7 +68,7 @@ export async function arriveExternalSignIn(request: Request, db: Database = meta
       const session = issueSession(getAccount(account.id, db)!, db, at);
       db.prepare("INSERT INTO auth_ticket_ids (id, expires_at) VALUES (?, ?)").run(ticket.jti, ticket.exp * 1000);
       return { session, raised };
-    }).immediate();
+    }).immediate());
     if (result.error) throw result.error;
     if (result.raised) interruptOlderAssistantWork(mark);
     response = privateResponse(NextResponse.json({ account: result.session!.account }));

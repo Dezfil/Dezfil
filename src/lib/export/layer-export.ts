@@ -1,3 +1,5 @@
+import { withTrustedMutation } from "@/lib/trusted-mutation";
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { copyFileWork } from "@/lib/auth/account-deletion-work";
 import { registerAccountFile, removeAccountFile } from "@/lib/ingest/file-ownership";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
@@ -180,6 +182,7 @@ async function exportLayerResultWork(
              TO '${target}' WITH (${options})`,
           );
         } catch (error) {
+          rethrowStorageFailure(error);
           if (error instanceof ApiError) throw error;
           if (isOutOfMemory(error)) throw error;
           throw sqlError(error);
@@ -267,6 +270,7 @@ async function exportQueryResultWork(
              TO '${target}' WITH (${options})`,
           );
         } catch (error) {
+          rethrowStorageFailure(error);
           if (error instanceof ApiError) throw error;
           if (isOutOfMemory(error)) throw error;
           throw sqlError(error);
@@ -303,12 +307,25 @@ async function describe(
       }[]
     ).map((c) => ({ name: c.column_name, type: c.column_type }));
   } catch (error) {
-    if (error instanceof ApiError) throw error;
+    rethrowStorageFailure(error);
+          if (error instanceof ApiError) throw error;
     if (isOutOfMemory(error)) throw error;
     throw sqlError(error);
   }
 }
 
-export function exportLayerResult(scope: AccountScope, layer: ExportableLayer, format: LayerExportFormat, signal?: AbortSignal): Promise<LayerExportFile> { return copyFileWork(scope, layer.mapId ? [{ table: "maps", id: layer.mapId }] : [], () => exportLayerResultWork(scope, layer, format, signal)); }
+export function exportLayerResult(scope: AccountScope, layer: ExportableLayer, format: LayerExportFormat, signal?: AbortSignal): Promise<LayerExportFile> {
+  return withTrustedMutation({ kind: "interactive-read", storage: true, name: "Layer export", signal }, async operation => {
+    const file = await copyFileWork(scope, layer.mapId ? [{ table: "maps", id: layer.mapId }] : [], () => exportLayerResultWork(scope, layer, format, operation.signal));
+    operation.defer(async () => { if (operation.signal.aborted) await file.cleanup(); });
+    operation.assertCanCommit(); return file;
+  });
+}
 
-export function exportQueryResult(scope: AccountScope, sql: string, format: LayerExportFormat, signal?: AbortSignal, name?: string): Promise<LayerExportFile> { return copyFileWork(scope, [], () => exportQueryResultWork(scope, sql, format, signal, name)); }
+export function exportQueryResult(scope: AccountScope, sql: string, format: LayerExportFormat, signal?: AbortSignal, name?: string): Promise<LayerExportFile> {
+  return withTrustedMutation({ kind: "interactive-read", storage: true, name: "Query export", signal }, async operation => {
+    const file = await copyFileWork(scope, [], () => exportQueryResultWork(scope, sql, format, operation.signal, name));
+    operation.defer(async () => { if (operation.signal.aborted) await file.cleanup(); });
+    operation.assertCanCommit(); return file;
+  });
+}

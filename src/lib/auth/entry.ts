@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { externalSignIn } from "./external-sign-in/config";
 import { requirePasswordSignIn } from "./external-sign-in/refusal";
 import { readStoredSettings } from "@/lib/settings/store";
@@ -57,7 +58,7 @@ export async function leave(request: Request): Promise<Response> {
   try {
     const context = requireRequestAuth(request);
     assertRequestOrigin(request, context);
-    signOut(context);
+    await withStorageRecovery(() => signOut(context));
     const response = privateResponse(NextResponse.json({ signedOut: true }));
     sessionCookie(response, "", requestIngress(request), true);
     return response;

@@ -1,3 +1,5 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import { withTrustedMutation } from "@/lib/trusted-mutation";
 import { currentTrustedOperation } from "@/lib/trusted-operation";
@@ -138,6 +140,7 @@ async function writeArtifact(
   } catch (error) {
     currentTrustedOperation()?.refuseIfFinal(error);
     await removeAccountFile(abs, { force: true });
+    rethrowStorageFailure(error);
     throw error;
   }
 }
@@ -297,7 +300,8 @@ export async function createSketch(
     } catch (error) {
       currentTrustedOperation()?.refuseIfFinal(error);
       await removeAccountFile(abs, { force: true });
-      throw error;
+      rethrowStorageFailure(error);
+    throw error;
     }
   });
 }
@@ -374,7 +378,8 @@ async function mutate(
       } catch (error) {
         currentTrustedOperation()?.refuseIfFinal(error);
         await removeAccountFile(abs, { force: true });
-        throw error;
+        rethrowStorageFailure(error);
+    throw error;
       }
     });
   });
@@ -513,7 +518,7 @@ export interface CascadeResult {
  * and fails by name for whoever opens it.
  */
 export async function cascadeDeleteSketch(scope: AccountScope, name: string, from: "layer" | "dataset" = "dataset", opts: { expectedRevision?: unknown; signal?: AbortSignal } = {}): Promise<CascadeResult> {
-  return withTrustedMutation({ kind: "sketch-change", name: "Sketch change", signal: opts.signal }, async operation => {
+  return withTrustedMutation({ kind: "sketch-change", name: "Sketch change", signal: opts.signal, storage: false }, async operation => {
     const keyed = requireSketch(scope, name);
     return serializeSketchMutation(keyed.id, async () => {
       const fresh = requireSketch(scope, name);
@@ -530,7 +535,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
       // state. Snapshot before the registry row disappears.
       const dependents = ownedDependentLayerIds(scope, fresh.name);
       const db = metadataDb();
-      const { mapId, layerId, editRevision } = db.transaction(() => {
+      const { mapId, layerId, editRevision } = await withStorageRecovery(() => db.transaction(() => {
         requireOwnedResource(scope, "dataset", fresh.id, db);
         let { mapId, layerId } = recorded;
         if (mapId && layerId) {
@@ -577,7 +582,7 @@ export async function cascadeDeleteSketch(scope: AccountScope, name: string, fro
         touchProjectsOf({ tableId: fresh.id }, db);
         deleteOwnedTable(scope, fresh, db);
         return { mapId, layerId, ...(mapId ? { editRevision: documentFacts({ kind: "map", id: mapId }, db).editRevision } : {}) };
-      })();
+      })());
       operation.markCommitted();
       if (mapId) notifyPicture(mapId);
       // What follows the commit runs on the operation's cleanup path, last

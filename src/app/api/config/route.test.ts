@@ -1,3 +1,4 @@
+import * as storage from "@/lib/system/storage-state";
 import type { Database } from "better-sqlite3";
 import { fromJsonSchema } from "@modelcontextprotocol/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -212,5 +213,30 @@ describe("the runtime read's basemaps", () => {
     expect(JSON.stringify(body.basemaps)).not.toContain("offered");
     await change({ "basemaps.streets": true });
     expect(keys(await read(kind))).toEqual(["dark", "light", "streets"]);
+  });
+});
+
+
+describe("the runtime storage read", () => {
+  it.each(["cookie", "token"] as const)("discloses fresh state to a member through %s", async kind => {
+    const free = 1024 * storage.STORAGE_MB;
+    const sample = { full: false, free, total: free * 2, threshold: storage.STORAGE_FULL_BYTES };
+    const current = vi.spyOn(storage, "roundedStorageState").mockReturnValue(sample);
+    expect((await read(kind)).storage).toEqual(sample);
+    sample.full = true; sample.free = 0;
+    current.mockReturnValue({ ...sample });
+    expect((await read(kind)).storage).toEqual(sample);
+  });
+  it("carries state through the generated tool and rejects incomplete or loose output", async () => {
+    const tool = buildTools().find(candidate => candidate.name === "get_config")!;
+    const result = await executeTool(tool, {}, origin,
+      (async (input: RequestInfo | URL, init?: RequestInit) => dispatchAssistantTestRoute(new Request(String(input), init))) as typeof fetch,
+      { authorization: `Bearer ${memberToken()}` });
+    const output = fromJsonSchema(tool.outputSchema as Parameters<typeof fromJsonSchema>[0]);
+    const body = result.body as Record<string, unknown>;
+    const validate = async (storage: unknown) => (await output["~standard"].validate(mcpResult(tool, { ...result, body: { ...body, storage } }, null).structuredContent)).issues;
+    expect(await validate(body.storage)).toBeUndefined();
+    const state = body.storage as Record<string, unknown>;
+    for (const invalid of [{}, { ...state, threshold: 1 }, { ...state, full: "yes" }, { ...state, path: "/private" }]) expect(await validate(invalid)).toBeDefined();
   });
 });

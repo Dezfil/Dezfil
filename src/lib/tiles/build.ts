@@ -1,3 +1,10 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
+import { ApiError } from "@/lib/api/errors";
+import { isStorageExhausted, storageExhausted } from "@/lib/system/storage-errors";
+import { readStorageState } from "@/lib/system/storage-state";
+import { publishTileArchive } from "./publish-archive";
+import { admitStorageWrite } from "@/lib/system/storage-admission";
+import { StorageWriter, assertStorageWritersOpen } from "@/lib/system/storage-fence";
 import { notifyPicture } from "@/lib/pictures/hooks";
 import { admitAccountWork, type AccountWorkLease } from "@/lib/auth/account-deletion-admission";
 import { bindDeletionDatasets, inDetachedDeletionWork, observeDeletionCleanup } from "@/lib/auth/account-deletion-work";
@@ -6,7 +13,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import { archiveServable, tileQueryScope, tileReachKey, requireTileAccess, tileAccessAvailable, type TileAccess } from "./access";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readdir, rename, rm } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { limits } from "@/lib/limits";
 import { filteredSql } from "@/lib/query/compile";
@@ -26,7 +33,6 @@ import {
   tileArchiveInputs,
   trackBuildInputs,
   untrackBuildInputs,
-  writeTileEvidence,
 } from "./evidence";
 import { exportGeoJsonSeq } from "./export";
 import { runTiler } from "./tiler";
@@ -81,6 +87,7 @@ export interface TileStatus {
   builtAt?: string;
   /** Present when failed. */
   error?: string;
+  errorCode?: "storage_full" | "storage_exhausted";
 }
 
 /** The fingerprint covers the effective query AND the dataset identities
@@ -129,6 +136,7 @@ interface BuildAttempt {
   generation: number;
   done: ReturnType<typeof Promise.withResolvers<void>>;
   deletionWork: AccountWorkLease;
+  storage: StorageWriter;
 }
 
 /** A layer's attempt for one requesting reach. */
@@ -145,10 +153,11 @@ const pendingHost = globalThis as typeof globalThis & { [pendingKey]?: Map<strin
 const pending = pendingHost[pendingKey] ??= new Map<string, { access: TileAccess; input: TileBuildInput }>();
 /** The last failure of each reach's attempt: its query and why. It sticks
  * for that query, for that reach alone, until the data under it changes,
- * the layer goes, or the process restarts. */
+ * the layer goes, or the process restarts. Storage failures last only until
+ * capacity returns, so the next render can recover without editing SQL. */
 const failuresKey = Symbol.for("dezfil.tile-failures");
-const failuresHost = globalThis as typeof globalThis & { [failuresKey]?: Map<string, { fingerprint: string; generation: number; error: string }> };
-const failures = failuresHost[failuresKey] ??= new Map<string, { fingerprint: string; generation: number; error: string }>();
+const failuresHost = globalThis as typeof globalThis & { [failuresKey]?: Map<string, { fingerprint: string; generation: number; error: string; errorCode?: "storage_exhausted" }> };
+const failures = failuresHost[failuresKey] ??= new Map<string, { fingerprint: string; generation: number; error: string; errorCode?: "storage_exhausted" }>();
 /** Deletion advances the generation, fencing every older attempt. */
 const generationsKey = Symbol.for("dezfil.tile-generations");
 const generationsHost = globalThis as typeof globalThis & { [generationsKey]?: Map<string, number> };
@@ -189,9 +198,11 @@ export async function tileBuildsSettled(): Promise<void> {
 
 /** The layer's tiler run, under the tile-build timeout, said as the
  * layer's own build message when it fails. */
-async function runTippecanoe(input: string, output: string): Promise<void> {
-  const run = await runTiler(input, output, limits.tileBuildTimeoutMs);
+async function runTippecanoe(input: string, output: string, signal: AbortSignal): Promise<void> {
+  const run = await runTiler(input, output, limits.tileBuildTimeoutMs, signal);
+  if (signal.aborted) throw signal.reason;
   if (run.ok) return;
+  if (/no space left on device/i.test(run.detail ?? "")) throw storageExhausted();
   throw new Error(
     run.reason === "timed_out"
       ? `Tiling exceeded the ${Math.round(
@@ -218,19 +229,27 @@ function attemptCanCommit(attempt: BuildAttempt): boolean {
   }
 }
 
+/** What a stopped tiler leaves beside its output, such as the journal of the
+ * store it was still writing. The attempt's id makes the prefix its own. */
+async function attemptSidecars(scratchBase: string): Promise<string[]> {
+  const folder = path.dirname(scratchBase), prefix = `${path.basename(scratchBase)}.`;
+  try { return (await readdir(folder)).filter(name => name.startsWith(prefix)).map(name => path.join(folder, name)); }
+  catch { return []; }
+}
+
 async function runBuild(attempt: BuildAttempt): Promise<void> {
   const { input, fingerprint } = attempt;
-  ensureTileDirs();
   const scratchBase = path.join(
     tileScratchDir(),
     `${input.layerId}.${attempt.id}`,
   );
   const exportFile = `${scratchBase}.geojsonl`;
   const archiveFile = `${scratchBase}.pmtiles`;
-  let finalArchiveNeedsRemoval = false;
   try {
+    ensureTileDirs();
     // A queued attempt may have been deleted before its turn reached the
     // process-wide worker. It has nothing to do and must write no state.
+    attempt.storage.assertCanCommit();
     if (!attemptCanCommit(attempt)) return;
     // The export's own evaluation is the archive's evidence: the identities
     // it bound, with the artifacts it read, whatever the render saw before.
@@ -241,57 +260,40 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
         geometryColumn: input.geometryColumn,
         columns: input.columns,
       },
-      exportFile,
+      exportFile, attempt.storage.signal,
     ));
     bindDeletionDatasets(inputs.datasets.map(input => input.id));
     trackBuildInputs(attempt.id, input.layerId, inputs);
+    attempt.storage.assertCanCommit();
     if (!attemptCanCommit(attempt)) return;
-    await runTippecanoe(exportFile, archiveFile);
+    await runTippecanoe(exportFile, archiveFile, attempt.storage.signal);
+    attempt.storage.assertCanCommit();
     if (!attemptCanCommit(attempt)) return;
     // The record names the data the archive actually holds.
     const built = tileFingerprint(input.sql, input.filters, input.projection, inputs);
     const builtAt = new Date().toISOString();
-    // Evidence first: until the record below names this build, the evidence
-    // and the archive belong to no record and the archive is unattributed.
-    writeTileEvidence(input.layerId, { fingerprint: built, builtAt, inputs });
-    // Same filesystem: the swap is atomic, the old archive serves until now.
-    await rename(archiveFile, tileArchivePath(input.layerId));
-    finalArchiveNeedsRemoval = true;
-    // Deletion can cross the asynchronous rename. Recheck on its far side
-    // before making the archive authoritative in metadata.
-    if (!attemptCanCommit(attempt)) {
-      await observeDeletionCleanup(() => rm(tileArchivePath(input.layerId), { force: true }));
-      removeTileEvidence(input.layerId);
-      finalArchiveNeedsRemoval = false;
-      return;
-    }
-    metadataDb().transaction(() => {
-      requireTileAccess(attempt.access, input.layerId);
-      upsertTileRecord({
-        layerId: input.layerId,
-        state: "ready",
-        fingerprint: built,
-        error: null,
-        featureCount,
-        builtAt,
-      });
-    })();
-    finalArchiveNeedsRemoval = false;
+    publishTileArchive(input.layerId, archiveFile, { fingerprint: built, builtAt, inputs }, () => {
+      attempt.storage.assertCanCommit();
+      metadataDb().transaction(() => {
+        // The map may survive while an owner of its inputs enters deletion.
+        attempt.deletionWork.assertCommit();
+        requireTileAccess(attempt.access, input.layerId);
+        upsertTileRecord({ layerId: input.layerId, state: "ready", fingerprint: built,
+          error: null, featureCount, builtAt });
+      })();
+    });
     const map = metadataDb().prepare("SELECT map_id FROM layers WHERE id = ?").get(input.layerId) as { map_id: string } | undefined;
     if (map) notifyPicture(map.map_id);
   } catch (error) {
-    if (finalArchiveNeedsRemoval) {
-      await observeDeletionCleanup(() => rm(tileArchivePath(input.layerId), { force: true })).catch(
-        () => undefined,
-      );
-    }
     // The failure is this attempt's alone: it never replaces the layer's
     // record, which still names whatever archive others are served.
     if (attemptCanCommit(attempt)) {
+      const failure = isStorageExhausted(error) ? storageExhausted() : error;
       failures.set(attempt.key, {
         fingerprint,
         generation: attempt.generation,
-        error: error instanceof Error ? error.message : "The build failed.",
+        error: failure instanceof Error ? failure.message : "The build failed.",
+        ...(isStorageExhausted(failure) ? { errorCode: "storage_exhausted" as const } : {}),
       });
       try {
         const record = getTileRecord(input.layerId);
@@ -303,10 +305,9 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     }
   } finally {
     untrackBuildInputs(attempt.id);
-    await Promise.allSettled([
-      observeDeletionCleanup(() => rm(exportFile, { force: true })),
-      observeDeletionCleanup(() => rm(archiveFile, { force: true })),
-    ]);
+    await Promise.allSettled(
+      [exportFile, archiveFile, ...await attemptSidecars(scratchBase)].map(file => observeDeletionCleanup(() => rm(file, { force: true }))),
+    );
     if (active.get(attempt.key) === attempt) {
       // A withdrawn capability leaves no stuck build status. Retrying after
       // reactivation or through a current publication starts a fresh attempt.
@@ -333,7 +334,12 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
 
 function start(access: TileAccess, input: TileBuildInput): void {
   requireTileAccess(access, input.layerId);
+  assertStorageWritersOpen();
+  admitStorageWrite();
   const fingerprint = tileFingerprint(input.sql, input.filters, input.projection, requestInputs(input, getTileRecord(input.layerId)));
+  const deletionWork = admitAccountWork([access.ownerId, ...("scope" in access.credential ? [access.credential.scope.accountId] : [])]);
+  let storage: StorageWriter;
+  try { storage = new StorageWriter(); } catch (error) { deletionWork.release(); throw error; }
   const attempt: BuildAttempt = {
     access,
     id: randomUUID(),
@@ -342,7 +348,7 @@ function start(access: TileAccess, input: TileBuildInput): void {
     fingerprint,
     generation: generation(input.layerId),
     done: Promise.withResolvers<void>(),
-    deletionWork: admitAccountWork([access.ownerId, ...("scope" in access.credential ? [access.credential.scope.accountId] : [])]),
+    deletionWork, storage,
   };
   try {
   inDetachedDeletionWork(attempt.deletionWork, () => bindDeletionDatasets(input.inputs?.datasets.map(input => input.id) ?? []));
@@ -363,8 +369,8 @@ function start(access: TileAccess, input: TileBuildInput): void {
   })();
   active.set(attempt.key, attempt);
   trackBuildInputs(attempt.id, input.layerId, input.inputs ?? null);
-  } catch (error) { attempt.deletionWork.release(); throw error; }
-  const work = () => inDetachedDeletionWork(attempt.deletionWork, () => runBuild(attempt)).finally(() => { attempt.deletionWork.release(); attempt.done.resolve(); });
+  } catch (error) { attempt.storage.close(); attempt.deletionWork.release(); throw error; }
+  const work = () => inDetachedDeletionWork(attempt.deletionWork, () => runBuild(attempt)).finally(() => { attempt.deletionWork.release(); attempt.storage.close(); attempt.done.resolve(); });
   // Contain every terminal failure so one bad target cannot poison the
   // global queue or become an unhandled rejection.
   chain.value = chain.value.then(work, work).catch(() => undefined);
@@ -376,7 +382,8 @@ function start(access: TileAccess, input: TileBuildInput): void {
  * reach when the archive is missing, stale or beyond that reach. A failed
  * build stays failed for that same effective query and reach (no retry
  * storm on render polling); it re-runs when the query or the data under it
- * changes, or the process restarts.
+ * changes, or the process restarts. Storage failures retry as soon as the
+ * volume has capacity again.
  */
 export function ensureTiles(access: TileAccess, input: TileBuildInput): TileStatus {
   requireTileAccess(access, input.layerId);
@@ -413,7 +420,8 @@ export function ensureTiles(access: TileAccess, input: TileBuildInput): TileStat
 
   const failure = failures.get(key);
   if (failure && failure.fingerprint === fingerprint && failure.generation === generation(input.layerId)) {
-    return { state: "failed", error: failure.error };
+    if (!failure.errorCode || readStorageState().full) return { state: "failed", error: failure.error, ...(failure.errorCode ? { errorCode: failure.errorCode } : {}) };
+    failures.delete(key);
   }
 
   // Another reach's live build of this very query draws the same identities
@@ -425,7 +433,14 @@ export function ensureTiles(access: TileAccess, input: TileBuildInput): TileStat
     }
   }
 
-  start(access, input);
+  try { start(access, input); }
+  catch (error) {
+    if (error instanceof ApiError && ["storage_full", "storage_exhausted"].includes(error.code)) {
+      return { state: "failed", error: error.message, errorCode: error.code as "storage_full" | "storage_exhausted" };
+    }
+    if (isStorageExhausted(error)) return { state: "failed", error: storageExhausted().message, errorCode: "storage_exhausted" };
+    throw error;
+  }
   return { state: "building" };
 }
 
@@ -502,11 +517,11 @@ export async function eraseTileArtifacts(layerIds: readonly string[]): Promise<v
   await Promise.all(waits);
   await closeTileArchives(layerIds);
   for (const id of layerIds) {
-    await removeTileArtifacts(id);
+    await withStorageRecovery(() => removeTileArtifacts(id));
     let names: string[];
     try { names = await readdir(tileScratchDir()); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; names = []; }
-    for (const name of names.filter(n => n.startsWith(`${id}.`))) await rm(path.join(tileScratchDir(), name), { force: true });
+    for (const name of names.filter(n => n.startsWith(`${id}.`))) await withStorageRecovery(() => rm(path.join(tileScratchDir(), name), { force: true }));
     generations.delete(id); forgetLayer(id);
   }
 }

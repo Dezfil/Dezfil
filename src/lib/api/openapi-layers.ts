@@ -184,7 +184,7 @@ export const LAYER_QUERY_PATHS = {
         "response is an attachment named <layer>.<ext>; through the " +
         "agent tool it arrives as a base64 attachment envelope.",
       tag: "Layers",
-      tool: "export_layer_data", mcp: LOCAL_READ,
+      storage: "write", tool: "export_layer_data", mcp: LOCAL_READ,
       toolOutput: { binary: { representation: "attachment", nativeImage: false } },
       display: {"verb": "Exported the layer {subject} as {arg.format}", "subject": {"resource": "layers", "argument": "id"}},
       effects: READ_ONLY,

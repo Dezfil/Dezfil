@@ -88,6 +88,11 @@ function LimitsRowView({ row, now, unit, card, words }: {
       <LockedField label={row.label} value={`${formatSettingNumber(now.maxImageDimension)} ${row.unit}`} state={{ kind: "fixed", variable: null }} width="m" />
     </SettingRow>;
   }
+  if (row.kind === "fixed") {
+    return <SettingRow id={row.id} label={row.label} meta={row.meta}>
+      <LockedField label={row.label} value={row.value} state={{ kind: "fixed", variable: null }} width="m" />
+    </SettingRow>;
+  }
   const setting = now.settings[row.key];
   if (!setting) return null;
   const count = row.kind === "counted" ? countedText(now.instanceLimits[row.of].count) : undefined;
