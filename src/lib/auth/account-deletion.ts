@@ -86,7 +86,9 @@ async function continueDeletion(journal: DeletionJournal, db: Database): Promise
         else db.prepare(`UPDATE accounts SET status='deleted',name=NULL,email=NULL,password_hash=NULL,is_admin=NULL,
           created_at=NULL,updated_at=NULL,last_sign_in_at=NULL,picture_version=NULL,external_identity=NULL WHERE id=? AND status='deleting'`).run(accountId);
       }).immediate(); }),
-      () => withStorageRecovery(() => { compactMetadataStore(db); }),
+      // Compaction needs working space proportional to the store. Keep the
+      // reserve for small recovery writes while it waits for space.
+      () => { compactMetadataStore(db); },
     ];
     while (journal.next < stages.length) {
       // Admitted work may need storage recovery to settle. Waiting for it

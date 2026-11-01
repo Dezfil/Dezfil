@@ -40,6 +40,13 @@ try {
     // A CSV lands as one table, answered directly; only container formats answer a list.
     return good(await client('POST', '/api/tables', { form }));
   }
+  async function assertFreshSignIn() {
+    const signin = await fetch(base + '/api/auth/sign-in', { method: 'POST', headers: { origin: base, 'content-type': 'application/json' }, body: JSON.stringify({ email: journeyAccount.email, password: journeyAccount.password }) });
+    assert.equal(signin.status, 200, await signin.text());
+    const freshCookie = signin.headers.getSetCookie()[0]?.split(';')[0];
+    assert.ok(freshCookie, 'Fresh sign-in must issue a session');
+    good(await journeyApi(base, { cookie: freshCookie })('GET', '/api/maps'));
+  }
   const fileOf = table => path.join(folder, db.prepare('SELECT file FROM data_tables WHERE id=?').get(table.id).file);
   // The dataset whose old bytes are asserted comes from a link, so a refresh can try to replace it.
   source = await heldSource();
@@ -127,11 +134,7 @@ try {
   assert.ok(partialFiles(folder).some(file => /^tiles\/scratch\/export-.*\.csv$/.test(file)), 'The live COPY must have opened its file');
   alive(tiler.tiler); alive(tiler.pid); // Each throws if the real process is already gone.
   good(await api('GET', '/api/maps')); // Existing credential on the full filesystem.
-  const signin = await fetch(base + '/api/auth/sign-in', { method: 'POST', headers: { origin: base, 'content-type': 'application/json' }, body: JSON.stringify({ email: journeyAccount.email, password: journeyAccount.password }) });
-  assert.equal(signin.status, 200, await signin.text());
-  const freshCookie = signin.headers.getSetCookie()[0]?.split(';')[0];
-  assert.ok(freshCookie, 'Fresh sign-in must issue a session');
-  good(await journeyApi(base, { cookie: freshCookie })('GET', '/api/maps'));
+  await assertFreshSignIn();
   noSpace(await conversion); noSpace(await receiver.result);
   await until(writerState, state => state.live === 0 && !state.fenced, 'Recovery fence did not settle and reopen');
   await until(() => lines(mark('writers.ndjson')).slice(eventsBefore), rows => rows.filter(e => e.event === 'settled' && e.elapsedMs !== null).length >= 3, 'Missing writer settlement evidence');
@@ -200,6 +203,8 @@ try {
   assert.equal(journal.next, COMPACTION_STAGE, `The deletion must stop at compaction, not stage ${journal.next}`);
   assert.equal(journal.state, 'needs-retry');
   assert.equal(fs.existsSync(targetFile), false, 'Account deletion on the full volume must free its files before compaction');
+  assert.ok(fs.statSync(path.join(folder, '.storage-reserve')).size > 0, 'Refused compaction must leave reserve for sign-in');
+  await assertFreshSignIn();
   await capacityBack();
   const completed = good(await api('POST', `/api/users/deletions/${deletion.id}/finish`));
   assert.equal(completed.state, 'completed', JSON.stringify(completed));
