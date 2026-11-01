@@ -55,8 +55,11 @@ What is live when recovery fires, and what stays held:
   reading, not writing a tile.
 - **The receiver is a real server stream.** The client declares a body and stops
   sending. Only the peer is held; the server code is the shipped code.
-- **The refresh is a real download.** Its loopback source declares a large file
-  and stops after the first MB until the volume is full. Only the peer is held.
+
+The refresh runs earlier and has ended by then: it is a real download whose
+loopback source declares a large file and stops after the first MB until the
+volume is full. It proves that a refused replacement keeps the old bytes, not
+that the fence stops a refresh.
 
 The preload only observes: it logs native results, writer events and the server's
 CPU, and pauses nothing. With `DEZFIL_PROOF_DISABLE_INTERRUPT=1` it disables the

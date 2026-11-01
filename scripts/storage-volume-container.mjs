@@ -13,6 +13,7 @@ export function containerArguments({ image, name, root, port }) {
     '-e', 'DEZFIL_TIPPECANOE=/probes/storage-volume-tiler.mjs', '-e', 'DEZFIL_CHROMIUM_PATH=/proof/no-browser',
     '-e', 'DEZFIL_TRUSTED_PROXIES=', '-e', 'DEZFIL_EGRESS_ALLOWLIST=127.0.0.1', '-e', 'DEZFIL_RENDER_CAP_FEATURES=10', '-e', 'DEZFIL_UPLOAD_MAX_MB=512',
     '-e', 'DEZFIL_TRUSTED_MEMORY_MB=512', '-e', 'DEZFIL_QUERY_MEMORY_MB=256', '-e', 'SQLITE_TMPDIR=/data/sqlite-tmp',
+    ...(process.env.DEZFIL_PROOF_DISABLE_INTERRUPT ? ['-e', 'DEZFIL_PROOF_DISABLE_INTERRUPT=1'] : []),
     image, 'node', '--import=/app/scripts/ingress-preload.mjs', '--import=/probes/storage-volume-preload.mjs', 'server.js'];
 }
 export async function runContainer({ image, standalone, port, root, scratch }) {
