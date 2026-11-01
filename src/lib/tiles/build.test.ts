@@ -110,9 +110,11 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 printf '%s\\n' "$input" >> "$DEZFIL_TEST_TILER_LOG"
+: > "$out-journal" # The real tiler holds its output as a store with a journal beside it until it ends.
 echo $$ > "$DEZFIL_TEST_TILER_STARTED"
 while [ ! -f "$DEZFIL_TEST_TILER_RELEASE" ]; do sleep 0.01; done
 printf 'PMTiles%s' "$input" > "$out"
+rm -f "$out-journal"
 `,
     { mode: 0o755 },
   );

@@ -229,6 +229,14 @@ function attemptCanCommit(attempt: BuildAttempt): boolean {
   }
 }
 
+/** What a stopped tiler leaves beside its output, such as the journal of the
+ * store it was still writing. The attempt's id makes the prefix its own. */
+async function attemptSidecars(scratchBase: string): Promise<string[]> {
+  const folder = path.dirname(scratchBase), prefix = `${path.basename(scratchBase)}.`;
+  try { return (await readdir(folder)).filter(name => name.startsWith(prefix)).map(name => path.join(folder, name)); }
+  catch { return []; }
+}
+
 async function runBuild(attempt: BuildAttempt): Promise<void> {
   const { input, fingerprint } = attempt;
   const scratchBase = path.join(
@@ -297,10 +305,9 @@ async function runBuild(attempt: BuildAttempt): Promise<void> {
     }
   } finally {
     untrackBuildInputs(attempt.id);
-    await Promise.allSettled([
-      observeDeletionCleanup(() => rm(exportFile, { force: true })),
-      observeDeletionCleanup(() => rm(archiveFile, { force: true })),
-    ]);
+    await Promise.allSettled(
+      [exportFile, archiveFile, ...await attemptSidecars(scratchBase)].map(file => observeDeletionCleanup(() => rm(file, { force: true }))),
+    );
     if (active.get(attempt.key) === attempt) {
       // A withdrawn capability leaves no stuck build status. Retrying after
       // reactivation or through a current publication starts a fresh attempt.
