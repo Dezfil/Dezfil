@@ -24,6 +24,7 @@ const expanded = "SELECT repeat('storage_probe_conversion', 500) AS payload FROM
 // real COPY stays in the engine on a volume with no block left, until something stops it.
 const computing = "SELECT 'storage_probe_conversion' AS marker, sum(range) AS total FROM range(1000000000000)";
 const alive = pid => { process.kill(pid, 0); };
+const COMPACTION_STAGE = 10;
 try {
   assert.ok(base && new URL(base).hostname === '127.0.0.1' && new URL(base).port !== '3000', 'Use the owned loopback instance');
   assert.ok(folder && control && !path.resolve(control).startsWith(path.resolve(folder) + path.sep), 'Controls must be outside the bounded volume');
@@ -194,12 +195,16 @@ try {
   assert.notEqual(deletion.state, 'completed', 'Compaction cannot claim completion without working space');
   const pending = await until(() => api('GET', `/api/users/deletions/${deletion.id}`).then(good), answer => answer.state === 'needs-retry', 'Compaction must report unfinished');
   assert.equal(pending.id, deletion.id);
+  const journal = JSON.parse(fs.readFileSync(path.join(folder, 'account-deletions', `${deletion.id}.json`), 'utf8'));
+  // Its last stage, the only one after the erased row commits: nothing but compaction may be what stopped it.
+  assert.equal(journal.next, COMPACTION_STAGE, `The deletion must stop at compaction, not stage ${journal.next}`);
+  assert.equal(journal.state, 'needs-retry');
   assert.equal(fs.existsSync(targetFile), false, 'Account deletion on the full volume must free its files before compaction');
   await capacityBack();
   const completed = good(await api('POST', `/api/users/deletions/${deletion.id}/finish`));
   assert.equal(completed.state, 'completed', JSON.stringify(completed));
   assert.equal((await api('GET', `/api/users/deletions/${deletion.id}`)).status, 404);
-  report.push({ check: 'account compaction', status: 'confirmed', before: pending.state, after: completed.state });
+  report.push({ check: 'account compaction', status: 'confirmed', before: pending.state, stoppedAtStage: journal.next, after: completed.state });
   openDb();
   // A signed-in account leaves a row that keeps its name reserved and holds nothing personal.
   assert.deepEqual({ ...db.prepare('SELECT status, name, email, password_hash, is_admin FROM accounts WHERE id=?').get(target.id) }, { status: 'deleted', name: null, email: null, password_hash: null, is_admin: null });

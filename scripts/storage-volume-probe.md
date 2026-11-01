@@ -84,8 +84,9 @@ The assertions cover:
   file that the clear must remove; the seed is a file in the cache's place, not one
   a provider answered, because the probe has no provider and no network.
 - Account deletion with less than twice the metadata size free. The account's
-  file is gone by then. No outside SQLite handle is kept open: compaction reports
-  `needs-retry`, then completes after space returns, leaving the erased row. The fixture pads the store with an unrelated retained
+  file is gone by then. No outside SQLite handle is kept open: the deletion reports
+  `needs-retry` with its journal at the compaction stage, then completes after
+  space returns, leaving the erased row. The fixture pads the store with an unrelated retained
   row so a recovery slice cannot accidentally satisfy compaction.
 - Reserve replenishment, a new upload and a fresh tile build after space returns,
   and alternating full/available transition logs.
