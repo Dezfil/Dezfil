@@ -68,19 +68,50 @@ async function exhausted(work: Promise<unknown>) {
 }
 /** Refuse the destination COPY after creating a real partial file. Every
  * other statement still goes to the native engine. */
-function refuseCopy() {
+function refuseCopy(reason = "No space left on device") {
   for (const method of ["run", "runAndReadAll"] as const) {
     const original = DuckDBConnection.prototype[method];
     vi.spyOn(DuckDBConnection.prototype, method).mockImplementation(async function(this: DuckDBConnection, ...args: Parameters<typeof original>) {
       const target = /\bCOPY\b[\s\S]*\bTO\s+'([^']+)'/i.exec(args[0]);
       if (target) {
         writeFileSync(target[1], "partial");
-        throw new Error(`IO Error: Could not write file "${target[1]}": No space left on device`);
+        throw new Error(`IO Error: Could not write file "${target[1]}": ${reason}`);
       }
       return Reflect.apply(original, this, args);
     } as typeof original);
   }
 }
+
+async function internal(work: Promise<unknown>) {
+  const failure = await work.then(() => { throw new Error("write unexpectedly succeeded"); }, error => error);
+  const response = errorResponse(failure);
+  expect(response.status).toBe(500);
+  expect((await response.json()).error.code).toBe("internal");
+}
+
+it.each(["csv", "kml"])("keeps a permission-refused %s COPY internal with no partials", async format => {
+  const scope = testAccountScope(), source = path.join(dir, `input.${format}`);
+  await writeFile(source, format === "csv" ? "x,y\n1,2\n" : '<kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><Point><coordinates>1,2</coordinates></Point></Placemark></Document></kml>');
+  refuseCopy("Permission denied");
+  await internal(ingestSource(scope, source, `input.${format}`));
+  expect(await files("tmp")).toEqual([]);
+  expect(await files("tables")).toEqual([]);
+  expect(ownedFileRecords()).toEqual([]);
+});
+
+it("keeps permission-refused dataset, query and layer exports internal and the dataset intact", async () => {
+  const scope = testAccountScope(), source = path.join(dir, "input.csv");
+  await writeFile(source, "x,y\n1,2\n");
+  const { tables: [table] } = await ingestSource(scope, source, "input.csv");
+  const previous = await readFile(path.join(dir, table.file));
+  refuseCopy("Permission denied");
+  await internal(exportTable(scope, table.name, "csv"));
+  await internal(exportQueryResult(scope, "SELECT 1 AS n", "csv"));
+  await internal(exportLayerResult(scope, { name: "Points", sql: "SELECT ST_Point(1, 2) AS geom", filters: [], viz: POINTS_VIZ }, "csv"));
+  expect(await readFile(path.join(dir, table.file))).toEqual(previous);
+  expect(await files("tmp")).toEqual([]);
+  expect(await files("tiles/scratch")).toEqual([]);
+});
 
 it.each(["csv", "kml"])("removes a refused %s conversion and its ownership", async format => {
   const scope = testAccountScope();

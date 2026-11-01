@@ -1,4 +1,4 @@
-import { isStorageExhausted, storageExhausted } from "./system/storage-errors";
+import { storageFailure } from "./system/storage-errors";
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { currentTrustedOperation, isTrustedOperationRefusal, trustedMemoryRefusal, type TrustedOperation } from "./trusted-operation";
 
@@ -17,7 +17,8 @@ export function endTrustedConnectionWork(conn: DuckDBConnection): DuckDBConnecti
 /** Translate at the native boundary, before a format-specific catch can
  * mistake resource exhaustion for an unreadable source. */
 export function trustedEngineError(error: unknown, operation = currentTrustedOperation()): unknown {
-  if (isStorageExhausted(error)) return storageExhausted();
+  const storage = storageFailure(error);
+  if (storage) return storage;
   if (!operation || isTrustedOperationRefusal(error)) return error;
   if (error instanceof Error && /^out of memory error/i.test(error.message)) {
     return trustedMemoryRefusal(operation.name, /max_temp_directory_size|offload|temporary directory/i.test(error.message) ? "scratch" : "memory");

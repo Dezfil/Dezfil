@@ -1,7 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { errorResponse } from "@/lib/api/errors";
 import { authFailure } from "@/lib/auth/http";
-import { isStorageExhausted } from "./storage-errors";
+import { isStorageExhausted, rethrowStorageFailure } from "./storage-errors";
+import { trustedEngineError } from "@/lib/trusted-connection";
 
 afterEach(() => vi.restoreAllMocks());
 it.each([
@@ -13,6 +14,23 @@ it.each([
     const answer = funnel(error);
     expect(answer.status).toBe(507);
     expect((await answer.json()).error).toMatchObject({ code: "storage_exhausted" });
+  }
+});
+
+it.each(["Permission denied", "Operation not permitted", "Read-only file system", "Input/output error"])("maps native %s to internal before format wrappers", reason => {
+  const error = new Error(`IO Error: Cannot open file "destination": ${reason}`);
+  expect(() => rethrowStorageFailure(error)).toThrow(expect.objectContaining({ code: "internal", status: 500 }));
+  expect(trustedEngineError(error)).toMatchObject({ code: "internal", status: 500 });
+});
+
+it.each(["Permission denied", "Operation not permitted", "Read-only file system", "Input/output error"])("ignores %s in filenames and data", reason => {
+  for (const message of [
+    `IO Error: Could not open file "${reason}.shp": No such file or directory`,
+    `Invalid CSV: ${reason}`,
+  ]) {
+    const error = new Error(message);
+    expect(() => rethrowStorageFailure(error)).not.toThrow();
+    expect(trustedEngineError(error)).toBe(error);
   }
 });
 it.each(["EACCES", "EROFS", "EIO"])("keeps %s internal", async code => {
