@@ -105,6 +105,17 @@ it.each(["zip", "kmz"])("names exhaustion during real %s extraction and removes 
   expect(await readFile(source)).toEqual(bytes);
 });
 
+it("keeps an unreadable zip member named no space left on device.shp malformed", async () => {
+  const scope = testAccountScope(), source = path.join(dir, "named.zip");
+  await writeFile(source, buildZip([{ name: "no space left on device.shp", data: "not a shapefile" }]));
+  const failure = await ingestSource(scope, source, "named.zip").catch(error => error);
+  const response = errorResponse(failure);
+  expect(response.status).toBe(422);
+  expect((await response.json()).error.code).toBe("malformed_file");
+  expect(await files("tmp")).toEqual([]);
+  expect(ownedFileRecords()).toEqual([]);
+});
+
 it("keeps the dataset through failed download conversion and query export", async () => {
   const scope = testAccountScope();
   const source = path.join(dir, "input.csv");

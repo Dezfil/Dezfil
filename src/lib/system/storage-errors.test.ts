@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { errorResponse } from "@/lib/api/errors";
 import { authFailure } from "@/lib/auth/http";
+import { isStorageExhausted } from "./storage-errors";
 
 afterEach(() => vi.restoreAllMocks());
 it.each([
@@ -25,4 +26,12 @@ it.each(["EACCES", "EROFS", "EIO"])("keeps %s internal", async code => {
 it("does not classify arbitrary source text as a destination write", async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   expect(errorResponse(new Error("Invalid CSV: no space left on device")).status).toBe(500);
+});
+
+it.each([
+  'IO Error: Could not open file "no space left on device.shp": No such file or directory',
+  'IO Error: Could not open file "no space left on device.shp": not recognized as a supported file format.',
+  'IO Error: Could not write file "data": Invalid data: no space left on device in row 1',
+])("does not classify file names or data as exhaustion: %s", message => {
+  expect(isStorageExhausted(new Error(message))).toBe(false);
 });

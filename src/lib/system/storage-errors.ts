@@ -7,9 +7,9 @@ export function isStorageExhausted(error: unknown): boolean {
   const { code, message } = error as { code?: unknown; message?: unknown };
   if (code === "ENOSPC" || code === "SQLITE_FULL" || code === "storage_exhausted") return true;
   // DuckDB's native binding supplies text, not errno. Require an I/O write
-  // failure as well as the operating system's no-space sentence.
+  // failure ending in the operating system's reason, outside quoted paths.
   return typeof message === "string" && /^(?:IO|I\/O) Error:/i.test(message) &&
-    /(?:write|writing|create|creating|open)/i.test(message) && /no space left on device/i.test(message);
+    /(?:write|writing|create|creating|open)/i.test(message) && /: No space left on device\s*$/i.test(message);
 }
 
 export function storageExhausted(): ApiError {
