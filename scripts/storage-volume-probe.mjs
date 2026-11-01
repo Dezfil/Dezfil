@@ -8,10 +8,10 @@ import { journeyAccount, provisionJourney } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
 import { invite } from './sharing-journey-auth.mjs';
 import { captureBasis } from './revision-fixtures.mjs';
-import { MB, THRESHOLD, RESERVE, boundedVolume, freeBytes, fillVolume, heldUpload, until, jsonFile, lines, noSpace, partialFiles } from './storage-volume-support.mjs';
+import { MB, THRESHOLD, RESERVE, boundedVolume, freeBytes, fillVolume, heldUpload, heldSource, until, jsonFile, lines, noSpace, partialFiles } from './storage-volume-support.mjs';
 const base = process.argv[2], folder = process.env.DEZFIL_DATA_DIR, control = process.env.DEZFIL_PROOF_CONTROL_DIR;
 const started = Date.now(), report = [], uploads = [];
-let db;
+let db, source;
 const digest = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const mark = name => path.join(control, name);
 const hold = name => { fs.rmSync(mark(`${name}.started`), { force: true }); fs.writeFileSync(mark(`${name}.hold`), 'hold'); };
@@ -40,7 +40,9 @@ try {
     return good(await client('POST', '/api/tables', { form }));
   }
   const fileOf = table => path.join(folder, db.prepare('SELECT file FROM data_tables WHERE id=?').get(table.id).file);
-  const kept = await upload('storage_kept');
+  // The dataset whose old bytes are asserted comes from a link, so a refresh can try to replace it.
+  source = await heldSource();
+  const kept = good(await api('POST', '/api/imports/url', { body: { url: source.url('storage_kept.csv'), name: 'storage_kept' } }));
   const disposable = await upload('storage_delete');
   const map = good(await api('POST', '/api/maps', { body: { name: 'Preserved map' } }));
   const eraseMap = good(await api('POST', '/api/maps', { body: { name: 'Delete while full' } }));
@@ -58,6 +60,7 @@ try {
   const revoked = good(await api('POST', '/api/account/tokens', { body: { name: 'Revoke while full' } }));
   const scratchBefore = partialFiles(folder);
   const ledgerBefore = fs.readdirSync(path.join(folder, 'file-owners')).sort();
+  const tablesFolder = path.join(folder, 'tables'), generationsBefore = fs.readdirSync(tablesFolder).sort();
   async function capacityBack() {
     fs.rmSync(path.join(folder, '.storage-probe-hog'), { force: true });
     assert.ok(freeBytes(folder) > THRESHOLD + RESERVE, 'Free space must return above the refill boundary');
@@ -70,24 +73,32 @@ try {
     assert.ok(freeBytes(folder) < 4096);
   }
   // Each declaration fits at admission, but no aggregate capacity reservation exists.
+  // The refresh is the road that would replace the asserted dataset: its download is under way when the volume fills.
   assert.ok(freeBytes(folder) - THRESHOLD > 128 * MB);
   const pair = [heldUpload(base, admin.cookie), heldUpload(base, admin.cookie)]; uploads.push(...pair);
+  source.hold();
+  const replacement = api('POST', `/api/tables/${kept.name}/refresh`);
+  void replacement.catch(() => {});
+  await source.requested;
   // The conversion expands past everything the volume has and meets the last block itself.
   const nativeConversion = api('POST', '/api/query/export', { body: { sql: expanded, format: 'csv' } });
   void nativeConversion.catch(() => {});
   await until(() => lines(mark('copies.ndjson')), rows => rows.some(row => row.event === 'entered'), 'The conversion never entered the engine');
-  assert.ok(writerState().live >= 3, 'Two receivers and a conversion were not simultaneously admitted');
+  assert.ok(writerState().live >= 4, 'Two receivers, a conversion and a refresh were not simultaneously admitted');
   noSpace(await nativeConversion);
   assert.ok(lines(mark('native-errors.ndjson')).some(row => /could not write/i.test(row.message) && /no space left on device/i.test(row.message)), 'The conversion must run out of volume mid-write');
   // Its partial is gone, so the hog takes what it freed before the others go on.
   checkpointAndFill();
-  const nativeAnswers = await Promise.all([...pair.map(item => item.finish())]);
+  source.release();
+  const nativeAnswers = await Promise.all([replacement, ...pair.map(item => item.finish())]);
   for (const answer of nativeAnswers) noSpace(answer);
   await until(writerState, state => state.live === 0, 'Failed native writes did not settle');
   assert.deepEqual(partialFiles(folder), scratchBefore, 'Native failures leave no partials');
   assert.deepEqual(fs.readdirSync(path.join(folder, 'file-owners')).sort(), ledgerBefore, 'Native failures leave no ownership records');
+  assert.equal(fileOf(kept), tableFile, 'A refused replacement must leave the dataset naming its generation');
   assert.equal(digest(tableFile), before.table, 'Existing dataset generation remains byte-identical');
-  report.push({ check: 'overlapping native writes', status: 'confirmed', conversion: 507, answers: nativeAnswers.map(a => a.status) });
+  assert.deepEqual(fs.readdirSync(tablesFolder).sort(), generationsBefore, 'A refused replacement leaves no candidate generation');
+  report.push({ check: 'overlapping native writes', status: 'confirmed', conversion: 507, answers: nativeAnswers.map(a => a.status), replaced: kept.name });
   await capacityBack();
 
   // A COPY in the engine, a real tile process and an open declared body are live together when recovery fires.
@@ -181,6 +192,13 @@ try {
   assert.deepEqual({ ...db.prepare('SELECT status, name, email, password_hash, is_admin FROM accounts WHERE id=?').get(target.id) }, { status: 'deleted', name: null, email: null, password_hash: null, is_admin: null });
   await upload('storage_after');
   await until(render, value => value.tiles?.state === 'ready', 'Tile failure remained sticky after capacity returned');
+  // The control for the checksum above: the same road, with room, does replace those bytes.
+  source.serve('id,lon,lat\n' + Array.from({ length: 50 }, (_, i) => `${i},${13.3 + i / 1000},52.6`).join('\n'));
+  const refreshed = good(await api('POST', `/api/tables/${kept.name}/refresh`));
+  assert.equal(refreshed.rowCount, 50);
+  assert.notEqual(fileOf(kept), tableFile, 'A refresh with room must make a new generation');
+  assert.notEqual(digest(fileOf(kept)), before.table, 'A refresh with room must change the bytes');
+  report.push({ check: 'replacement control', status: 'confirmed', rowCount: refreshed.rowCount });
   const transitions = lines(mark('storage-log.ndjson')).map(row => /^\[storage\] (full|available):/.exec(row.message)?.[1]).filter(Boolean);
   assert.ok(transitions.includes('full') && transitions.includes('available'));
   assert.ok(transitions.every((value, i) => !i || value !== transitions[i - 1]), 'Transitions must not repeat unchanged state');
@@ -190,4 +208,4 @@ try {
   const result = { label: 'failed', message: error.message, report };
   if (control) fs.writeFileSync(mark('result.json'), JSON.stringify(result, null, 2));
   console.error(JSON.stringify(result)); process.exitCode = 1;
-} finally { db?.close(); for (const upload of uploads) upload.close(); }
+} finally { db?.close(); source?.close(); for (const upload of uploads) upload.close(); }

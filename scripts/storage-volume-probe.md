@@ -55,6 +55,8 @@ What is live when recovery fires, and what stays held:
   reading, not writing a tile.
 - **The receiver is a real server stream.** The client declares a body and stops
   sending. Only the peer is held; the server code is the shipped code.
+- **The refresh is a real download.** Its loopback source declares a large file
+  and stops after the first MB until the volume is full. Only the peer is held.
 
 The preload only observes: it logs native results, writer events and the server's
 CPU, and pauses nothing. With `DEZFIL_PROOF_DISABLE_INTERRUPT=1` it disables the
@@ -65,10 +67,12 @@ every pull request against the real engine in
 
 The assertions cover:
 
-- Two declared uploads admitted together, each fitting alone, and a conversion
-  that expands past what the volume has. At zero free blocks all answer 507
-  `storage_exhausted`, leave no partials or ownership records, and keep the
-  existing dataset generation.
+- Two declared uploads admitted together, each fitting alone, a failing refresh
+  of the dataset whose bytes are asserted, and a conversion that expands past
+  what the volume has. At zero free blocks all answer 507 `storage_exhausted`,
+  leave no partials, candidate generation or ownership records, and keep the
+  existing dataset generation byte for byte. After space returns, the same refresh
+  replaces those bytes, which is what makes that checksum able to fail.
 - A live COPY, a live tiler and a declared receiver at zero. An existing session
   reads and a fresh sign-in succeeds. The recovery fence stops all three with
   `storage_exhausted`, records settlement within 35 seconds, removes scratch and

@@ -11,7 +11,7 @@ export function containerArguments({ image, name, root, port }) {
     '-v', `${root}/scripts:/probes:ro`, '-e', `PORT=${port}`, '-e', 'HOSTNAME=127.0.0.1',
     '-e', 'DEZFIL_DATA_DIR=/data', '-e', 'DEZFIL_PROOF_CONTROL_DIR=/proof', '-e', 'DEZFIL_PROOF_TILER=/usr/local/bin/tippecanoe',
     '-e', 'DEZFIL_TIPPECANOE=/probes/storage-volume-tiler.mjs', '-e', 'DEZFIL_CHROMIUM_PATH=/proof/no-browser',
-    '-e', 'DEZFIL_TRUSTED_PROXIES=', '-e', 'DEZFIL_RENDER_CAP_FEATURES=10', '-e', 'DEZFIL_UPLOAD_MAX_MB=512',
+    '-e', 'DEZFIL_TRUSTED_PROXIES=', '-e', 'DEZFIL_EGRESS_ALLOWLIST=127.0.0.1', '-e', 'DEZFIL_RENDER_CAP_FEATURES=10', '-e', 'DEZFIL_UPLOAD_MAX_MB=512',
     '-e', 'DEZFIL_TRUSTED_MEMORY_MB=512', '-e', 'DEZFIL_QUERY_MEMORY_MB=256', '-e', 'SQLITE_TMPDIR=/data/sqlite-tmp',
     image, 'node', '--import=/app/scripts/ingress-preload.mjs', '--import=/probes/storage-volume-preload.mjs', 'server.js'];
 }

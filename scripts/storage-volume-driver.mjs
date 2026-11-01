@@ -36,7 +36,7 @@ try {
   const env = { ...process.env, PATH: `${path.dirname(process.execPath)}:${process.env.PATH}`, PORT: String(port), HOSTNAME: '127.0.0.1',
     DEZFIL_DATA_DIR: directory, DEZFIL_PROOF_CONTROL_DIR: control, DEZFIL_PROOF_TILER: tiler,
     DEZFIL_TIPPECANOE: path.join(root, 'scripts/storage-volume-tiler.mjs'), DEZFIL_CHROMIUM_PATH: path.join(control, 'no-browser'),
-    DEZFIL_TRUSTED_PROXIES: '', DEZFIL_RENDER_CAP_FEATURES: '10', DEZFIL_UPLOAD_MAX_MB: '512',
+    DEZFIL_TRUSTED_PROXIES: '', DEZFIL_EGRESS_ALLOWLIST: '127.0.0.1', DEZFIL_RENDER_CAP_FEATURES: '10', DEZFIL_UPLOAD_MAX_MB: '512',
     DEZFIL_TRUSTED_MEMORY_MB: '512', DEZFIL_QUERY_MEMORY_MB: '256', SQLITE_TMPDIR: path.join(directory, 'sqlite-tmp'), NEXT_TELEMETRY_DISABLED: '1' };
   server = spawn(process.execPath, [`--import=${root}/scripts/ingress-preload.mjs`, `--import=${root}/scripts/storage-volume-preload.mjs`, 'server.js'],
     { cwd: standalone, env, stdio: ['ignore', 'pipe', 'pipe'] });

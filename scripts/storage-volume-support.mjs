@@ -67,6 +67,33 @@ export function heldUpload(base, cookie, fileBytes = 128 * MB) {
     },
   };
 }
+/** A loopback source for a link dataset. Held, it declares a large file and stops after its first MB. */
+export async function heldSource() {
+  const rows = 'id,lon,lat\n' + Array.from({ length: 40 }, (_, i) => `${i},${13.3 + i / 1000},52.5`).join('\n');
+  let body = rows, held = null, requested = Promise.withResolvers();
+  const server = http.createServer(async (request, response) => {
+    if (!held) { response.setHeader('content-length', Buffer.byteLength(body)); response.end(body); return; }
+    const { gate } = held, chunk = Buffer.alloc(MB, 0x61), declared = 64;
+    response.setHeader('content-length', declared * MB);
+    response.write(chunk);
+    requested.resolve();
+    await gate.promise;
+    for (let sent = 1; sent < declared && !response.destroyed; sent++) {
+      if (!response.write(chunk)) await new Promise(resolve => { response.once('drain', resolve); response.once('close', resolve); });
+    }
+    response.end();
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  return {
+    url: name => `http://127.0.0.1:${port}/${name}`,
+    hold() { held = { gate: Promise.withResolvers() }; requested = Promise.withResolvers(); },
+    get requested() { return requested.promise; },
+    release() { const was = held; held = null; was?.gate.resolve(); },
+    serve(text) { body = text; },
+    close() { held?.gate.resolve(); server.closeAllConnections(); server.close(); },
+  };
+}
 export function partialFiles(folder) {
   const roots = ['tmp', 'tiles/scratch', 'exports'];
   return roots.flatMap(root => {

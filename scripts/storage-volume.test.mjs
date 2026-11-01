@@ -43,6 +43,7 @@ test('the image job uses the same driver and a bounded writable volume with sepa
   assert.ok(args.includes('/checkout/scripts:/probes:ro'));
   assert.ok(args.includes('--import=/probes/storage-volume-preload.mjs'));
   assert.ok(args.includes('DEZFIL_PROOF_TILER=/usr/local/bin/tippecanoe'), 'The container arm holds the image\'s real tiler');
+  assert.ok(args.includes('DEZFIL_EGRESS_ALLOWLIST=127.0.0.1'), 'The replacement source is the probe\'s own loopback');
   const workflow = yaml.load(fs.readFileSync('.github/workflows/ci.yml', 'utf8'));
   const step = workflow.jobs.image.steps.find(step => step.name === 'Full-volume admission, fencing and recovery on bounded tmpfs');
   assert.equal(step['timeout-minutes'], 6);
