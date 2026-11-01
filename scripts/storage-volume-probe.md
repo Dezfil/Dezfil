@@ -79,7 +79,10 @@ The assertions cover:
   keeps the previous archive and evidence byte for byte.
 - Dataset deletion, which must remove its file, token revocation, unpublish, map
   deletion and cache clearing, refilling the hog before each action so a prior
-  recovery cannot mask it.
+  recovery cannot mask it. The publication answers while full and stops answering
+  at unpublish, before its map is deleted. Each provider cache holds a seeded answer
+  file that the clear must remove; the seed is a file in the cache's place, not one
+  a provider answered, because the probe has no provider and no network.
 - Account deletion with less than twice the metadata size free. The account's
   file is gone by then. No outside SQLite handle is kept open: compaction reports
   `needs-retry`, then completes after space returns, leaving the erased row. The fixture pads the store with an unrelated retained

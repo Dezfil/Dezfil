@@ -61,6 +61,7 @@ try {
   const scratchBefore = partialFiles(folder);
   const ledgerBefore = fs.readdirSync(path.join(folder, 'file-owners')).sort();
   const tablesFolder = path.join(folder, 'tables'), generationsBefore = fs.readdirSync(tablesFolder).sort();
+  const anonymous = journeyApi(base);
   async function capacityBack() {
     fs.rmSync(path.join(folder, '.storage-probe-hog'), { force: true });
     assert.ok(freeBytes(folder) > THRESHOLD + RESERVE, 'Free space must return above the refill boundary');
@@ -155,13 +156,25 @@ try {
   assert.ok(fences.length && fences.every(row => Number(row[1]) <= 35_000 && row[2] === '0'));
   report.push({ check: 'recovery overlap', status: 'confirmed', fenced: aborted.length, fenceToSettlementMs: fences.map(row => Number(row[1])), live: { copyCores, copyInterruptedMs: copyEnd.at - firstAbort, copyEnd: copyEnd.message, tilerPid: tiler.tiler } });
 
+  const cacheFolders = ['geocode', 'isochrone', 'overpass'].map(name => path.join(folder, 'cache', name));
+  for (const cache of cacheFolders) { fs.mkdirSync(cache, { recursive: true }); fs.writeFileSync(path.join(cache, 'storage-probe-answer.json'), '{}'); }
   // Refill the hog before every action: one successful recovery must not mask the next.
   const actions = [
     ['dataset deletion', () => api('DELETE', `/api/tables/${disposable.name}`)],
     ['token revocation', () => api('DELETE', `/api/account/tokens/${revoked.id}`)],
-    ['unpublish', async () => api('DELETE', `/api/maps/${eraseMap.id}/publish`, { basis: captureBasis(good(await api('GET', `/api/maps/${eraseMap.id}`))) })],
+    ['unpublish', async () => {
+      good(await anonymous('GET', `/api/published/${published.token}`)); // Reading a publication continues while full.
+      const answer = await api('DELETE', `/api/maps/${eraseMap.id}/publish`, { basis: captureBasis(good(await api('GET', `/api/maps/${eraseMap.id}`))) });
+      assert.equal((await anonymous('GET', `/api/published/${published.token}`)).status, 404, 'The public address must stop answering at unpublish, before the map is deleted');
+      return answer;
+    }],
     ['map deletion', async () => api('DELETE', `/api/maps/${eraseMap.id}`, { basis: captureBasis(good(await api('GET', `/api/maps/${eraseMap.id}`))) })],
-    ['cache clear', () => api('DELETE', '/api/instance/caches')],
+    ['cache clear', async () => {
+      const answer = await api('DELETE', '/api/instance/caches');
+      assert.deepEqual(answer.json?.cleared, ['geocode', 'isochrone', 'overpass'], JSON.stringify(answer));
+      for (const cache of cacheFolders) assert.equal(fs.existsSync(path.join(cache, 'storage-probe-answer.json')), false, 'Clearing must remove the cached answer');
+      return answer;
+    }],
   ];
   for (const [check, action] of actions) { checkpointAndFill(); const answer = await action(); good(answer); report.push({ check, status: 'confirmed', http: answer.status }); }
   assert.equal(db.prepare('SELECT id FROM data_tables WHERE id=?').get(disposable.id), undefined);
