@@ -58,10 +58,10 @@ function releaseSlice(): boolean {
 
 /** Only retry a transaction that rolled back or an idempotent cleanup step.
  * Bodies, password derivations and already committed work stay outside. */
-export function withStorageRecovery<T>(work: () => T | Promise<T>): Promise<T> {
+export async function withStorageRecovery<T>(work: () => T | Promise<T>): Promise<T> {
+  try { return await work(); }
+  catch (error) { if (!isStorageExhausted(error)) throw error; }
   return exclusive(async () => {
-    try { return await work(); }
-    catch (error) { if (!isStorageExhausted(error)) throw error; }
     const fence = await fenceStorageWriters();
     try {
       for (let attempt = 0; attempt <= STORAGE_RESERVE_BYTES / STORAGE_RELEASE_BYTES; attempt++) {
@@ -74,6 +74,9 @@ export function withStorageRecovery<T>(work: () => T | Promise<T>): Promise<T> {
     } finally { fence.release(); }
   });
 }
+
+/** Cleanup helpers call this only around writes, after their work drains. */
+export type StorageRecovery = typeof withStorageRecovery;
 
 export async function startStorageReserve(): Promise<void> {
   await replenishStorageReserve();

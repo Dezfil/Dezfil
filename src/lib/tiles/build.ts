@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { ApiError } from "@/lib/api/errors";
 import { isStorageExhausted, storageExhausted } from "@/lib/system/storage-errors";
 import { readStorageState } from "@/lib/system/storage-state";
@@ -509,11 +510,11 @@ export async function eraseTileArtifacts(layerIds: readonly string[]): Promise<v
   await Promise.all(waits);
   await closeTileArchives(layerIds);
   for (const id of layerIds) {
-    await removeTileArtifacts(id);
+    await withStorageRecovery(() => removeTileArtifacts(id));
     let names: string[];
     try { names = await readdir(tileScratchDir()); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; names = []; }
-    for (const name of names.filter(n => n.startsWith(`${id}.`))) await rm(path.join(tileScratchDir(), name), { force: true });
+    for (const name of names.filter(n => n.startsWith(`${id}.`))) await withStorageRecovery(() => rm(path.join(tileScratchDir(), name), { force: true }));
     generations.delete(id); forgetLayer(id);
   }
 }

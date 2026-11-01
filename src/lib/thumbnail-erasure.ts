@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { dataDir } from "@/lib/config";
@@ -23,8 +24,8 @@ export async function eraseThumbnailArtifacts(ownedMaps: readonly string[], data
       if (parseInputs(input)?.datasets.some(d => datasets.includes(d.id))) affected.add(name.replace(/\.json(?:\..*\.tmp)?$/, ""));
     }
     for (const name of (await names(images)).filter(name => name.startsWith(`${mapId}.`))) {
-      if (owned || affected.has(name) || affected.size > 0 && name === `${mapId}.json`) await rm(path.join(images, name), { force: true });
+      if (owned || affected.has(name) || affected.size > 0 && name === `${mapId}.json`) await withStorageRecovery(() => rm(path.join(images, name), { force: true }));
     }
-    for (const name of recorded) if (owned || [...affected].some(image => name === `${image}.json` || name.startsWith(`${image}.json.`))) await rm(path.join(evidence, name), { force: true });
+    for (const name of recorded) if (owned || [...affected].some(image => name === `${image}.json` || name.startsWith(`${image}.json.`))) await withStorageRecovery(() => rm(path.join(evidence, name), { force: true }));
   })));
 }

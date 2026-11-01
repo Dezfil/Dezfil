@@ -70,29 +70,28 @@ async function continueDeletion(journal: DeletionJournal, db: Database): Promise
     // crash is safe, including dissolution whose transaction removes its source.
     const stages: (() => void | Promise<void>)[] = [
       async () => { await eraseAccountWork(accountId, content, db); await drainAccountWork(accountId, db); },
-      () => eraseAccountCredentials(accountId, db),
-      () => { eraseAccountContent(accountId, db); },
-      () => { dissolveAcceptedAccountProjects(accountId, journal.actorId, db); },
+      () => withStorageRecovery(() => eraseAccountCredentials(accountId, db)),
+      () => withStorageRecovery(() => { eraseAccountContent(accountId, db); }),
+      () => withStorageRecovery(() => { dissolveAcceptedAccountProjects(accountId, journal.actorId, db); }),
       async () => { if (!journal.invited) { await eraseAccountCopies(accountId, db); await captureCopies(journal.id, db); } },
       async () => {
-        for (const file of journal.files) registerAccountFile(accountId, file.file, file.directory);
+        for (const file of journal.files) await withStorageRecovery(() => registerAccountFile(accountId, file.file, file.directory));
         await eraseAccountFiles(accountId, content.datasets, db);
       },
       () => journal.invited ? undefined : eraseAccountDerivatives(accountId, content, db),
       () => journal.invited ? undefined : eraseAccountQueryState(accountId, db),
       () => journal.invited ? undefined : eraseProviderCaches(accountId, db),
-      () => { db.transaction(() => {
+      () => withStorageRecovery(() => { db.transaction(() => {
         if (journal.invited) db.prepare("DELETE FROM accounts WHERE id=? AND status='deleting'").run(accountId);
         else db.prepare(`UPDATE accounts SET status='deleted',name=NULL,email=NULL,password_hash=NULL,is_admin=NULL,
           created_at=NULL,updated_at=NULL,last_sign_in_at=NULL,picture_version=NULL,external_identity=NULL WHERE id=? AND status='deleting'`).run(accountId);
-      }).immediate(); },
-      () => { compactMetadataStore(db); },
+      }).immediate(); }),
+      () => withStorageRecovery(() => { compactMetadataStore(db); }),
     ];
     while (journal.next < stages.length) {
       // Admitted work may need storage recovery to settle. Waiting for it
       // under that same latch blocks both its settlement and pending replies.
-      if (journal.next === 0) await stages[journal.next]();
-      else await withStorageRecovery(stages[journal.next]);
+      await stages[journal.next]();
       journal.next++;
       await withStorageRecovery(() => writeDeletionJournal(journal));
     }

@@ -12,6 +12,18 @@ const file = () => path.join(dataDir(), STORAGE_RESERVE_NAME);
 const plenty = () => ({ full: false, free: 4 * STORAGE_FULL_BYTES, total: 8 * STORAGE_FULL_BYTES, threshold: STORAGE_FULL_BYTES });
 afterEach(() => { rmSync(file(), { force: true }); rmSync(file() + ".backup", { force: true }); });
 
+it("runs a healthy first attempt while another recovery-class operation waits", async () => {
+  const entered = Promise.withResolvers<void>(), finish = Promise.withResolvers<void>();
+  const waiting = withStorageRecovery(async () => { entered.resolve(); await finish.promise; });
+  await entered.promise;
+  let completed = false;
+  const other = withStorageRecovery(() => { completed = true; });
+  try {
+    await new Promise(resolve => setImmediate(resolve));
+    expect(completed).toBe(true);
+  } finally { finish.resolve(); await Promise.all([waiting, other]); }
+});
+
 it("allocates real blocks, survives a backup and restore, and classifies as retained Other", async () => {
   await replenishStorageReserve(plenty);
   expect(statSync(file()).size).toBe(STORAGE_RESERVE_BYTES);

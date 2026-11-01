@@ -18,6 +18,10 @@ import * as providers from "./account-erasure-provider-caches";
 import * as files from "@/lib/ingest/account-files";
 import * as journals from "./account-deletion-journal";
 import { acceptAccountDeletion, finishAccountDeletion, pendingAccountDeletion } from "./account-deletion";
+import { layerDownloadTickets } from "@/lib/export/layer-download-tickets";
+import { signIn } from "./accounts";
+import { hashPassword } from "./passwords";
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 const root = process.env.DEZFIL_DATA_DIR!;
 let directory: string, actor: ReturnType<typeof authenticateSession>;
 beforeEach(() => {
@@ -88,6 +92,46 @@ it("waits a pre-acceptance lease before deleting rows", async () => {
   await new Promise(r => setImmediate(r)); expect(done).toBe(false);
   expect(metadataDb().prepare("SELECT count(*) AS n FROM maps WHERE owner_id='target'").get()).toEqual({ n: 1 });
   lease.release(); expect(await finish).toMatchObject({ state: "completed" });
+});
+
+it.each([false, true])("lets sign-in finish while deletion waits for another account's download (retry: %s)", async retry => {
+  const db = metadataDb(), password = "paper cranes after midnight";
+  db.prepare("UPDATE accounts SET password_hash=? WHERE id='admin'").run(await hashPassword(password));
+  const scope = testAccountScope(undefined, "control");
+  const binding = { layerId: "prepared-layer", format: "csv" as const };
+  const prepared = path.join(directory, "prepared.csv");
+  writeFileSync(prepared, "n\n1\n");
+  const ticket = layerDownloadTickets.prepare(scope, binding, {
+    path: prepared, filename: "prepared.csv", contentType: "text/csv", size: 4,
+    cleanup: async () => { rmSync(prepared); },
+  });
+  const accepted = acceptAccountDeletion(actor!, "target", () => {});
+  if (retry) vi.spyOn(journals, "writeDeletionJournal").mockImplementationOnce(() => {
+    throw Object.assign(new Error("full journal"), { code: "ENOSPC" });
+  });
+  const deletion = finishAccountDeletion(actor!, accepted.id);
+  let login: ReturnType<typeof signIn> | undefined;
+  try {
+    await vi.waitFor(() => expect(journals.readDeletionJournal(accepted.id).next).toBe(4));
+    // A second recovery must also be able to acquire and release the latch
+    // while deletion waits, even after deletion itself has retried a write.
+    let attempts = 0;
+    const recovered = withStorageRecovery(() => {
+      if (!attempts++) throw Object.assign(new Error("full write"), { code: "ENOSPC" });
+    });
+    let signedIn = false;
+    login = signIn(getAccount("admin")!.email, password, db).then(session => { signedIn = true; return session; });
+    await vi.waitFor(() => expect(signedIn).toBe(true), { timeout: 2000 });
+    await recovered;
+    expect(journals.readDeletionJournal(accepted.id).next).toBe(4);
+    expect(authenticateSession((await login).secret)?.account.id).toBe("admin");
+  } finally {
+    layerDownloadTickets.claim(scope, ticket, binding)!.complete();
+    await deletion;
+    await login;
+    await layerDownloadTickets.dispose();
+  }
+  expect(await deletion).toMatchObject({ state: "completed" });
 });
 
 it("keeps journal and process memory obligations isolated until each deletion completes", async () => {

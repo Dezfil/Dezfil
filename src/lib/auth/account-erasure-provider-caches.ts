@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import type { Database } from "better-sqlite3";
 import { dataDir } from "@/lib/config";
 import { requireDeletingAccount } from "@/lib/metadata/account-erasure";
@@ -8,5 +9,5 @@ export async function eraseProviderCaches(accountId: string, db: Database): Prom
     if (account?.status === "invited") return true;
     requireDeletingAccount(accountId, db); return false;
   }).immediate();
-  if (!invited) await purgeProviderAnswerFiles(dataDir());
+  if (!invited) await purgeProviderAnswerFiles(dataDir(), undefined, withStorageRecovery);
 }

@@ -1,3 +1,4 @@
+import { withStorageRecovery } from "@/lib/system/storage-reserve";
 import { assertDeletionCommit } from "@/lib/auth/account-deletion-work";
 import { requireAccountScope, type AccountScope } from "@/lib/auth/scope";
 import { randomBytes } from "node:crypto";
@@ -357,7 +358,11 @@ export class LayerDownloadTicketStore {
   /** Snapshot before waiting: preparations admitted later belong to their own lease. */
   settlePrepared(accountId?: string): Promise<void> {
     return Promise.all([...this.pending].filter(e => accountId === undefined || e.accountId === accountId)
-      .map(async entry => { await entry.settled.promise; await this.cleanup(entry); })).then(() => {});
+      .map(async entry => {
+        await entry.settled.promise;
+        await entry.streamClosed;
+        await withStorageRecovery(() => this.cleanup(entry));
+      })).then(() => {});
   }
 
   async eraseAccount(accountId: string): Promise<void> {
