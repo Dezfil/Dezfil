@@ -1,3 +1,4 @@
+import { rethrowStorageFailure } from "@/lib/system/storage-errors";
 import { currentTrustedOperation, isTrustedOperationRefusal } from "@/lib/trusted-operation";
 import { settingRemedy } from "@/lib/settings/remedy";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -386,6 +387,7 @@ export async function extractArchive(
   } catch (error) {
     currentTrustedOperation()?.assertCanCommit();
     if (isTrustedOperationRefusal(error)) throw error;
+    rethrowStorageFailure(error);
     throw malformed(
       displayName,
       error instanceof Error ? error.message : "unreadable archive",

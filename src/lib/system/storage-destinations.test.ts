@@ -23,6 +23,7 @@ import { copyDatasetFile } from "@/lib/templates/copy-artifacts";
 import { saveThumbnail, readThumbnail } from "@/lib/map-thumbnails";
 import { errorResponse } from "@/lib/api/errors";
 import { ownedFileRecords } from "@/lib/ingest/file-ownership";
+import { buildZip } from "../../../test-support/zip";
 
 const faults = vi.hoisted(() => ({ stream: false, picture: false }));
 vi.mock("node:fs", async original => {
@@ -89,6 +90,19 @@ it.each(["csv", "kml"])("removes a refused %s conversion and its ownership", asy
   await exhausted(ingestSource(scope, source, `input.${format}`));
   expect(await files("tables")).toEqual([]);
   expect(ownedFileRecords()).toEqual([]);
+});
+
+it.each(["zip", "kmz"])("names exhaustion during real %s extraction and removes partial members", async format => {
+  const scope = testAccountScope();
+  const source = path.join(dir, `input.${format}`);
+  const bytes = buildZip([{ name: format === "zip" ? "roads.shp" : "doc.kml", data: "member bytes" }]);
+  await writeFile(source, bytes);
+  faults.stream = true;
+  await exhausted(ingestSource(scope, source, `input.${format}`));
+  expect(await files("tmp")).toEqual([]);
+  expect(await files("tables")).toEqual([]);
+  expect(ownedFileRecords()).toEqual([]);
+  expect(await readFile(source)).toEqual(bytes);
 });
 
 it("keeps the dataset through failed download conversion and query export", async () => {
