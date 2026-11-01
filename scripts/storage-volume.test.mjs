@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { MB, boundedVolume, fillVolume, noSpace } from './storage-volume-support.mjs';
+import { spawn, spawnSync } from 'node:child_process';
+import { MB, boundedVolume, fillVolume, jsonFile, noSpace, until } from './storage-volume-support.mjs';
 const refusal = Object.assign(new Error('no space left on device'), { code: 'ENOSPC' });
 test('the filler requires a bounded volume before opening a file', () => {
   for (const total of [512 * MB, 3 * 1024 * MB]) {
@@ -42,10 +42,29 @@ test('the image job uses the same driver and a bounded writable volume with sepa
   assert.ok(args.includes('--network=none')); assert.ok(!args.includes('-p')); assert.ok(!args.includes('--privileged'));
   assert.ok(args.includes('/checkout/scripts:/probes:ro'));
   assert.ok(args.includes('--import=/probes/storage-volume-preload.mjs'));
+  assert.ok(args.includes('DEZFIL_PROOF_TILER=/usr/local/bin/tippecanoe'), 'The container arm holds the image\'s real tiler');
   const workflow = yaml.load(fs.readFileSync('.github/workflows/ci.yml', 'utf8'));
   const step = workflow.jobs.image.steps.find(step => step.name === 'Full-volume admission, fencing and recovery on bounded tmpfs');
   assert.equal(step['timeout-minutes'], 6);
   assert.match(step.run, /node scripts\/storage-volume-driver\.mjs --container dezfil:ci --port 3409/);
+});
+test('the tiler wrapper keeps the original binary alive on its input and a stop ends that process', async () => {
+  fs.mkdirSync(path.join(process.cwd(), '.claude/test-data'), { recursive: true });
+  const folder = fs.mkdtempSync(path.join(process.cwd(), '.claude/test-data/storage-tiler-'));
+  const stand = path.join(folder, 'tiler'), input = path.join(folder, 'in.geojsonl'), output = path.join(folder, 'out.pmtiles'), started = path.join(folder, 'tile.started');
+  fs.writeFileSync(stand, `#!/bin/sh\ntouch "$2"\nexec cat > "$2.read"\n`, { mode: 0o755 });
+  fs.writeFileSync(input, '{"a":1}\n{"a":2}\n'); fs.writeFileSync(path.join(folder, 'tile.hold'), 'hold');
+  const env = { ...process.env, DEZFIL_PROOF_CONTROL_DIR: folder, DEZFIL_PROOF_TILER: stand };
+  const wrapper = spawn(process.execPath, ['scripts/storage-volume-tiler.mjs', '-o', output, input], { env, stdio: 'ignore' });
+  const ended = new Promise(resolve => wrapper.once('exit', resolve));
+  try {
+    const pids = await until(() => jsonFile(started), Boolean, 'The held tiler never started', 10_000);
+    assert.equal(pids.pid, wrapper.pid); assert.notEqual(pids.tiler, wrapper.pid); assert.equal(pids.binary, stand);
+    process.kill(pids.tiler, 0); // Alive, and blocked on the input's last line.
+    await until(() => fs.existsSync(`${output}.read`) && fs.readFileSync(`${output}.read`, 'utf8'), text => text === '{"a":1}\n', 'The tiler never read its input', 10_000);
+    wrapper.kill('SIGTERM'); await ended;
+    assert.throws(() => process.kill(pids.tiler, 0), { code: 'ESRCH' });
+  } finally { wrapper.kill('SIGKILL'); fs.rmSync(folder, { recursive: true, force: true }); }
 });
 test('conflicting driver modes fail before invoking Docker', () => {
   const result = spawnSync(process.execPath, ['scripts/storage-volume-driver.mjs', '--container', 'dezfil:ci', '--standalone', '.next/standalone'], { encoding: 'utf8' });

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { setTimeout as pause } from 'node:timers/promises';
 import { journeyAccount, provisionJourney } from './journey-auth.mjs';
 import { journeyApi } from './journey-http.mjs';
 import { invite } from './sharing-journey-auth.mjs';
@@ -19,6 +20,10 @@ const good = result => { assert.ok(result.status >= 200 && result.status < 300, 
 const controlStarted = name => until(() => jsonFile(mark(`${name}.started`)), Boolean, `${name} never reached its held native work`);
 const writerState = () => jsonFile(mark('writers.json'), { live: -1 });
 const expanded = "SELECT repeat('storage_probe_conversion', 500) AS payload FROM range(200000)";
+// Computes for far longer than any run and writes only its one answer row at the end, so a
+// real COPY stays in the engine on a volume with no block left, until something stops it.
+const computing = "SELECT 'storage_probe_conversion' AS marker, sum(range) AS total FROM range(1000000000000)";
+const alive = pid => { process.kill(pid, 0); };
 try {
   assert.ok(base && new URL(base).hostname === '127.0.0.1' && new URL(base).port !== '3000', 'Use the owned loopback instance');
   assert.ok(folder && control && !path.resolve(control).startsWith(path.resolve(folder) + path.sep), 'Controls must be outside the bounded volume');
@@ -35,7 +40,8 @@ try {
     return good(await client('POST', '/api/tables', { form }));
   }
   const fileOf = table => path.join(folder, db.prepare('SELECT file FROM data_tables WHERE id=?').get(table.id).file);
-  const kept = await upload('storage_kept'), disposable = await upload('storage_delete');
+  const kept = await upload('storage_kept');
+  const disposable = await upload('storage_delete');
   const map = good(await api('POST', '/api/maps', { body: { name: 'Preserved map' } }));
   const eraseMap = good(await api('POST', '/api/maps', { body: { name: 'Delete while full' } }));
   const layer = good(await api('POST', `/api/maps/${map.id}/layers`, { basis: captureBasis(map), body: { name: 'Points', sql: `SELECT id, geometry FROM ${kept.name}` } }));
@@ -64,37 +70,49 @@ try {
     assert.ok(freeBytes(folder) < 4096);
   }
   // Each declaration fits at admission, but no aggregate capacity reservation exists.
-  hold('conversion');
-  const nativeConversion = api('POST', '/api/query/export', { body: { sql: expanded, format: 'csv' } });
-  void nativeConversion.catch(() => {});
-  await controlStarted('conversion');
   assert.ok(freeBytes(folder) - THRESHOLD > 128 * MB);
   const pair = [heldUpload(base, admin.cookie), heldUpload(base, admin.cookie)]; uploads.push(...pair);
-  await until(writerState, state => state.live >= 3, 'Two receivers and a conversion were not simultaneously admitted');
+  // The conversion expands past everything the volume has and meets the last block itself.
+  const nativeConversion = api('POST', '/api/query/export', { body: { sql: expanded, format: 'csv' } });
+  void nativeConversion.catch(() => {});
+  await until(() => lines(mark('copies.ndjson')), rows => rows.some(row => row.event === 'entered'), 'The conversion never entered the engine');
+  assert.ok(writerState().live >= 3, 'Two receivers and a conversion were not simultaneously admitted');
+  noSpace(await nativeConversion);
+  assert.ok(lines(mark('native-errors.ndjson')).some(row => /could not write/i.test(row.message) && /no space left on device/i.test(row.message)), 'The conversion must run out of volume mid-write');
+  // Its partial is gone, so the hog takes what it freed before the others go on.
   checkpointAndFill();
-  release('conversion');
-  const nativeAnswers = await Promise.all([nativeConversion, ...pair.map(item => item.finish())]);
+  const nativeAnswers = await Promise.all([...pair.map(item => item.finish())]);
   for (const answer of nativeAnswers) noSpace(answer);
-  assert.ok(lines(mark('native-errors.ndjson')).some(row => /no space left on device/i.test(row.message)), 'Native conversion must encounter the full filesystem');
   await until(writerState, state => state.live === 0, 'Failed native writes did not settle');
   assert.deepEqual(partialFiles(folder), scratchBefore, 'Native failures leave no partials');
   assert.deepEqual(fs.readdirSync(path.join(folder, 'file-owners')).sort(), ledgerBefore, 'Native failures leave no ownership records');
   assert.equal(digest(tableFile), before.table, 'Existing dataset generation remains byte-identical');
-  report.push({ check: 'overlapping native writes', status: 'confirmed', answers: nativeAnswers.map(a => a.status) });
+  report.push({ check: 'overlapping native writes', status: 'confirmed', conversion: 507, answers: nativeAnswers.map(a => a.status) });
   await capacityBack();
 
-  // Pause a conversion, a real tile process and an open declared body together.
+  // A COPY in the engine, a real tile process and an open declared body are live together when recovery fires.
   const currentMap = good(await api('GET', `/api/maps/${map.id}`));
   good(await api('PATCH', `/api/layers/${layer.id}`, { basis: captureBasis(currentMap), body: { sql: `SELECT id, geometry FROM ${kept.name} WHERE id >= 0` } }));
   hold('tile'); assert.equal((await render()).tiles?.state, 'building');
   const tiler = await controlStarted('tile');
-  hold('conversion'); const conversion = api('POST', '/api/query/export', { body: { sql: expanded, format: 'csv' } });
+  assert.equal(tiler.binary, process.env.DEZFIL_PROOF_TILER, 'The held process must be the original tiler');
+  const copiesBefore = lines(mark('copies.ndjson')).length;
+  const newCopies = () => lines(mark('copies.ndjson')).slice(copiesBefore);
+  const conversion = api('POST', '/api/query/export', { body: { sql: computing, format: 'csv' } });
   void conversion.catch(() => {});
-  await controlStarted('conversion');
+  await until(newCopies, rows => rows.some(row => row.event === 'entered'), 'The conversion never entered the engine');
   const receiver = heldUpload(base, admin.cookie); uploads.push(receiver);
   await until(writerState, state => state.live >= 3, 'Controlled overlap did not contain all three writers');
   const eventsBefore = lines(mark('writers.ndjson')).length;
+  const cpuBefore = { at: Date.now(), micros: writerState().cpuMicros };
   checkpointAndFill();
+  await pause(1500); // A window over which the engine's work can be seen, whatever the fill took.
+  const cpuAfter = { at: Date.now(), micros: writerState().cpuMicros };
+  const copyCores = (cpuAfter.micros - cpuBefore.micros) / 1000 / (cpuAfter.at - cpuBefore.at);
+  assert.ok(copyCores >= 0.25, `The server must be computing the COPY on the full volume, measured ${copyCores} cores`);
+  assert.deepEqual(newCopies().map(row => row.event), ['entered'], 'The COPY must still be in the engine on the full volume');
+  assert.ok(partialFiles(folder).some(file => /^tiles\/scratch\/export-.*\.csv$/.test(file)), 'The live COPY must have opened its file');
+  alive(tiler.tiler); alive(tiler.pid); // Each throws if the real process is already gone.
   good(await api('GET', '/api/maps')); // Existing credential on the full filesystem.
   const signin = await fetch(base + '/api/auth/sign-in', { method: 'POST', headers: { origin: base, 'content-type': 'application/json' }, body: JSON.stringify({ email: journeyAccount.email, password: journeyAccount.password }) });
   assert.equal(signin.status, 200, await signin.text());
@@ -111,15 +129,20 @@ try {
     const ended = events.find(e => e.id === event.id && e.event === 'settled');
     assert.ok(ended && ended.elapsedMs <= 35_000, 'Fenced work must settle within the allowance');
   }
-  assert.throws(() => process.kill(tiler.pid, 0), { code: 'ESRCH' }, 'The tiler process must be gone');
+  const copyEnd = newCopies().find(row => row.event !== 'entered');
+  assert.match(copyEnd?.message ?? '', /interrupt/i, 'The fence must interrupt the executing COPY, not find it ended');
+  const firstAbort = Math.min(...aborted.map(event => event.at));
+  assert.ok(copyEnd.at >= firstAbort, 'The COPY must end after the fence refuses it');
+  assert.throws(() => alive(tiler.tiler), { code: 'ESRCH' }, 'The real tile process must be gone');
+  assert.throws(() => alive(tiler.pid), { code: 'ESRCH' }, 'The process the application started must be gone');
   await until(() => lines(mark('storage-log.ndjson')), rows => rows.some(row => /fence settled/.test(row.message)), 'No measured fence settlement');
   const failed = await render(); assert.equal(failed.ok, false); assert.equal(failed.error.code, 'storage_exhausted');
   assert.equal(digest(archive), before.archive); assert.equal(digest(evidence), before.evidence); assert.equal(digest(tableFile), before.table);
   assert.deepEqual(partialFiles(folder), scratchBefore, 'Fence cleanup leaves no partials');
-  release('conversion'); release('tile');
+  release('tile');
   const fences = lines(mark('storage-log.ndjson')).map(row => /fence settled in (\d+) ms; (\d+) overdue/.exec(row.message)).filter(Boolean);
   assert.ok(fences.length && fences.every(row => Number(row[1]) <= 35_000 && row[2] === '0'));
-  report.push({ check: 'recovery overlap', status: 'confirmed', fenced: aborted.length, fenceToSettlementMs: fences.map(row => Number(row[1])) });
+  report.push({ check: 'recovery overlap', status: 'confirmed', fenced: aborted.length, fenceToSettlementMs: fences.map(row => Number(row[1])), live: { copyCores, copyInterruptedMs: copyEnd.at - firstAbort, copyEnd: copyEnd.message, tilerPid: tiler.tiler } });
 
   // Refill the hog before every action: one successful recovery must not mask the next.
   const actions = [

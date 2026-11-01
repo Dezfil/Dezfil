@@ -28,28 +28,51 @@ image's unprivileged user. `/data` is a 1.5 GB tmpfs; `/proof` is a separate
 before removing its exact container and volumes, including on failure. HFS+
 and tmpfs may fail at different byte counts; assertions concern outcomes.
 
-Allow four minutes after readiness. The driver requires at least 3 GB free on
+Allow four minutes after readiness; a passing run takes about one. The driver requires at least 3 GB free on
 the host and refuses port 3000. A disk image outside 1–2 GB cannot be filled by
 the probe. If `hdiutil` cannot create or attach the image, the result is failed,
 not a skipped or passing proof. Run it on a machine allowed to attach images.
 
 The probe uses real requests, real SQLite and DuckDB writes, and real
-tippecanoe. Its preload pauses a conversion before native COPY. Its tiler
-wrapper pauses a real build before running the original binary. A declared
-multipart body stays open after its first MB. These timing controls inject no
-no-space errors and change no application route. All control files sit outside
-the bounded volume; the hog allocates blocks until the filesystem itself
-returns ENOSPC and has no writable block left.
+tippecanoe. All control files sit outside the bounded volume; the hog allocates
+blocks until the filesystem itself returns ENOSPC and has no writable block
+left. Nothing injects a no-space error or changes an application route.
+
+What is live when recovery fires, and what stays held:
+
+- **The conversion is a real COPY in the engine, not paused.** It computes a sum
+  over a range too long to finish, so it has opened its file and writes nothing
+  until its one row: that is what lets it stay alive on a volume with no block
+  left. The probe measures the server computing while the volume is full,
+  requires the COPY to end with the engine's own interruption after the fence
+  refuses it, and requires its file to go. It does not prove interruption in the
+  middle of a block write. The earlier expanding COPY does run out of volume
+  mid-write, with nothing holding it, but it fails by itself before any fence.
+- **The tile build is the real tiler process.** The wrapper starts it on the real
+  input and holds back the last line, so it has its output open and is blocked
+  reading a pipe. The probe requires that pid alive on the full volume and gone
+  after the fence, and the scratch it left removed. What it was stopped doing is
+  reading, not writing a tile.
+- **The receiver is a real server stream.** The client declares a body and stops
+  sending. Only the peer is held; the server code is the shipped code.
+
+The preload only observes: it logs native results, writer events and the server's
+CPU, and pauses nothing. With `DEZFIL_PROOF_DISABLE_INTERRUPT=1` it disables the
+engine's interruption for a negative control: the proof must then fail with the
+fence overdue and "Recovery fence did not settle and reopen". The same control runs on
+every pull request against the real engine in
+[the fence's engine test](../src/lib/system/storage-fence-engine.test.ts).
 
 The assertions cover:
 
-- Two declared uploads admitted together, each fitting alone, and an expanding
-  conversion. At zero free blocks all answer 507 `storage_exhausted`, leave no
-  partials or ownership records, and keep the existing dataset generation.
-- A conversion, a tile process and a declared receiver live at zero. An existing
-  session reads and a fresh sign-in succeeds. The recovery fence stops all three
-  with `storage_exhausted`, records settlement within 35 seconds, removes scratch,
-  ends the tiler and keeps the previous archive and evidence byte for byte.
+- Two declared uploads admitted together, each fitting alone, and a conversion
+  that expands past what the volume has. At zero free blocks all answer 507
+  `storage_exhausted`, leave no partials or ownership records, and keep the
+  existing dataset generation.
+- A live COPY, a live tiler and a declared receiver at zero. An existing session
+  reads and a fresh sign-in succeeds. The recovery fence stops all three with
+  `storage_exhausted`, records settlement within 35 seconds, removes scratch and
+  keeps the previous archive and evidence byte for byte.
 - Dataset deletion, which must remove its file, token revocation, unpublish, map
   deletion and cache clearing, refilling the hog before each action so a prior
   recovery cannot mask it.
