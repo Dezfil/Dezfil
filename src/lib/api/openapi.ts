@@ -2052,7 +2052,17 @@ export function buildOpenApiDocument() {
             "derived from (quantile|equal|natural) — a later class-count " +
             "change recomputes from it. When a low-cardinality result can " +
             "realize fewer visible classes, classes remembers the " +
-            "requested count.",
+            "requested count. A computed ramp carries wholeNumbers: " +
+            "whether the classified result is a whole-number type (a " +
+            "cell count is; an average, sum, minimum or maximum is not). " +
+            "With it true and whole-number breaks, the legend names the " +
+            "whole numbers each class holds (breaks 1, 2, 3 read ≤ 1, 2, " +
+            "3, > 3); otherwise classes read ≤ b, shared-boundary ranges " +
+            "and > b. A value equal to a break belongs to the lower class. " +
+            "Edits that keep the classes keep wholeNumbers; a layer write " +
+            "that changes sql or the aggregation without sending a paint " +
+            "removes it from the stored ramps the server does not " +
+            "recompute.",
           properties: { type: { type: "string" } },
         },
         CustomPalette: {

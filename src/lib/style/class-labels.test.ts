@@ -175,3 +175,74 @@ describe("the boundary formatter keeps a break's value", () => {
     }
   });
 });
+
+const whole = (breaks: number[], ...fact: [boolean | undefined] | []) =>
+  classLabels({ ...paint(breaks), wholeNumbers: fact.length ? fact[0] : true }).map((l) => l.text);
+
+/** Whether a whole-number text admits a whole value: "≤ b", "> b", a
+ * single number, or the range "a – b" holding a ≤ v ≤ b exactly. */
+function holds(text: string, v: number): boolean {
+  const num = (s: string) => Number(s.replace(/,/g, ""));
+  if (text.startsWith("≤ ")) return v <= num(text.slice(2));
+  if (text.startsWith("> ")) return v > num(text.slice(2));
+  if (!text.includes(" – ")) return v === num(text);
+  const [a, b] = text.split(" – ");
+  return v >= num(a) && v <= num(b);
+}
+
+describe("class labels, whole-number form", () => {
+  it("names the one value a class holds, and the range it holds", () => {
+    expect(whole([1, 2, 3])).toEqual(["≤ 1", "2", "3", "> 3"]);
+    expect(whole([4, 14, 27, 42])).toEqual(["≤ 4", "5 – 14", "15 – 27", "28 – 42", "> 42"]);
+  });
+
+  it("keeps the outer forms on a constant column's one break", () => {
+    expect(whole([5])).toEqual(["≤ 5", "> 5"]);
+  });
+
+  it("counts through zero and negative values", () => {
+    expect(whole([-3, 0, 2])).toEqual(["≤ -3", "-2 – 0", "1 – 2", "> 2"]);
+  });
+
+  it("falls back to the boundary form without the fact, or on a false one", () => {
+    expect(whole([1, 2, 3], undefined)).toEqual(["≤ 1", "1 – 2", "2 – 3", "> 3"]);
+    expect(whole([1, 2, 3], false)).toEqual(["≤ 1", "1 – 2", "2 – 3", "> 3"]);
+  });
+
+  it("falls back to the boundary form when a break is decimal", () => {
+    expect(whole([1, 2.5, 4])).toEqual(["≤ 1", "1 – 2.5", "2.5 – 4", "> 4"]);
+  });
+
+  it("counts by one only while the next whole number is exact", () => {
+    const top = Number.MAX_SAFE_INTEGER;
+    expect(whole([top - 3, top - 1])).toEqual([
+      "≤ 9,007,199,254,740,988",
+      "9,007,199,254,740,989 – 9,007,199,254,740,990",
+      "> 9,007,199,254,740,990",
+    ]);
+    // Past the exact range the next whole number cannot be told apart.
+    expect(whole([10, top])).toEqual(["≤ 10", "10 – 9,007,199,254,740,991", "> 9,007,199,254,740,991"]);
+    // The shortest text that reads back as each break, not its full expansion.
+    expect(whole([2 ** 60, 2 ** 61])[1]).toBe("1,152,921,504,606,847,000 – 2,305,843,009,213,694,000");
+  });
+
+  it("splits a single-value class with its boundary alone for the panel", () => {
+    const labels = classLabels({ ...paint([1, 2, 3]), wholeNumbers: true });
+    expect(labels.map((l) => l.lead)).toEqual(["≤", "", "", undefined]);
+    const natural = classLabels({ ...paint([4, 14, 27, 42]), wholeNumbers: true });
+    expect(natural.map((l) => l.lead)).toEqual(["≤", "5 –", "15 –", "28 –", undefined]);
+  });
+
+  it("names only whole numbers each class's colouring gives it", () => {
+    for (const breaks of [[1, 2, 3], [4, 14, 27, 42], [5], [-3, 0, 2], [0, 1]]) {
+      const p = { ...paint(breaks), wholeNumbers: true };
+      const labels = classLabels(p).map((l) => l.text);
+      const lo = breaks[0] - 5;
+      const hi = breaks[breaks.length - 1] + 5;
+      for (let v = lo; v <= hi; v++) {
+        const admitting = labels.flatMap((t, i) => (holds(t, v) ? [i] : []));
+        expect(admitting, `${v} under ${labels.join(" | ")}`).toEqual([drawnClass(p, v)]);
+      }
+    }
+  });
+});

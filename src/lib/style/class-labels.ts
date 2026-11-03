@@ -33,21 +33,43 @@ export interface ClassLabel {
   lead?: string;
 }
 
+/** Whether a paint's classes can be named by the whole numbers they hold:
+ * the classified result is a whole-number type, every break is a whole
+ * number, and each is small enough that the next whole number is exact. */
+function countsByOne(paint: Pick<QuantileFill, "breaks" | "wholeNumbers">): boolean {
+  return (
+    paint.wholeNumbers === true &&
+    paint.breaks.every((b) => Number.isSafeInteger(b) && Number.isSafeInteger(b + 1))
+  );
+}
+
 /**
  * The automatic class texts of a classed paint, low to high. A value equal
- * to a break belongs to the lower class, as the map's colouring places it:
- * the first class reads "≤ b", the last "> b", and each class between names
- * the boundaries it shares with its neighbours ("1 – 2"). No text states a
- * minimum or maximum, so changing data cannot make one false.
+ * to a break belongs to the lower class, as the map's colouring places it,
+ * so the first class reads "≤ b" and the last "> b". On whole numbers each
+ * class between names exactly the whole numbers it holds: one as that
+ * number ("2"), several as a range ("5 – 14"). Otherwise the classes
+ * between name the boundaries they share with their neighbours ("1 – 2").
+ * No text states a minimum or maximum, so changing data cannot make one
+ * false.
  */
 export function classLabels(
-  paint: Pick<QuantileFill, "breaks" | "colors">,
+  paint: Pick<QuantileFill, "breaks" | "colors" | "wholeNumbers">,
 ): ClassLabel[] {
   const { breaks, colors } = paint;
   const last = colors.length - 1;
+  const whole = countsByOne(paint);
   return colors.map((_, i) => {
     if (i === last) return { text: `> ${formatBreak(breaks[breaks.length - 1])}` };
-    const lead = i === 0 ? "≤" : `${formatBreak(breaks[i - 1])} –`;
-    return { text: `${lead} ${formatBreak(breaks[i])}`, lead };
+    const upper = formatBreak(breaks[i]);
+    if (i === 0) return { text: `≤ ${upper}`, lead: "≤" };
+    if (!whole) {
+      const lead = `${formatBreak(breaks[i - 1])} –`;
+      return { text: `${lead} ${upper}`, lead };
+    }
+    const first = breaks[i - 1] + 1;
+    if (first === breaks[i]) return { text: upper, lead: "" };
+    const lead = `${formatBreak(first)} –`;
+    return { text: `${lead} ${upper}`, lead };
   });
 }

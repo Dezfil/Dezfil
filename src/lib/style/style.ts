@@ -45,6 +45,11 @@ export interface QuantileFill {
   /** Upper bounds of each class except the last (length = colors - 1). */
   breaks: number[];
   colors: RgbaColor[];
+  /** Whether the classified result is a whole-number type, as computing
+   * the classes found it; absent when unknown. Set by every computation,
+   * kept by edits that keep the classification, and cleared from a stored
+   * paint when its SQL or aggregation changes without a recomputation. */
+  wholeNumbers?: boolean;
 }
 
 /**
@@ -534,6 +539,8 @@ export function paintProblem(value: unknown, channel: string): string | null {
       f.colors.every(isColor) &&
       f.breaks.length === f.colors.length - 1;
     if (!shape) return `${channel} has a malformed ramp paint.`;
+    if (f.wholeNumbers !== undefined && typeof f.wholeNumbers !== "boolean")
+      return `${channel} wholeNumbers must be true or false.`;
     const breaks = f.breaks as number[];
     for (let i = 1; i < breaks.length; i++) {
       if (breaks[i] <= breaks[i - 1]) {

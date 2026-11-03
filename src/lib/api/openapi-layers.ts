@@ -71,7 +71,11 @@ export const LAYER_RESOURCE_PATHS = {
         "| grid | heatmap — hexbin/grid aggregate server-side and get " +
         "a fill over their aggregate value automatically), filters " +
         "(applied before aggregation; [] removes them), or legend text " +
-        "overrides. Text labels live in the style's `label` member. When " +
+        "overrides. Text labels live in the style's `label` member. A " +
+        "paint sent is stored as sent, its `wholeNumbers` included; a " +
+        "change of `sql` or of the aggregation that sends no paint " +
+        "removes `wholeNumbers` from the stored ramps it keeps, and a " +
+        "viz fill the server recomputes carries a fresh one. When " +
         "`sql` is changed, it must return at least one geometry column. " +
         "The first geometry column in select order is the primary geometry " +
         "used for simple rendering; additional geometry columns are allowed.",
@@ -394,7 +398,10 @@ export const LAYER_QUERY_PATHS = {
         "paint). Optional palette (curated or saved custom — see " +
         "/api/palettes), class count, and reverse. Classification runs on " +
         "the layer's effective result, so filters are respected and an " +
-        "aggregated layer classifies its `value` or `count`. Returns a " +
+        "aggregated layer classifies its `value` or `count`. A ramp " +
+        "carries `wholeNumbers` from the type of the column it " +
+        "classified there: `count` is whole, `value` is whole only for " +
+        "a count aggregate. Nothing is saved: returns a " +
         "paint to merge into the style — `fill`, or `strokeBy` for a " +
         "data-driven outline — or into the viz fill of an aggregated " +
         "layer. A category longer than 2,097,152 bytes (2 MiB) as a " +

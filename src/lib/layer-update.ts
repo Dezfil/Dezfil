@@ -14,6 +14,12 @@ import {
   isBoundedOutcome,
 } from "@/lib/query/bounded";
 import {
+  aggregatedFill,
+  filterSettledAggregatedFill,
+  priorAggregatedFill,
+} from "./aggregate-fill";
+import { clearedPaintFacts } from "./layer-paint-facts";
+import {
   effectiveSql,
 } from "@/lib/query/compile";
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
@@ -27,10 +33,9 @@ import {
   diffImages,
   stableJson,
 } from "@/lib/metadata/history";
-import type { FillPaint, LayerStyle } from "@/lib/style/style";
-import { classifyFill, computeSizeScale, paletteAvailable, type ClassifyOptions } from "@/lib/style/classify";
+import type { LayerStyle } from "@/lib/style/style";
+import { computeSizeScale } from "@/lib/style/classify";
 import {
-  AGG_VALUE,
   AGG_ELEV,
   isAggregated,
   isOdViz,
@@ -90,6 +95,9 @@ export async function deriveAndCommitUpdate(
   const admitted = await admitLayerUpdate(scope, id, fields, opts.signal, opts.expectedRevision);
   const layer = admitted.layer, evaluation = mapEvaluation(scope, layer.mapId);
   fields = admitted.fields;
+  // What the caller sent is its statement, paints and their facts
+  // included; the derivations below may add members it did not send.
+  const sent = { style: fields.style !== undefined, viz: fields.viz !== undefined };
   // A repeated write of the same filter image is a true no-op: in
   // particular, it must not turn into a classification-only history step.
   // stableJson makes this insensitive to object key order at the API edge.
@@ -221,6 +229,10 @@ export async function deriveAndCommitUpdate(
     fields = { ...fields, viz };
   }
 
+  // A stored paint the write keeps loses its whole-number fact when the
+  // SQL or the aggregation behind it changes.
+  fields = { ...fields, ...clearedPaintFacts(layer, fields, sent) };
+
   // A label's source must match the visualization: aggregated cells label
   // themselves with their value (no attribute), simple features need one. A
   // viz switch would otherwise leave a stale attribute (cells silently
@@ -341,115 +353,3 @@ async function settledElevation(
     return undefined;
   }
 }
-
-/** Ramp choices worth carrying across aggregation changes. */
-function priorAggregatedFill(layer: Layer): FillPaint | undefined {
-  if (isAggregated(layer.viz)) return layer.viz.fill;
-  // Entering aggregation from a simple visualization is a type switch: the
-  // fill's ramp choices — scale mode, palette, reverse — survive where they
-  // still apply. Categorical fills don't: the aggregate value is numeric,
-  // so they fall back to the default ramp as before.
-  return layer.style.fill.type === "quantile" ||
-    layer.style.fill.type === "continuous"
-    ? layer.style.fill
-    : undefined;
-}
-
-/**
- * The palette a reclassification carries over from the prior fill. A saved
- * palette deleted since the layer was styled cannot be asked for by name:
- * the layer's own stored colors stand in for it (the fill keeps the name),
- * or, with none stored, the default palette does.
- */
-function priorPalette(prior: FillPaint | undefined): Pick<ClassifyOptions, "palette" | "colors"> {
-  if (!prior || prior.type === "constant") return {};
-  const kind = prior.type === "categorical" ? "categorical" : "sequential";
-  if (paletteAvailable(prior.palette, kind)) return { palette: prior.palette };
-  const own = prior.type === "quantile" ? { stops: prior.colors }
-    : prior.type === "continuous" ? { stops: prior.stops, positions: prior.positions }
-      : null;
-  return own && own.stops.length > 0 ? { palette: prior.palette, colors: own } : {};
-}
-
-/**
- * Fill for an aggregated layer, classified over the aggregate value. When
- * classification cannot run (empty result, missing extension), fall back to
- * a constant so the layer stays usable — render reports its own errors.
- */
-async function aggregatedFill(
-  scope: DatasetScope,
-  input: { sql: string; filters: LayerFilter[]; viz: AggregatedViz },
-  geometryColumn: string,
-  prior: FillPaint | undefined,
-  style: LayerStyle,
-  signal?: AbortSignal,
-): Promise<FillPaint> {
-  const fallback: FillPaint =
-    style.fill.type === "constant"
-      ? style.fill
-      : { type: "constant", color: { r: 18, g: 147, b: 154, a: 1 } };
-  try {
-    const sql = effectiveSql(input, geometryColumn);
-    const priorRamp = prior?.type === "quantile" ? prior : undefined;
-    const priorCategorical = prior?.type === "categorical" ? prior : undefined;
-    const priorContinuous = prior?.type === "continuous" ? prior : undefined;
-    // A custom scale reclassifies from its base method — the aggregation
-    // changed, so hand-set breaks no longer describe the values.
-    const priorMethod = priorCategorical
-      ? "categorical"
-      : priorContinuous
-        ? "continuous"
-        : priorRamp?.method === "custom"
-          ? (priorRamp.baseMethod ?? "quantile")
-          : (priorRamp?.method ?? "quantile");
-    const fresh = await classifyFill(scope,
-      sql,
-      AGG_VALUE,
-      priorMethod,
-      {
-        ...priorPalette(prior),
-        classes: priorRamp?.classes ?? priorRamp?.colors.length,
-        reversed:
-          priorCategorical?.reversed ??
-          priorContinuous?.reversed ??
-          priorRamp?.reversed,
-      },
-      signal,
-    );
-    // The scale mode survives reclassification; value-anchored adjustments
-    // (clamp, center) re-derive from the new distribution, and log carries
-    // over only while the fresh domain still supports it.
-    if (
-      fresh.type === "continuous" &&
-      priorContinuous?.log === true &&
-      fresh.domain[0] > 0
-    ) {
-      return { ...fresh, log: true };
-    }
-    return fresh;
-  } catch (error) {
-    // Same rule as settledElevation: the bound's outcomes propagate; only
-    // genuine classification failures degrade to the constant fallback.
-    if (isBoundedOutcome(error)) throw error;
-    return fallback;
-  }
-}
-
-/**
- * Reclassification caused by an authoritative filter change. An explicit
- * constant is user intent, not an automatic scale, so it survives unchanged;
- * every data-driven fill follows the established aggregate reclassification
- * path (including Custom returning to its remembered named method).
- */
-async function filterSettledAggregatedFill(
-  scope: DatasetScope,
-  input: { sql: string; filters: LayerFilter[]; viz: AggregatedViz },
-  geometryColumn: string,
-  prior: FillPaint | undefined,
-  style: LayerStyle,
-  signal?: AbortSignal,
-): Promise<FillPaint> {
-  if (prior?.type === "constant") return prior;
-  return aggregatedFill(scope, input, geometryColumn, prior, style, signal);
-}
-

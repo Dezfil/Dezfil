@@ -94,7 +94,12 @@ export async function coreJourney(journey, { packageChecks = false } = {}) {
     await edit('update_layer', { id: layer.id, sql: refined, change_group: 'mcp_metric' }, undefined, { mapId: map.id, group: 'mcp_metric' });
     if (packageChecks) await edit('update_layer', { id: layer.id, inLegend: true, legendTitle: 'Park area', legendAttrs: { fill: 'Area (ha)' }, change_group: 'mcp_metric' }, undefined, { mapId: map.id, group: 'mcp_metric' });
     const stored = await call('get_layer', { id: layer.id });
-    assert.equal(stored.id, layer.id); assert.equal(stored.sql, refined); assert.deepEqual(stored.style, style);
+    // The refine changed the SQL and sent no paint, so the classed paints
+    // computed on the old result stop claiming whole numbers; the rest stays.
+    const unclaimed = (paint) => { const kept = { ...paint }; delete kept.wholeNumbers; return kept; };
+    assert.equal(fill.wholeNumbers, true); assert.equal(stroke.wholeNumbers, true);
+    assert.equal(stored.id, layer.id); assert.equal(stored.sql, refined);
+    assert.deepEqual(stored.style, { ...style, fill: unclaimed(fill), strokeBy: unclaimed(stroke) });
     assert.deepEqual(names(await call('run_sql', { sql: stored.sql })), refinedParkNames);
     const rendered = await call('render_layer', { id: layer.id });
     assert.deepEqual(rendered.geojson.features.map(feature => feature.properties.name).sort(), refinedParkNames);

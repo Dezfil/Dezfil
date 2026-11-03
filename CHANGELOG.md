@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- A classed paint carries `wholeNumbers`: whether the result it classified
+  is a whole-number type. On whole numbers the legend names what each class
+  holds: breaks 1, 2, 3 read "≤ 1", "2", "3", "> 3", and breaks 4, 14
+  read "≤ 4", "5 – 14", "> 14". Computing classes sets it; a layer write
+  that changes the SQL or the aggregation without sending a paint removes
+  it from the stored paints the server does not recompute. An additive
+  change to the paint in the API description.
+
 ### Changed
 
 - A classed colour's legend reads each class as what it holds: the first

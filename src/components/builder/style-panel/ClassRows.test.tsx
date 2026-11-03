@@ -72,6 +72,20 @@ describe("the Style panel's class rows", () => {
     expect(rows.map(rowText)).toEqual(["≤ 1", "1 – 2", "2 – 3", "> 3"]);
   });
 
+  it("name the whole numbers a class holds, the boundary input in its place", () => {
+    for (const [breaks, texts] of [
+      [[1, 2, 3], ["≤ 1", "2", "3", "> 3"]],
+      [[4, 14, 27, 42], ["≤ 4", "5 – 14", "15 – 27", "28 – 42", "> 42"]],
+    ] as const) {
+      const p = { ...paint([...breaks]), wholeNumbers: true };
+      render(p);
+      const rows = container.querySelectorAll("div").filter((d) => d.children[0]?.getAttribute("type") === "color");
+      expect(rows.map(rowText)).toEqual([...texts]);
+      expect(rows.map(rowText)).toEqual(paintLegend(p)!.entries.map((e) => e.label));
+      expect(boundaries().map((input) => Number(input.value))).toEqual([...breaks]);
+    }
+  });
+
   it("keeps two tiny boundaries apart in their inputs", () => {
     render(paint([1.234561e-5, 1.234562e-5]));
     const shown = boundaries().map((input) => input.value);

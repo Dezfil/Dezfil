@@ -292,7 +292,8 @@ export async function classifyFill(
       // Dedup breaks so low-cardinality data yields distinct classes only,
       // then round to nice values — the stored break IS the shown break.
       const unique = [...new Set(breaks)].sort((a, b) => a - b);
-      const nice = niceBreaks(unique, await columnMeta(conn, sub, col));
+      const meta = await columnMeta(conn, sub, col);
+      const nice = niceBreaks(unique, meta);
       const { palette, colors } = classRampColors(
         options.palette,
         nice.length + 1,
@@ -308,6 +309,10 @@ export async function classifyFill(
         ...(reversed ? { reversed } : {}),
         breaks: nice,
         colors,
+        // The classified result's own type: a cell count is whole whatever
+        // the field list calls it; an average, sum, minimum or maximum is
+        // cast to double and is not.
+        wholeNumbers: meta.integer,
       };
     }
 
