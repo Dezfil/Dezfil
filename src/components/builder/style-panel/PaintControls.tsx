@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { FillPaint, RgbaColor } from "@/lib/style/style";
-import type { FieldStats, LayerField } from "@/lib/layer-service";
+import type { LayerField } from "@/lib/layer-service";
 import type { ClassifyMethod } from "@/lib/style/classify";
 import { toHex } from "@/lib/style/color";
 import { paintLegend } from "@/lib/style/legend";
@@ -11,6 +10,7 @@ import { PaletteControl } from "../PaletteControl";
 import { BreakBrush } from "./BreakBrush";
 import { ContinuousBrush } from "./ContinuousBrush";
 import { ClassRows } from "./ClassRows";
+import { useRampStats, type FetchStats } from "./use-ramp-stats";
 import { ColorRow, SelectRow } from "./rows";
 import styles from "../StylePanel.module.css";
 
@@ -113,8 +113,10 @@ export function PaintControls({
   /** Color shown/kept when switching back to a single color. */
   constantFallback: RgbaColor;
   classify: (req: ClassifyRequest) => Promise<FillPaint | null>;
-  /** The attribute's stats — extent, mean, distribution. */
-  fetchStats: (attribute: string) => Promise<FieldStats | null>;
+  /** The attribute's stats — extent, mean, distribution; with
+   * "classification", the distribution its classification sees. A new
+   * function whenever the values' source changes. */
+  fetchStats: FetchStats;
   onPaint: (p: FillPaint) => void;
   onPaintPreview?: (p: FillPaint) => void;
   onPaintCommit?: (p: FillPaint) => Promise<boolean>;
@@ -134,25 +136,7 @@ export function PaintControls({
     legend,
     currentHexes,
   } = paintControlsOpenState(paint, fields);
-  // The ramp's distribution, refetched when the source moves. Keyed by
-  // attribute so a stale distribution never renders for the wrong column
-  // while the fresh one is in flight.
-  const [statsFor, setStatsFor] = useState<{
-    attribute: string;
-    stats: FieldStats;
-  } | null>(null);
-  useEffect(() => {
-    if (!rampAttribute) return;
-    let cancelled = false;
-    void fetchStats(rampAttribute).then((s) => {
-      if (!cancelled && s) setStatsFor({ attribute: rampAttribute, stats: s });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [rampAttribute, fetchStats]);
-  const stats =
-    statsFor && statsFor.attribute === rampAttribute ? statsFor.stats : null;
+  const stats = useRampStats(fetchStats, rampAttribute, undefined);
 
   // A palette that no longer resolves (a deleted custom palette id) must
   // not dead-end the controls: retry once without it, falling back to the

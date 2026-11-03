@@ -36,6 +36,13 @@ export function endpointLabel(endpoint: OdEndpoint): string {
     : `${endpoint.lon} + ${endpoint.lat}`;
 }
 
+/** What a field's values come from: the SQL, the filters and, on cells,
+ * the aggregation; not the paint drawn over them. */
+export function distributionSource(sql: string, filters: unknown, viz: LayerViz): string {
+  const cells = isAggregated(viz) ? [viz.type, viz.cellKm, viz.aggregate] : null;
+  return JSON.stringify([sql, filters, cells]);
+}
+
 /** Translate controls into style edits, live previews and released commits. */
 export function useStyleEditing({
   layer, render, onStyle, onStylePreview, onStyleCommit, onViz, onAggregatedFillPreview, onAggregatedFillCommit, onAggregationPreview, onAggregationCommit,
@@ -94,12 +101,17 @@ export function useStyleEditing({
     return candidates;
   };
 
-  /** The attribute's stats for the ramp's distribution;
-   * aggregated layers answer for value/count over the effective query. */
+  /** The attribute's stats for the ramp's distribution; aggregated layers
+   * answer for value/count over the effective query, and a classed ramp
+   * asks for the distribution its classification sees. A new function
+   * whenever the source of the values changes: its identity is the
+   * source's, so an answer kept for one never shows for another. */
+  const statsSource = distributionSource(layer.sql, layer.filters, viz);
   const fetchStats = useCallback(
-    async (attribute: string): Promise<FieldStats | null> => {
+    async (attribute: string, distribution?: "classification"): Promise<FieldStats | null> => {
       const response = await fetch(
-        `/api/layers/${layer.id}/fields/${encodeURIComponent(attribute)}`,
+        `/api/layers/${layer.id}/fields/${encodeURIComponent(attribute)}` +
+          (distribution ? `?distribution=${distribution}` : ""),
       );
       return response.ok
         ? ((await response.json()) as FieldStats)
@@ -107,7 +119,7 @@ export function useStyleEditing({
     },
     // Refetch when anything that shifts the distribution changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layer.id, layer.sql, viz, layer.filters],
+    [layer.id, statsSource],
   );
 
   // visualization type ----

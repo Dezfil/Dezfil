@@ -2362,10 +2362,45 @@ export function buildOpenApiDocument() {
               description:
                 "Row counts over equal bins across [min, max] — the " +
                 "distribution histogram behind a range brush. Empty when " +
-                "the extent is missing or a single value.",
+                "the extent is missing or a single value. With the " +
+                "classification distribution, bins are equal on `axis` " +
+                "and bounded by `edges`.",
             },
             values: { type: "array", items: { type: "string" } },
             truncated: { type: "boolean" },
+            distribution: {
+              type: "string",
+              enum: ["classification"],
+              description:
+                "Present when the classification distribution was asked " +
+                "for: min, max, mean and bins are over the effective " +
+                "result a classification sees.",
+            },
+            axis: {
+              type: "string",
+              enum: ["linear", "log"],
+              description:
+                "Classification distribution only: log when every value " +
+                "is positive, the extent is not a single value and the " +
+                "mean lies in the lowest quarter of the extent; linear " +
+                "otherwise.",
+            },
+            edges: {
+              type: "array",
+              items: { type: "number" },
+              description:
+                "Classification distribution only: the bins' boundaries " +
+                "on the value scale, one more than the bins, from min to " +
+                "max. A value equal to an inner edge counts in the bin " +
+                "above it, and max in the last bin.",
+            },
+            wholeNumbers: {
+              type: "boolean",
+              description:
+                "Classification distribution only: whether the field is a " +
+                "whole-number type in the effective result, as computing " +
+                "classes over it would find.",
+            },
           },
           required: ["field", "kind", "numeric"],
         },

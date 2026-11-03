@@ -16,6 +16,11 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   that changes the SQL or the aggregation without sending a paint removes
   it from the stored paints the server does not recompute. An additive
   change to the paint in the API description.
+- A field's statistics read takes `distribution=classification`: the
+  values a classification sees, filters applied and an aggregated layer's
+  `value` or `count`, binned equal on a log axis for skewed positive values
+  and a linear one otherwise, with the bin `edges`, the `axis` and the
+  field's `wholeNumbers`. Without it the read answers as before.
 
 ### Changed
 

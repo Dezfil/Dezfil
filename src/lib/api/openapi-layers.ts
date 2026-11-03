@@ -372,7 +372,12 @@ export const LAYER_QUERY_PATHS = {
         "text. Computed on the layer's own result — the unfiltered " +
         "extent, so a brush keeps a stable background. A distinct value " +
         "longer than 2,097,152 bytes (2 MiB) as a JSON string refuses " +
-        "the answer with 422 query_result_too_large.",
+        "the answer with 422 query_result_too_large. With " +
+        "`distribution=classification` it answers what a classification " +
+        "of a numeric field sees instead: the effective result, filters " +
+        "applied and an aggregated layer's `value` or `count`, binned on " +
+        "the `axis` a classed histogram draws, with the bin `edges` and " +
+        "the field's `wholeNumbers`.",
       tag: "Layers",
       tool: "get_field_stats", mcp: LOCAL_READ,
       display: {"verb": "Read the statistics of {arg.field} on the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},
@@ -380,6 +385,15 @@ export const LAYER_QUERY_PATHS = {
       parameters: [
         pathParam("id", "Layer id."),
         pathParam("field", "Field name from the layer's result."),
+        {
+          name: "distribution",
+          in: "query",
+          required: false,
+          schema: { type: "string", enum: ["classification"] },
+          description:
+            "Ask for the distribution a classification of a numeric field " +
+            "sees. Omitted, the answer is the filter seed above.",
+        },
       ],
       responses: { "200": jsonOk("#/components/schemas/FieldStats") },
     })),

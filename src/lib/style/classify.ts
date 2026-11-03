@@ -46,19 +46,29 @@ export type ClassifyMethod =
   | "categorical"
   | "continuous";
 
+/** Whether a column of the classified result holds whole numbers, by its
+ * engine type: a cell count is a BIGINT whatever the field list calls it,
+ * and an average, sum, minimum or maximum is cast to DOUBLE. The one
+ * determination classification and its distribution share. */
+export async function wholeNumberColumn(
+  conn: Conn,
+  sub: string,
+  col: string,
+): Promise<boolean> {
+  const described = await conn.runAndReadAll(
+    `DESCRIBE SELECT ${col} AS v FROM ${sub}`,
+  );
+  const type = String(described.getRowObjects()[0]?.column_type ?? "");
+  return /^(U?TINYINT|U?SMALLINT|U?INTEGER|U?BIGINT|U?HUGEINT)$/i.test(type);
+}
+
 /** Column facts nice rounding needs: integer-typed, and the data extent. */
 async function columnMeta(
   conn: Conn,
   sub: string,
   col: string,
 ): Promise<{ integer: boolean; lo: number; hi: number }> {
-  const described = await conn.runAndReadAll(
-    `DESCRIBE SELECT ${col} AS v FROM ${sub}`,
-  );
-  const type = String(described.getRowObjects()[0]?.column_type ?? "");
-  const integer = /^(U?TINYINT|U?SMALLINT|U?INTEGER|U?BIGINT|U?HUGEINT)$/i.test(
-    type,
-  );
+  const integer = await wholeNumberColumn(conn, sub, col);
   const extent = await conn.runAndReadAll(
     `SELECT min(${col}::DOUBLE) AS lo, max(${col}::DOUBLE) AS hi
      FROM ${sub} WHERE ${col} IS NOT NULL`,

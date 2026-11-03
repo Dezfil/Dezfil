@@ -55445,7 +55445,7 @@
     "/api/layers/{id}/fields/{field}": {
       "get": {
         "summary": "A field's extent or distinct values",
-        "description": "Layers and widgets follow their map: everyone who reaches the map reads and evaluates them, and its owner, the project's owner and its editors change them. Layer SQL saved by anyone but the map's owner must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Unreached, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Seed data for a filter control: min/max and a binned distribution for numeric and time fields (time extents as ISO-8601 strings), distinct values (bounded, by frequency) for text. Computed on the layer's own result — the unfiltered extent, so a brush keeps a stable background. A distinct value longer than 2,097,152 bytes (2 MiB) as a JSON string refuses the answer with 422 query_result_too_large.",
+        "description": "Layers and widgets follow their map: everyone who reaches the map reads and evaluates them, and its owner, the project's owner and its editors change them. Layer SQL saved by anyone but the map's owner must name only datasets within their own reach in the map's home, else it is refused with sql_error naming the reference as written and nothing changes. Unreached, missing or mismatched parent/child identities return not_found before query evaluation, artifact access or protected changes. New widget, timeline and layer-order references must belong to the exact map. Seed data for a filter control: min/max and a binned distribution for numeric and time fields (time extents as ISO-8601 strings), distinct values (bounded, by frequency) for text. Computed on the layer's own result — the unfiltered extent, so a brush keeps a stable background. A distinct value longer than 2,097,152 bytes (2 MiB) as a JSON string refuses the answer with 422 query_result_too_large. With `distribution=classification` it answers what a classification of a numeric field sees instead: the effective result, filters applied and an aggregated layer's `value` or `count`, binned on the `axis` a classed histogram draws, with the bin `edges` and the field's `wholeNumbers`.",
         "tags": [
           "Layers"
         ],
@@ -55487,6 +55487,18 @@
               "type": "string"
             },
             "description": "Field name from the layer's result."
+          },
+          {
+            "name": "distribution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "classification"
+              ]
+            },
+            "description": "Ask for the distribution a classification of a numeric field sees. Omitted, the answer is the filter seed above."
           }
         ],
         "responses": {
@@ -55608,6 +55620,18 @@
               "type": "string"
             },
             "description": "Field name from the layer's result."
+          },
+          {
+            "name": "distribution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "classification"
+              ]
+            },
+            "description": "Ask for the distribution a classification of a numeric field sees. Omitted, the answer is the filter seed above."
           }
         ],
         "responses": {
@@ -88796,7 +88820,7 @@
             "items": {
               "type": "integer"
             },
-            "description": "Row counts over equal bins across [min, max] — the distribution histogram behind a range brush. Empty when the extent is missing or a single value."
+            "description": "Row counts over equal bins across [min, max] — the distribution histogram behind a range brush. Empty when the extent is missing or a single value. With the classification distribution, bins are equal on `axis` and bounded by `edges`."
           },
           "values": {
             "type": "array",
@@ -88806,6 +88830,32 @@
           },
           "truncated": {
             "type": "boolean"
+          },
+          "distribution": {
+            "type": "string",
+            "enum": [
+              "classification"
+            ],
+            "description": "Present when the classification distribution was asked for: min, max, mean and bins are over the effective result a classification sees."
+          },
+          "axis": {
+            "type": "string",
+            "enum": [
+              "linear",
+              "log"
+            ],
+            "description": "Classification distribution only: log when every value is positive, the extent is not a single value and the mean lies in the lowest quarter of the extent; linear otherwise."
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Classification distribution only: the bins' boundaries on the value scale, one more than the bins, from min to max. A value equal to an inner edge counts in the bin above it, and max in the last bin."
+          },
+          "wholeNumbers": {
+            "type": "boolean",
+            "description": "Classification distribution only: whether the field is a whole-number type in the effective result, as computing classes over it would find."
           }
         },
         "required": [
