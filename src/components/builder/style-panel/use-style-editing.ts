@@ -13,6 +13,7 @@ import type { StylePanelProps } from "../StylePanel";
 import { useStyleChannels } from "./use-style-channels";
 import { useLabelSetters } from "./use-label-setters";
 import { useLayerFields } from "./use-layer-fields";
+import { useStatsSource } from "./use-stats-source";
 
 /** Stable select value for an endpoint, independent of object key order. */
 export function endpointKey(endpoint: OdEndpoint | null): string {
@@ -34,13 +35,6 @@ export function endpointLabel(endpoint: OdEndpoint): string {
   return endpoint.kind === "geometry"
     ? endpoint.field
     : `${endpoint.lon} + ${endpoint.lat}`;
-}
-
-/** What a field's values come from: the SQL, the filters and, on cells,
- * the aggregation; not the paint drawn over them. */
-export function distributionSource(sql: string, filters: unknown, viz: LayerViz): string {
-  const cells = isAggregated(viz) ? [viz.type, viz.cellKm, viz.aggregate] : null;
-  return JSON.stringify([sql, filters, cells]);
 }
 
 /** Translate controls into style edits, live previews and released commits. */
@@ -104,11 +98,13 @@ export function useStyleEditing({
   /** The attribute's stats for the ramp's distribution; aggregated layers
    * answer for value/count over the effective query, and a classed ramp
    * asks for the distribution its classification sees. A new function
-   * whenever the source of the values changes: its identity is the
-   * source's, so an answer kept for one never shows for another. */
-  const statsSource = distributionSource(layer.sql, layer.filters, viz);
+   * whenever the source of the values changes or the server comes to hold
+   * it: its identity is the source's, so an answer kept for one never
+   * shows for another, and nothing is read before the server has it. */
+  const { source: statsSource, settled } = useStatsSource(layer);
   const fetchStats = useCallback(
     async (attribute: string, distribution?: "classification"): Promise<FieldStats | null> => {
+      if (!settled) return null;
       const response = await fetch(
         `/api/layers/${layer.id}/fields/${encodeURIComponent(attribute)}` +
           (distribution ? `?distribution=${distribution}` : ""),
@@ -119,7 +115,7 @@ export function useStyleEditing({
     },
     // Refetch when anything that shifts the distribution changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layer.id, statsSource],
+    [layer.id, statsSource, settled],
   );
 
   // visualization type ----

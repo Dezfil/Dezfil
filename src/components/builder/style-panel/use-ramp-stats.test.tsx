@@ -5,7 +5,7 @@ import { HostElement, installDomHost } from "@/components/testing/dom-host";
 import type { FieldStats } from "@/lib/layer-service";
 import type { LayerViz } from "@/lib/viz";
 import { useRampStats, type FetchStats } from "./use-ramp-stats";
-import { distributionSource } from "./use-style-editing";
+import { distributionSource } from "./use-stats-source";
 
 /**
  * A ramp's distribution is shown only while the attribute, the request and
