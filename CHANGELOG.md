@@ -34,6 +34,13 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   log axis, each bar takes the colour of the class it holds, and handles
   that would overlap stagger above and below the track. A released handle
   on whole numbers lands on the nearest whole number that keeps the order.
+- A new classed colour starts on Natural breaks over whole numbers, such as
+  counts, and on Quantile over any other number: on picking a numeric
+  column, on switching Continuous to Classified, and on cells made with no
+  numeric colour to carry. Where Natural cannot classify the values, all
+  of them equal, it starts on Quantile. A method you pick or a layer
+  already holds is kept, and the classification request still takes the
+  method it is given.
 
 ## [0.1.0]
 

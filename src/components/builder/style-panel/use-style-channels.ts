@@ -2,8 +2,12 @@
 
 import { useCallback, useState } from "react";
 import type { FillPaint, SizeScale } from "@/lib/style/style";
-import { readApiError } from "../../api";
+import type { ClassifyMethod } from "@/lib/style/classify";
+import { readApiError, readApiFailure } from "../../api";
 import type { ClassifyRequest } from "./PaintControls";
+
+/** A request the server can send as it is: its method named. */
+export type NamedClassifyRequest = ClassifyRequest & { method: ClassifyMethod };
 
 /**
  * The style panel's server-side styling channels: classify a paint,
@@ -14,7 +18,7 @@ export function useStyleChannels(layerId: string): {
   busy: boolean;
   channelError: string | null;
   dismissChannelError: () => void;
-  classify: (req: ClassifyRequest) => Promise<FillPaint | null>;
+  classify: (req: NamedClassifyRequest, fallback?: ClassifyMethod) => Promise<FillPaint | null>;
   resolveScale: (
     attribute: string,
     range: [number, number],
@@ -24,17 +28,24 @@ export function useStyleChannels(layerId: string): {
   const [busy, setBusy] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
 
-  /** Classify a paint server-side (fill or outline). */
+  /** Classify a paint server-side (fill or outline). With a fallback, a
+   * refusal of the data under the asked method (Natural on values that
+   * are all the same) asks again with the fallback; a permission,
+   * cancellation or resource failure is shown as it is. */
   const classify = useCallback(
-    async (req: ClassifyRequest): Promise<FillPaint | null> => {
+    async (req: NamedClassifyRequest, fallback?: ClassifyMethod): Promise<FillPaint | null> => {
       setBusy(true);
       setChannelError(null);
+      const post = (body: NamedClassifyRequest) => fetch(`/api/layers/${layerId}/fill`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
       try {
-        const response = await fetch(`/api/layers/${layerId}/fill`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(req),
-        });
+        let response = await post(req);
+        if (fallback && response.status === 400 && (await readApiFailure(response.clone())).code === "invalid_request") {
+          response = await post({ ...req, method: fallback });
+        }
         if (response.ok) return (await response.json()) as FillPaint;
         setChannelError(await readApiError(response));
         return null;

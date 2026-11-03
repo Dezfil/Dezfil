@@ -111,7 +111,7 @@ The new layer's style panel is open under its card. If it is closed, click **wor
 
 ![The Fill section of the style panel: Color by set to population, Scale set to Classified, Method set to Quantile, a palette, and five classes with their colors and boundaries](../images/start/first-map-style.webp)
 
-Dezfil sorts the cities into five classes with about the same number of cities in each (**Quantile**), and gives each class a color from the palette.
+Dezfil sorts the cities into five classes, each holding cities of similar population (**Natural breaks**, where whole numbers like these start), and gives each class a color from the palette. A column with decimals starts on **Quantile** instead, with about the same number of cities in each class.
 
 You should see the points change color, and the legend in the corner of the map list the five classes with their population ranges. A city exactly on a boundary belongs to the lower class, so the first class reads "≤" its boundary and the last ">" the one below it.
 

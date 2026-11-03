@@ -3,7 +3,9 @@ import type { DatasetScope } from "@/lib/query/access";
 import { isBoundedOutcome } from "@/lib/query/bounded";
 import { effectiveSql } from "@/lib/query/compile";
 import type { FillPaint, LayerStyle } from "@/lib/style/style";
-import { classifyFill, paletteAvailable, type ClassifyOptions } from "@/lib/style/classify";
+import { ApiError } from "@/lib/api/errors";
+import { classifyFill, paletteAvailable, type ClassifyMethod, type ClassifyOptions } from "@/lib/style/classify";
+import { automaticMethod, wholeNumberField } from "@/lib/style/default-method";
 import {
   AGG_VALUE,
   isAggregated,
@@ -70,18 +72,23 @@ export async function aggregatedFill(
     const priorCategorical = prior?.type === "categorical" ? prior : undefined;
     const priorContinuous = prior?.type === "continuous" ? prior : undefined;
     // A custom scale reclassifies from its base method — the aggregation
-    // changed, so hand-set breaks no longer describe the values.
-    const priorMethod = priorCategorical
+    // changed, so hand-set breaks no longer describe the values. With no
+    // numeric paint to carry, the fill starts on the method its values
+    // suit.
+    const automatic = !priorRamp && !priorCategorical && !priorContinuous;
+    const priorMethod: ClassifyMethod = priorCategorical
       ? "categorical"
       : priorContinuous
         ? "continuous"
-        : priorRamp?.method === "custom"
-          ? (priorRamp.baseMethod ?? "quantile")
-          : (priorRamp?.method ?? "quantile");
-    const fresh = await classifyFill(scope,
+        : automatic
+          ? automaticMethod(wholeNumberField(input.viz, { name: AGG_VALUE }))
+          : priorRamp?.method === "custom"
+            ? (priorRamp.baseMethod ?? "quantile")
+            : (priorRamp?.method ?? "quantile");
+    const classify = (method: ClassifyMethod) => classifyFill(scope,
       sql,
       AGG_VALUE,
-      priorMethod,
+      method,
       {
         ...priorPalette(prior),
         classes: priorRamp?.classes ?? priorRamp?.colors.length,
@@ -92,6 +99,14 @@ export async function aggregatedFill(
       },
       signal,
     );
+    const fresh = await classify(priorMethod).catch((error: unknown) => {
+      // Natural finds no boundary in values that are all the same, which
+      // Quantile still classifies: the automatic choice asks it instead.
+      // Any other failure stands.
+      const refused = error instanceof ApiError && error.code === "invalid_request";
+      if (automatic && priorMethod === "natural" && refused) return classify("quantile");
+      throw error;
+    });
     // The scale mode survives reclassification; value-anchored adjustments
     // (clamp, center) re-derive from the new distribution, and log carries
     // over only while the fresh domain still supports it.

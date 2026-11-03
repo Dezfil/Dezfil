@@ -16,7 +16,8 @@ import styles from "../StylePanel.module.css";
 
 export interface ClassifyRequest {
   attribute: string;
-  method: ClassifyMethod;
+  /** "automatic": a new classed colour, on the method its values suit. */
+  method: ClassifyMethod | "automatic";
   palette?: string;
   classes?: number;
   reversed?: boolean;
@@ -203,7 +204,7 @@ export function PaintControls({
     } else if (next === "classified" && paint.type === "continuous") {
       apply({
         attribute,
-        method: "quantile",
+        method: "automatic",
         palette: palette ?? undefined,
         classes: 5,
         reversed,
@@ -224,11 +225,7 @@ export function PaintControls({
     // A numeric switch keeps the scale mode; categorical fields have none.
     apply({
       attribute: value,
-      method: field.numeric
-        ? continuous
-          ? "continuous"
-          : "quantile"
-        : "categorical",
+      method: !field.numeric ? "categorical" : continuous ? "continuous" : "automatic",
     });
   };
 

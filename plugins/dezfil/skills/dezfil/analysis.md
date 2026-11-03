@@ -40,7 +40,7 @@ When you are handed a rendered image of a map, read it as a map: name what is vi
 
 ## classification
 
-Classify to suit the task and the distribution: quantile or natural breaks for a skewed distribution, equal intervals for an even one, a continuous ramp for a smooth field, categorical for names. Computed boundaries come back rounded; keep hand-set boundaries as round as computed ones. H3 stays the index for widgets and index workflows; the visual hexbin is a planar tessellation at any cell size, so an H3 resolution is not a cell size.
+Classify to suit the task and the distribution: natural breaks for whole numbers such as counts, which pile up on a few small values, quantile for other skewed values, equal intervals for an even distribution, a continuous ramp for a smooth field, categorical for names. A new classed colour in the Style panel starts on natural breaks for whole numbers and on quantile for any other number. Computed boundaries come back rounded; keep hand-set boundaries as round as computed ones. H3 stays the index for widgets and index workflows; the visual hexbin is a planar tessellation at any cell size, so an H3 resolution is not a cell size.
 
 ## external-grounding
 

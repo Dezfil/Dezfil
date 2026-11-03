@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { wrappable } from "@/lib/query/compile";
 import { cappedText, cappedValue } from "@/lib/query/value-ceiling";
+import { WHOLE_NUMBER_TYPE } from "./default-method";
 import { naturalBreakValues } from "./natural-breaks";
 import { niceBreaks } from "./nice-breaks";
 
@@ -59,7 +60,7 @@ export async function wholeNumberColumn(
     `DESCRIBE SELECT ${col} AS v FROM ${sub}`,
   );
   const type = String(described.getRowObjects()[0]?.column_type ?? "");
-  return /^(U?TINYINT|U?SMALLINT|U?INTEGER|U?BIGINT|U?HUGEINT)$/i.test(type);
+  return WHOLE_NUMBER_TYPE.test(type);
 }
 
 /** Column facts nice rounding needs: integer-typed, and the data extent. */
