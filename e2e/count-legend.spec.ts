@@ -2,7 +2,8 @@
 // holds. The table is 1,239 made-up cells of 1 to 73 collisions each,
 // shaped so Quantile asked for five classes returns four (breaks 1, 2, 3)
 // and Natural breaks returns five (breaks 4, 14, 27, 42). Each is made
-// once through the API and once in the Style panel, and each is read on a
+// once through the API and once in the Style panel, where choosing the
+// column first opens on Natural breaks, and each is read on a
 // fresh load in the builder's legend, the Legend tab's placeholders, the
 // Style panel's class rows and the published page signed out. A boundary
 // is then typed in a row, and each of the histogram's three handles is
@@ -160,12 +161,20 @@ test("a count column's classes read as what they hold, everywhere they show", as
     await attribute.selectOption("collisions");
     await saved;
     await saveSettled(page);
+    // A whole-number column opens on Natural breaks.
+    expect((await readLayer<Layer>(page, ids.panel)).style.fill).toMatchObject({ method: "natural", breaks: NATURAL.breaks, wholeNumbers: true });
+
+    const method = page.getByRole("combobox", { name: "Fill classification method" });
+    saved = layerSaveArrived(page);
+    await method.selectOption("quantile");
+    await saved;
+    await saveSettled(page);
     expect((await readLayer<Layer>(page, ids.panel)).style.fill).toMatchObject({ method: "quantile", breaks: QUANTILE.breaks, wholeNumbers: true });
     await page.reload();
     await expect.poll(async () => (await legendLabels(page))[NAMES.panel]).toEqual(QUANTILE.labels);
 
     saved = layerSaveArrived(page);
-    await page.getByRole("combobox", { name: "Fill classification method" }).selectOption("natural");
+    await method.selectOption("natural");
     await saved;
     await saveSettled(page);
     expect((await readLayer<Layer>(page, ids.panel)).style.fill).toMatchObject({ method: "natural", breaks: NATURAL.breaks, wholeNumbers: true });
