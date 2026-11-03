@@ -14,8 +14,11 @@ import { journeyClient } from "../../scripts/mcp-journey-core.mjs";
  * count, Quantile when they average, sum or take an extreme. When Natural
  * cannot classify the values (every cell holds the same count) the
  * automatic choice asks Quantile instead; a method the caller asks for, or
- * one the layer's paint already holds, is kept as before. Seeded defect:
- * the fixed Quantile this replaced, which fails the count cases.
+ * one the layer's paint already holds, is kept as before, and a Natural the
+ * paint holds keeps its name over Quantile's classes when a filter leaves
+ * values it cannot classify. Seeded defects: the fixed Quantile this
+ * replaced, which fails the count cases, and the constant that a refused
+ * held Natural fell to, which a lifted filter then kept.
  */
 
 let dir: string;
@@ -93,6 +96,20 @@ describe("the cells' fill the server makes", () => {
     const made = cellsFill(await update(fresh, cells({ fn: "count" }, 1)));
     expect(made?.type).toBe("quantile");
     expect(methodOf(made)).toBe("quantile");
+  });
+
+  it("keeps classed cells and their method through a filter that leaves every cell the same count", async () => {
+    // Thirty points a degree apart, ten more stacked on the first: one cell
+    // holds eleven, the rest one each, until the stacked ten are filtered out.
+    const l = await layer(`SELECT (i >= 30)::INTEGER AS extra,
+      ST_Point(CASE WHEN i >= 30 THEN 0 ELSE i END, 10) AS geometry FROM range(0, 40) AS t(i)`);
+    const made = cellsFill(await update(l, cells({ fn: "count" }, 1)));
+    expect(methodOf(made)).toBe("natural");
+    const filtered = cellsFill(await update(l, { filters: [{ field: "extra", kind: "range", min: 0, max: 0 }] }));
+    expect(filtered?.type).toBe("quantile");
+    expect(methodOf(filtered)).toBe("natural");
+    const unfiltered = cellsFill(await update(l, { filters: [] }));
+    expect(unfiltered).toEqual(made);
   });
 
   it("keeps a saved method, an absent one as Quantile, Custom's own and a continuous scale", async () => {

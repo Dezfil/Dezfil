@@ -99,13 +99,16 @@ export async function aggregatedFill(
       },
       signal,
     );
-    const fresh = await classify(priorMethod).catch((error: unknown) => {
+    const fresh = await classify(priorMethod).catch(async (error: unknown) => {
       // Natural finds no boundary in values that are all the same, which
       // Quantile still classifies: the automatic choice asks it instead.
-      // Any other failure stands.
+      // A Natural the paint already holds keeps its name over Quantile's
+      // classes, so the next reclassification (a filter lifted, a cell
+      // size changed) asks Natural again. Any other failure stands.
       const refused = error instanceof ApiError && error.code === "invalid_request";
-      if (automatic && priorMethod === "natural" && refused) return classify("quantile");
-      throw error;
+      if (priorMethod !== "natural" || !refused) throw error;
+      const quantile = await classify("quantile");
+      return automatic || quantile.type !== "quantile" ? quantile : { ...quantile, method: "natural" as const };
     });
     // The scale mode survives reclassification; value-anchored adjustments
     // (clamp, center) re-derive from the new distribution, and log carries
