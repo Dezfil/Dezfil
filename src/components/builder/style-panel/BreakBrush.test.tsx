@@ -156,6 +156,20 @@ describe("the classed histogram on its answered axis", () => {
     expect(handles().map((h) => Number(h.value))).toEqual([70, 71, 72].map((v) => Math.round(axis.position(v) * 1000)));
   });
 
+  it("holds a boundary below the data's values at the axis's start, and keeps the paint valid", async () => {
+    // A boundary typed below every value, or left there by a filter, has
+    // no place on a log axis. Seeded defect: its logarithm taken before
+    // clamping, which made its place, the strip and a neighbour's drag
+    // not a number.
+    const { onPaintCommit } = render(paint([-5, 2, 9]));
+    expect(handles().map((h) => h.value)).toEqual(["0", String(Math.round(brushAxis(1, 73, "log").position(2) * 1000)), String(Math.round(brushAxis(1, 73, "log").position(9) * 1000))]);
+    const strip = container.querySelectorAll("div").find((d) => d.children.length === 4 && d.children.every((c) => c.tagName === "I"))!;
+    expect(strip.children.every((c) => Number.isFinite(parseFloat(String(c.style.width))))).toBe(true);
+    await drag(1, 5.4);
+    const saved = (onPaintCommit as ReturnType<typeof vi.fn>).mock.calls[0][0] as QuantileFill;
+    expect(saved.breaks).toEqual([-5, 5, 9]);
+  });
+
   it("releases a decimal boundary as nicely as a computed one, not on a whole number", async () => {
     const values = Array.from({ length: 101 }, (_, k) => k * 1.01);
     collisionsOr = distribution(values, "linear", false);
@@ -176,7 +190,7 @@ describe("the axis's pieces", () => {
     for (const kind of ["linear", "log"] as const) {
       const axis = brushAxis(1, 73, kind);
       for (const v of [1, 2, 3, 40, 73]) expect(axis.value(axis.position(v))).toBeCloseTo(v, 9);
-      expect([axis.position(0.5), axis.position(80)]).toEqual([0, 1]);
+      expect([axis.position(0.5), axis.position(80), axis.position(0), axis.position(-5)]).toEqual([0, 1, 0, 0]);
     }
   });
 

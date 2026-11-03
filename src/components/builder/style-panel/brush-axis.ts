@@ -8,8 +8,10 @@
 export type AxisKind = "linear" | "log";
 
 export interface BrushAxis {
-  /** A value's place along the axis, 0 at the minimum, 1 at the maximum,
-   * held inside those ends. */
+  /** A value's place along the axis, 0 at the minimum, 1 at the maximum.
+   * A value outside the extent is held at its end before it is placed, so
+   * a boundary below every value, even at or under zero on a log axis,
+   * sits at the start. */
   position(value: number): number;
   /** The value at a place along the axis. */
   value(position: number): number;
@@ -21,7 +23,7 @@ export function brushAxis(min: number, max: number, kind: AxisKind): BrushAxis {
   const lo = to(min);
   const span = to(max) - lo || 1;
   return {
-    position: (value) => Math.min(Math.max((to(value) - lo) / span, 0), 1),
+    position: (value) => (to(Math.min(Math.max(value, min), max)) - lo) / span,
     value: (position) => {
       const at = lo + Math.min(Math.max(position, 0), 1) * span;
       return log ? Math.exp(at) : at;
