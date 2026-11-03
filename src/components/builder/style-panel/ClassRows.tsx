@@ -5,6 +5,7 @@ import { toHex, fromHex } from "@/lib/style/color";
 import { classLabels } from "@/lib/style/class-labels";
 import type { LegendChannel } from "@/lib/style/legend";
 import { BreakInput } from "./rows";
+import { customBreaks } from "./custom-breaks";
 import styles from "../StylePanel.module.css";
 
 /**
@@ -50,19 +51,9 @@ export function ClassRows({
 
   const editBreak = (index: number, value: number) => {
     if (paint.type !== "quantile") return;
-    // Order is enforced server-side with an explanatory rejection. A hand
-    // edit makes the scale Custom, remembering the named method it came
-    // from so a class-count change can recompute.
-    const breaks = paint.breaks.map((b, i) => (i === index ? value : b));
-    onPaint({
-      ...paint,
-      breaks,
-      method: "custom",
-      baseMethod:
-        paint.method === "custom"
-          ? (paint.baseMethod ?? "quantile")
-          : (paint.method ?? "quantile"),
-    });
+    // Order is enforced server-side with an explanatory rejection; a typed
+    // boundary keeps the value typed.
+    onPaint(customBreaks(paint, paint.breaks.map((b, i) => (i === index ? value : b))));
   };
 
   return (

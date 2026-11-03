@@ -29,6 +29,11 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   boundary in the lower class. It read "<" and "≥", which named the first
   class's top value as outside it. Class boundaries show every digit they
   need, in the legend and in the Style panel's boundary fields.
+- The Style panel's histogram for a classed colour draws the values its
+  classification sees, on the read's axis: skewed counts spread out on a
+  log axis, each bar takes the colour of the class it holds, and handles
+  that would overlap stagger above and below the track. A released handle
+  on whole numbers lands on the nearest whole number that keeps the order.
 
 ## [0.1.0]
 

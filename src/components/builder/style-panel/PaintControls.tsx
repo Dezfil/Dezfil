@@ -10,7 +10,7 @@ import { PaletteControl } from "../PaletteControl";
 import { BreakBrush } from "./BreakBrush";
 import { ContinuousBrush } from "./ContinuousBrush";
 import { ClassRows } from "./ClassRows";
-import { useRampStats, type FetchStats } from "./use-ramp-stats";
+import { isClassificationDistribution, useRampStats, type FetchStats } from "./use-ramp-stats";
 import { ColorRow, SelectRow } from "./rows";
 import styles from "../StylePanel.module.css";
 
@@ -136,7 +136,12 @@ export function PaintControls({
     legend,
     currentHexes,
   } = paintControlsOpenState(paint, fields);
-  const stats = useRampStats(fetchStats, rampAttribute, undefined);
+  // A classed ramp draws the distribution its classification sees.
+  const stats = useRampStats(
+    fetchStats,
+    rampAttribute,
+    paint.type === "quantile" ? "classification" : undefined,
+  );
 
   // A palette that no longer resolves (a deleted custom palette id) must
   // not dead-end the controls: retry once without it, falling back to the
@@ -392,19 +397,14 @@ export function PaintControls({
           />
 
           {paint.type === "quantile" &&
-            stats?.kind === "numeric" &&
+            stats !== null &&
+            isClassificationDistribution(stats) &&
             stats.min !== null &&
             stats.max !== null &&
             stats.bins.length > 0 && (
               <BreakBrush
                 paint={paint}
-                min={stats.min}
-                max={stats.max}
-                mean={stats.mean}
-                bins={stats.bins}
-                integer={(attributeField?.type ?? "")
-                  .toUpperCase()
-                  .includes("INT")}
+                stats={{ ...stats, min: stats.min, max: stats.max }}
                 disabled={disabled}
                 onPaint={onPaint}
                 onPaintPreview={onPaintPreview}

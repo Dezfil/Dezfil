@@ -3,10 +3,11 @@
 import styles from "./Distribution.module.css";
 
 /**
- * Distribution bars shared by the filter brush and the ramp control.
+ * Distribution bars shared by the filter brush and the ramp controls.
  * `highlight` lights the bars inside a selection — the filter's use;
- * `colorFor` paints each bar by the class its center falls into — the
- * ramp's use.
+ * `colorFor` paints each bar by its linear center — the continuous ramp's
+ * use; `barColors` paints each bar as given — the classed brush, which
+ * colours its bars from the bins' own edges on its own axis.
  */
 export function DistributionBars({
   bins,
@@ -14,12 +15,14 @@ export function DistributionBars({
   to,
   highlight,
   colorFor,
+  barColors,
 }: {
   bins: number[];
   from: number;
   to: number;
   highlight?: [number, number];
   colorFor?: (center: number) => string | undefined;
+  barColors?: (string | undefined)[];
 }) {
   const max = Math.max(...bins, 1);
   const span = to - from || 1;
@@ -38,7 +41,11 @@ export function DistributionBars({
             }
             style={{
               height: `${Math.max((n / max) * 100, n > 0 ? 4 : 0)}%`,
-              ...(colorFor ? { background: colorFor(center) } : null),
+              ...(barColors
+                ? { background: barColors[i] }
+                : colorFor
+                  ? { background: colorFor(center) }
+                  : null),
             }}
           />
         );

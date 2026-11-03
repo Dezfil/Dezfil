@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { FieldStats } from "@/lib/layer-service";
+import type { ClassificationDistribution } from "@/lib/classification-distribution";
 
 /** The statistics read behind a ramp: the attribute's stats, or with
  * "classification" the distribution its classification sees. The panel
@@ -10,6 +11,13 @@ export type FetchStats = (
   attribute: string,
   distribution?: "classification",
 ) => Promise<FieldStats | null>;
+
+/** Whether an answer is the distribution a classification sees. */
+export function isClassificationDistribution(
+  stats: FieldStats,
+): stats is ClassificationDistribution {
+  return (stats as Partial<ClassificationDistribution>).distribution === "classification";
+}
 
 /**
  * A ramp's distribution, refetched when the attribute, the request or the
