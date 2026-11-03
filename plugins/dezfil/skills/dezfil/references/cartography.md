@@ -12,9 +12,10 @@ domain and color stops; a diverging continuous paint also has a center.
 with the fallback color for other values. Ties can change category order.
 
 Quantitative example: use this SQL for a layer, compute `area_ha` with method
-`equal`, palette `viridis`, classes 2, and save that fill. The boundary is 20.
+`equal`, palette `viridis`, classes 2, and save that fill. The boundary is 20,
+and a value equal to a boundary belongs to the lower class.
 Set `legendTitle` to `Park area`, `legendAttrs.fill` to `Area (ha)`, and
-`legendLabels` to `Below 20 ha` and `20 ha and above`.
+`legendLabels` to `Up to 20 ha` and `Over 20 ha`.
 
 ```sql
 -- example: quantitative

@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import type { FillPaint, RgbaColor } from "@/lib/style/style";
 import type { FieldStats, LayerField } from "@/lib/layer-service";
 import type { ClassifyMethod } from "@/lib/style/classify";
-import { toHex, fromHex } from "@/lib/style/color";
+import { toHex } from "@/lib/style/color";
 import { paintLegend } from "@/lib/style/legend";
 import { sequentialColors } from "@/lib/style/palettes";
 import { PaletteControl } from "../PaletteControl";
 import { BreakBrush } from "./BreakBrush";
 import { ContinuousBrush } from "./ContinuousBrush";
-import { BreakInput, ColorRow, SelectRow, compactNumber } from "./rows";
+import { ClassRows } from "./ClassRows";
+import { ColorRow, SelectRow } from "./rows";
 import styles from "../StylePanel.module.css";
 
 export interface ClassifyRequest {
@@ -316,40 +317,6 @@ export function PaintControls({
     });
   };
 
-  // Manual overrides: individual class colors and boundaries are edited in
-  // place; any palette-level action above recomputes and replaces them
-  // (decision 3). "custom" marks the palette as hand-edited.
-  const editColor = (index: number, color: RgbaColor) => {
-    if (paint.type === "quantile") {
-      const colors = paint.colors.map((c, i) => (i === index ? color : c));
-      onPaint({ ...paint, colors, palette: "custom" });
-    } else if (paint.type === "categorical") {
-      if (index < paint.map.length) {
-        const map = paint.map.map((m, i) => (i === index ? { ...m, color } : m));
-        onPaint({ ...paint, map, palette: "custom" });
-      } else {
-        onPaint({ ...paint, other: color, palette: "custom" });
-      }
-    }
-  };
-
-  const editBreak = (index: number, value: number) => {
-    if (paint.type !== "quantile") return;
-    // Order is enforced server-side with an explanatory rejection. A hand
-    // edit makes the scale Custom, remembering the named method it came
-    // from so a class-count change can recompute.
-    const breaks = paint.breaks.map((b, i) => (i === index ? value : b));
-    onPaint({
-      ...paint,
-      breaks,
-      method: "custom",
-      baseMethod:
-        paint.method === "custom"
-          ? (paint.baseMethod ?? "quantile")
-          : (paint.method ?? "quantile"),
-    });
-  };
-
   return (
     <>
       <SelectRow
@@ -480,43 +447,14 @@ export function PaintControls({
             )}
 
           {legend && legend.kind !== "continuous" && (
-            <div className={styles.legendPreview}>
-              {legend.entries.map((e, i) => (
-                <div key={i} className={styles.legendRow}>
-                  <input
-                    type="color"
-                    className={styles.legendSwatchInput}
-                    title="Edit this class color"
-                    aria-label={`${channel} class ${i + 1} color`}
-                    value={toHex(e.color)}
-                    disabled={disabled}
-                    onChange={(ev) =>
-                      editColor(i, fromHex(ev.target.value, e.color.a))
-                    }
-                  />
-                  {paint.type === "quantile" && i < paint.breaks.length ? (
-                    <span className={styles.legendLabel}>
-                      {i === 0 ? "<" : `${compactNumber(paint.breaks[i - 1])} –`}{" "}
-                      <BreakInput
-                        key={`${i}:${paint.breaks[i]}`}
-                        value={paint.breaks[i]}
-                        disabled={disabled}
-                        name={`${channel} class boundary ${i + 1}`}
-                        onCommit={(v) => editBreak(i, v)}
-                      />
-                    </span>
-                  ) : (
-                    <span className={styles.legendLabel}>{e.label}</span>
-                  )}
-                </div>
-              ))}
-              <p className={styles.editHint}>
-                {method === "custom"
-                  ? "Custom boundaries: palettes just recolor; picking a " +
-                    "method or changing steps recomputes."
-                  : "Click a color or boundary to edit it."}
-              </p>
-            </div>
+            <ClassRows
+              paint={paint}
+              legend={legend}
+              channel={channel}
+              custom={method === "custom"}
+              disabled={disabled}
+              onPaint={onPaint}
+            />
           )}
         </>
       )}

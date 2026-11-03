@@ -113,7 +113,7 @@ The new layer's style panel is open under its card. If it is closed, click **wor
 
 Dezfil sorts the cities into five classes with about the same number of cities in each (**Quantile**), and gives each class a color from the palette.
 
-You should see the points change color, and the legend in the corner of the map list the five classes with their population ranges.
+You should see the points change color, and the legend in the corner of the map list the five classes with their population ranges. A city exactly on a boundary belongs to the lower class, so the first class reads "≤" its boundary and the last ">" the one below it.
 
 Every change saves as you make it. **Undo**, the curved arrow at the top of the page, takes the last one back. To change the look:
 

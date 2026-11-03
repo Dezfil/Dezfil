@@ -323,8 +323,8 @@ describe("legendFor", () => {
     const style: LayerStyle = { ...defaultStyle("POINT"), fill: q };
     const legend = legendFor(style)?.paints[0];
     expect(legend?.kind).toBe("quantile");
-    expect(legend?.entries[0].label).toMatch(/^</);
-    expect(legend?.entries.at(-1)?.label).toMatch(/^≥/);
+    expect(legend?.entries[0].label).toMatch(/^≤ /);
+    expect(legend?.entries.at(-1)?.label).toMatch(/^> /);
 
     const cat = await classifyFill(testAccountScope(), SQL, "region", "categorical");
     const legend2 = legendFor({ ...style, fill: cat })?.paints[0];

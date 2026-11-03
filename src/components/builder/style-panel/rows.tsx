@@ -3,15 +3,15 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { RgbaColor } from "@/lib/style/style";
 import { toHex, fromHex } from "@/lib/style/color";
-import { formatBreak } from "@/lib/style/legend";
+import { formatBreak } from "@/lib/style/class-labels";
 import { useSliderInteraction } from "./use-slider-interaction";
 import { sliderClass } from "../../ui/Slider";
 import { UnsavedField } from "../UnsavedFields";
 import styles from "../StylePanel.module.css";
 
-/** Boundaries read exactly like the legend does — the break formatter,
- * shared product-wide: exact with grouping, exponents on micro
- * magnitudes. */
+/** Boundaries read exactly like the legend does: the break formatter,
+ * shared product-wide, every digit a boundary needs, grouping, exponents
+ * on micro magnitudes. */
 export function compactNumber(n: number): string {
   return formatBreak(n);
 }
