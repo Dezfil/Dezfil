@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import type { QuantileFill } from "@/lib/style/style";
 import type { ClassificationDistribution } from "@/lib/classification-distribution";
 import { toHex } from "@/lib/style/color";
 import { formatBreak } from "@/lib/style/class-labels";
 import { formatCompact } from "@/lib/style/legend";
 import { DistributionBars } from "../Distribution";
-import { barValue, brushAxis, classIndex, handleLanes } from "./brush-axis";
+import { ARROW_STEP, barValue, brushAxis, classIndex, draggedBreak, handleLanes, keyedBreak } from "./brush-axis";
 import { customBreaks, releasedBreaks } from "./custom-breaks";
 import styles from "./BreakBrush.module.css";
 
@@ -23,16 +23,9 @@ const STEPS = 1000;
  * stagger above and below the track. Dragging previews locally; release
  * snaps the boundary (to a whole number on whole-number data, keeping the
  * order, or staying put when none fits) and saves the scale as Custom
- * exactly once.
+ * exactly once. An arrow key moves a boundary to the next value it keeps.
  */
-export function BreakBrush({
-  paint,
-  stats,
-  disabled,
-  onPaint,
-  onPaintPreview,
-  onPaintCommit,
-}: {
+export function BreakBrush({ paint, stats, disabled, onPaint, onPaintPreview, onPaintCommit }: {
   paint: QuantileFill;
   /** The classification distribution, with at least one bin. */
   stats: ClassificationDistribution & { min: number; max: number };
@@ -46,19 +39,18 @@ export function BreakBrush({
   // While dragging or settling, the draft wins over the authoritative prop.
   const [draft, setDraft] = useState<number[] | null>(null);
   const draftRef = useRef<number[] | null>(null);
-  const movedRef = useRef<number | null>(null);
+  // The handle a gesture moved, and whether a key moved it.
+  const movedRef = useRef<{ index: number; keyed: boolean } | null>(null);
   const activeRef = useRef(false);
   const generationRef = useRef(0);
   const split = !!onPaintPreview && !!onPaintCommit;
   const breaks = draft ?? paint.breaks;
 
-  const classColor = (v: number) =>
-    toHex(paint.colors[Math.min(classIndex(breaks, v), paint.colors.length - 1)]);
-  const barColors = bins.map((_, i) =>
-    classColor(barValue(edges[i], edges[i + 1], stats.axis, wholeNumbers, i === bins.length - 1)),
-  );
-
-  const asCustom = (next: number[]) => customBreaks(paint, next);
+  const barColors = bins.map((_, i) => {
+    const v = barValue(edges[i], edges[i + 1], stats.axis, wholeNumbers, i === bins.length - 1);
+    return toHex(paint.colors[Math.min(classIndex(breaks, v), paint.colors.length - 1)]);
+  });
+  const data = { wholeNumbers, min, max, steps: STEPS };
 
   const begin = () => {
     if (activeRef.current) return;
@@ -66,20 +58,30 @@ export function BreakBrush({
     generationRef.current += 1;
   };
 
-  const preview = (index: number, step: number) => {
-    begin();
-    movedRef.current = index;
-    const current = draftRef.current ?? paint.breaks;
-    // Neighbours hold the handle a step of the axis away on either side.
-    const lo = index > 0 ? axis.value(axis.position(current[index - 1]) + 1 / STEPS) : min;
-    const hi = index < current.length - 1 ? axis.value(axis.position(current[index + 1]) - 1 / STEPS) : max;
-    const next = [...current];
-    next[index] = Math.min(Math.max(axis.value(step / STEPS), lo), hi);
+  const show = (index: number, value: number, keyed: boolean) => {
+    movedRef.current = { index, keyed };
+    const next = [...(draftRef.current ?? paint.breaks)];
+    next[index] = value;
     draftRef.current = next;
     setDraft(next);
-    const nextPaint = asCustom(next);
+    const nextPaint = customBreaks(paint, next);
     if (split) onPaintPreview(nextPaint);
     else onPaint(nextPaint);
+  };
+
+  const preview = (index: number, step: number) => {
+    begin();
+    show(index, draggedBreak(draftRef.current ?? paint.breaks, index, step / STEPS, axis, data), false);
+  };
+
+  // The input's own step, a share of the axis, can fall short of the next
+  // value a release keeps; an arrow key goes straight to that value.
+  const key = (index: number, e: KeyboardEvent) => {
+    begin();
+    if (ARROW_STEP[e.key] === undefined) return;
+    e.preventDefault();
+    const at = keyedBreak(draftRef.current ?? paint.breaks, index, ARROW_STEP[e.key], axis, data);
+    if (at !== null) show(index, at, true);
   };
 
   const commit = async () => {
@@ -88,9 +90,10 @@ export function BreakBrush({
     const generation = generationRef.current;
     const final = draftRef.current;
     if (!final) return;
-    const released = releasedBreaks(paint.breaks, final, movedRef.current, { wholeNumbers, min, max });
+    const moved = movedRef.current;
+    const released = moved?.keyed ? final : releasedBreaks(paint.breaks, final, moved?.index ?? null, data);
     const unchanged = released.every((value, i) => value === paint.breaks[i]);
-    const target = unchanged ? paint : asCustom(released);
+    const target = unchanged ? paint : customBreaks(paint, released);
     if (split) await onPaintCommit(target);
     else onPaint(target);
     if (generation === generationRef.current && !activeRef.current) {
@@ -148,7 +151,7 @@ export function BreakBrush({
               onChange={(e) => preview(i, Number(e.target.value))}
               onPointerUp={() => void commit()}
               onPointerCancel={() => void commit()}
-              onKeyDown={begin}
+              onKeyDown={(e) => key(i, e)}
               onKeyUp={() => void commit()}
               onBlur={() => void commit()}
             />

@@ -88,6 +88,16 @@ async function drag(index: number, ...values: number[]) {
   await act(async () => props(handles()[index]).onPointerUp({}));
 }
 let collisionsOr = collisions;
+/** Press and release an arrow key on one handle, as a browser does: the
+ * range input steps itself unless the key's default is prevented. */
+async function press(index: number, key: string) {
+  const handle = handles()[index];
+  let prevented = false;
+  act(() => props(handle).onKeyDown({ key, preventDefault: () => { prevented = true; } }));
+  const step = key === "ArrowRight" || key === "ArrowUp" ? 1 : -1;
+  if (!prevented) act(() => props(handles()[index]).onChange({ target: { value: String(Number(handle.value) + step) } }));
+  await act(async () => props(handles()[index]).onKeyUp({ key }));
+}
 
 describe("the classed histogram on its answered axis", () => {
   beforeEach(() => { collisionsOr = collisions; });
@@ -168,6 +178,48 @@ describe("the classed histogram on its answered axis", () => {
     await drag(1, 5.4);
     const saved = (onPaintCommit as ReturnType<typeof vi.fn>).mock.calls[0][0] as QuantileFill;
     expect(saved.breaks).toEqual([-5, 5, 9]);
+  });
+
+  it("moves a boundary one whole number per arrow key on skewed counts, and stops at its neighbour", async () => {
+    // Seeded defect: the range input's own step, a thousandth of a log
+    // axis over 1 to 1001, which moved boundary 1 to about 1.007 for the
+    // release to snap back to 1, so no press ever moved it.
+    const values = [...new Array(900).fill(1), ...Array.from({ length: 100 }, (_, k) => 2 + Math.floor(999 * (k / 99) ** 3))];
+    const stats = distribution(values, "log", true);
+    expect([stats.min, stats.max]).toEqual([1, 1001]);
+    let p = paint([1, 4, 500]);
+    for (const expected of [2, 3]) {
+      const { onPaintCommit } = render(p, stats);
+      await press(0, "ArrowRight");
+      p = (onPaintCommit as ReturnType<typeof vi.fn>).mock.calls[0][0] as QuantileFill;
+      expect(p.breaks).toEqual([expected, 4, 500]);
+    }
+    // 4 is the next boundary: a press past it, or below the data, saves nothing new.
+    for (const [index, key] of [[0, "ArrowRight"], [1, "ArrowLeft"]] as const) {
+      const { onPaintCommit } = render(p, stats);
+      await press(index, key);
+      for (const [saved] of (onPaintCommit as ReturnType<typeof vi.fn>).mock.calls) expect((saved as QuantileFill).breaks).toEqual([3, 4, 500]);
+    }
+    const { onPaintCommit } = render(paint([1, 4, 500]), stats);
+    await press(0, "ArrowLeft");
+    for (const [saved] of (onPaintCommit as ReturnType<typeof vi.fn>).mock.calls) expect((saved as QuantileFill).breaks).toEqual([1, 4, 500]);
+    // A boundary below the data comes in to its first value.
+    const below = render(paint([-5, 4, 500]), stats);
+    await press(0, "ArrowRight");
+    expect(((below.onPaintCommit as ReturnType<typeof vi.fn>).mock.calls[0][0] as QuantileFill).breaks).toEqual([1, 4, 500]);
+    // Down and up move the same way as left and right.
+    const down = render(paint([1, 9, 500]), stats);
+    await press(1, "ArrowDown");
+    expect(((down.onPaintCommit as ReturnType<typeof vi.fn>).mock.calls[0][0] as QuantileFill).breaks).toEqual([1, 8, 500]);
+  });
+
+  it("moves a decimal boundary one step of the axis per arrow key, to a value the release keeps", async () => {
+    // Seeded defect: the release rounding a keyed 30.101 back to 30.
+    const values = Array.from({ length: 101 }, (_, k) => k * 1.01);
+    collisionsOr = distribution(values, "linear", false);
+    const { onPaintCommit } = render({ ...paint([30, 60, 90]), wholeNumbers: false }, collisionsOr);
+    await press(0, "ArrowRight");
+    expect(((onPaintCommit as ReturnType<typeof vi.fn>).mock.calls[0][0] as QuantileFill).breaks).toEqual([30.1, 60, 90]);
   });
 
   it("releases a decimal boundary as nicely as a computed one, not on a whole number", async () => {

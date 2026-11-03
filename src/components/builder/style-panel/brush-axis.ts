@@ -94,3 +94,51 @@ export function snapWhole(dropped: number, previous: number, next: number, origi
   if (low > high) return original;
   return Math.min(Math.max(Math.round(dropped), low), high);
 }
+
+/** The way each arrow key moves a boundary along the axis. */
+export const ARROW_STEP: Readonly<Record<string, 1 | -1>> = {
+  ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+};
+
+/**
+ * Where one arrow-key press takes a boundary: on whole numbers the next
+ * whole number that way, otherwise one step of the axis rounded to that
+ * step's own precision, so every press reaches a different value and the
+ * release keeps it; a boundary outside the data's extent comes in to its
+ * end. Null when no such value lies that way before the neighbour or the
+ * extent's end: the boundary stays.
+ */
+export function keyedBreak(
+  breaks: number[],
+  index: number,
+  direction: 1 | -1,
+  axis: BrushAxis,
+  data: { wholeNumbers: boolean; min: number; max: number; steps: number },
+): number | null {
+  const b = breaks[index];
+  let target = direction > 0 ? Math.floor(b) + 1 : Math.ceil(b) - 1;
+  if (!data.wholeNumbers) {
+    const stepped = axis.value(axis.position(b) + direction / data.steps);
+    const digits = -Math.floor(Math.log10(Math.abs(stepped - b)));
+    target = Number(stepped.toFixed(Math.min(Math.max(digits, 0), 100)));
+  }
+  target = Math.min(Math.max(target, data.min), data.max);
+  const previous = index > 0 ? breaks[index - 1] : -Infinity;
+  const next = index < breaks.length - 1 ? breaks[index + 1] : Infinity;
+  return direction * (target - b) > 0 && target > previous && target < next ? target : null;
+}
+
+/** Where a drag to a place along the axis puts a boundary: that place's
+ * value, held a step of the axis from each neighbour and inside the
+ * data's extent. */
+export function draggedBreak(
+  breaks: number[],
+  index: number,
+  place: number,
+  axis: BrushAxis,
+  data: { min: number; max: number; steps: number },
+): number {
+  const lo = index > 0 ? axis.value(axis.position(breaks[index - 1]) + 1 / data.steps) : data.min;
+  const hi = index < breaks.length - 1 ? axis.value(axis.position(breaks[index + 1]) - 1 / data.steps) : data.max;
+  return Math.min(Math.max(axis.value(place), lo), hi);
+}
