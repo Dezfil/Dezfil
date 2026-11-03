@@ -7,6 +7,41 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- A classed paint carries `wholeNumbers`: whether the result it classified
+  is a whole-number type. On whole numbers the legend names what each class
+  holds: breaks 1, 2, 3 read "≤ 1", "2", "3", "> 3", and breaks 4, 14
+  read "≤ 4", "5 – 14", "> 14". Computing classes sets it; a layer write
+  that changes the SQL or the aggregation without sending a paint removes
+  it from the stored paints the server does not recompute. An additive
+  change to the paint in the API description.
+- A field's statistics read takes `distribution=classification`: the
+  values a classification sees, filters applied and an aggregated layer's
+  `value` or `count`, binned equal on a log axis for skewed positive values
+  and a linear one otherwise, with the bin `edges`, the `axis` and the
+  field's `wholeNumbers`. Without it the read answers as before.
+
+### Changed
+
+- A classed colour's legend reads each class as what it holds: the first
+  "≤" its boundary, the last ">" the one below it, a value equal to a
+  boundary in the lower class. It read "<" and "≥", which named the first
+  class's top value as outside it. Class boundaries show every digit they
+  need, in the legend and in the Style panel's boundary fields.
+- The Style panel's histogram for a classed colour draws the values its
+  classification sees, on the read's axis: skewed counts spread out on a
+  log axis, each bar takes the colour of the class it holds, and handles
+  that would overlap stagger above and below the track. A released handle
+  on whole numbers lands on the nearest whole number that keeps the order.
+- A new classed colour starts on Natural breaks over whole numbers, such as
+  counts, and on Quantile over any other number: on picking a numeric
+  column, on switching Continuous to Classified, and on cells made with no
+  numeric colour to carry. Where Natural cannot classify the values, all
+  of them equal, it starts on Quantile. A method you pick or a layer
+  already holds is kept, and the classification request still takes the
+  method it is given.
+
 ## [0.1.0]
 
 First public release.

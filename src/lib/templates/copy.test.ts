@@ -67,7 +67,7 @@ const SCHEMA_ROW_SQL = "SELECT * FROM stations WHERE main.stations IS NOT NULL";
 
 let built: string;
 let M1: BuiltTemplate, Q1: BuiltTemplate, X1: BuiltTemplate, D1: BuiltTemplate, N1: BuiltTemplate, L1: BuiltTemplate;
-let T1: BuiltTemplate, S1: BuiltTemplate, S2: BuiltTemplate, S3: BuiltTemplate;
+let T1: BuiltTemplate, S1: BuiltTemplate, S2: BuiltTemplate, S3: BuiltTemplate, W1: BuiltTemplate;
 let f: ReturnType<typeof instanceSettingsFixture>;
 let dir: string;
 let shippedFolder: string;
@@ -122,6 +122,21 @@ beforeAll(async () => {
     edit: (files) => {
       const layers = files.documents.get("maps/map.json")!.layers as Record<string, unknown>[];
       layers.find((layer) => layer.id === "layer-stations")!.sql = sql;
+    },
+  });
+  // The stations layer classed by riders, its fill and outline each
+  // storing a different whole-number fact.
+  W1 = await buildTemplate(path.join(built, "w1"), {
+    id: "whole-riders",
+    edit: (files) => {
+      const layers = files.documents.get("maps/map.json")!.layers as Record<string, unknown>[];
+      const layer = layers.find((l) => l.id === "layer-stations")!;
+      const ramp = (wholeNumbers: boolean) => ({
+        type: "quantile", attribute: "riders", palette: "global_warming", method: "quantile",
+        breaks: [100, 200], colors: [{ r: 1, g: 2, b: 3, a: 1 }, { r: 4, g: 5, b: 6, a: 1 }, { r: 7, g: 8, b: 9, a: 1 }],
+        wholeNumbers,
+      });
+      layer.style = { ...(layer.style as object), fill: ramp(true), strokeBy: ramp(false) };
     },
   });
   S1 = await stationsSql("schema-names", SCHEMA_SQL);
@@ -325,6 +340,13 @@ describe("a copy of a map template", () => {
     // drawn; a timeline naming any other layer leaves the range applied
     // here, drawing the two stations opened since 2021.
     expect(await renders(stations.id)).toMatchObject({ ok: true, mode: "inline", featureCount: 6, liveFiltered: true });
+  });
+
+  it("a copied layer's classed paints keep the whole-number fact each one stored", async () => {
+    await installFixture(W1, path.join(dataDir(), "templates", "whole-riders", "1"), { kind: "catalogue", origin: "https://catalogue.example" });
+    const copied = await landed(await copy("whole-riders", byCookie(), { version: 1 }));
+    const style = copied.map.layers.find((l) => l.name === "Stations")!.style as { fill: { wholeNumbers?: boolean }; strokeBy: { wholeNumbers?: boolean } };
+    expect([style.fill.wholeNumbers, style.strokeBy.wholeNumbers]).toEqual([true, false]);
   });
 
   it("a copied dataset is never refreshed: it came from no source to read again", async () => {

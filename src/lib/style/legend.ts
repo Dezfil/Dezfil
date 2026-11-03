@@ -1,5 +1,6 @@
 import type { LayerStyle, RgbaColor, FillPaint, SizeScale } from "./style";
 import { isOdViz, type LayerViz } from "../viz";
+import { classLabels } from "./class-labels";
 
 export interface LegendEntry {
   label: string;
@@ -48,18 +49,9 @@ export interface Legend {
   sizes: SizeChannel[];
 }
 
-/** Class boundaries display EXACTLY — stored equals shown.
- * Breaks are nice by construction, so grouping is all they need; micro
- * magnitudes still read as exponents. Earlier raw breaks show their true
- * noise until reclassified — honest, not pretty. */
-export function formatBreak(n: number): string {
-  if (!Number.isFinite(n)) return String(n);
-  const abs = Math.abs(n);
-  if (abs > 0 && abs < 1e-4) {
-    return n.toExponential(2).replace(/\.?0+e/, "e");
-  }
-  return n.toLocaleString("en-US", { maximumFractionDigits: 10 });
-}
+/** Class boundaries display exactly: the class-label module's formatter,
+ * re-exported so boundary consumers keep one import site. */
+export { formatBreak } from "./class-labels";
 
 /** Compact number formatting — map labels, cell tooltips, and size
  * legends, where approximate-but-tidy beats exact. Micro magnitudes switch
@@ -112,15 +104,13 @@ function paintChannel(
     };
   }
 
-  // quantile: colors.length classes, breaks between them
-  const { breaks, colors } = paint;
-  const entries: LegendEntry[] = colors.map((color, i) => {
-    let label: string;
-    if (i === 0) label = `< ${formatBreak(breaks[0])}`;
-    else if (i === colors.length - 1) label = `≥ ${formatBreak(breaks[breaks.length - 1])}`;
-    else label = `${formatBreak(breaks[i - 1])} – ${formatBreak(breaks[i])}`;
-    return { label, color };
-  });
+  // quantile: colors.length classes, breaks between them, each read as
+  // what it holds
+  const labels = classLabels(paint);
+  const entries: LegendEntry[] = paint.colors.map((color, i) => ({
+    label: labels[i].text,
+    color,
+  }));
   return { channel, attribute: paint.attribute, kind: "quantile", entries };
 }
 

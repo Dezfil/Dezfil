@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { FillPaint, RgbaColor } from "@/lib/style/style";
-import type { FieldStats, LayerField } from "@/lib/layer-service";
+import type { LayerField } from "@/lib/layer-service";
 import type { ClassifyMethod } from "@/lib/style/classify";
-import { toHex, fromHex } from "@/lib/style/color";
+import { toHex } from "@/lib/style/color";
 import { paintLegend } from "@/lib/style/legend";
 import { sequentialColors } from "@/lib/style/palettes";
 import { PaletteControl } from "../PaletteControl";
 import { BreakBrush } from "./BreakBrush";
 import { ContinuousBrush } from "./ContinuousBrush";
-import { BreakInput, ColorRow, SelectRow, compactNumber } from "./rows";
+import { ClassRows } from "./ClassRows";
+import { isClassificationDistribution, useRampStats, type FetchStats } from "./use-ramp-stats";
+import { ColorRow, SelectRow } from "./rows";
 import styles from "../StylePanel.module.css";
 
 export interface ClassifyRequest {
   attribute: string;
-  method: ClassifyMethod;
+  /** "automatic": a new classed colour, on the method its values suit. */
+  method: ClassifyMethod | "automatic";
   palette?: string;
   classes?: number;
   reversed?: boolean;
@@ -112,8 +114,10 @@ export function PaintControls({
   /** Color shown/kept when switching back to a single color. */
   constantFallback: RgbaColor;
   classify: (req: ClassifyRequest) => Promise<FillPaint | null>;
-  /** The attribute's stats — extent, mean, distribution. */
-  fetchStats: (attribute: string) => Promise<FieldStats | null>;
+  /** The attribute's stats — extent, mean, distribution; with
+   * "classification", the distribution its classification sees. A new
+   * function whenever the values' source changes. */
+  fetchStats: FetchStats;
   onPaint: (p: FillPaint) => void;
   onPaintPreview?: (p: FillPaint) => void;
   onPaintCommit?: (p: FillPaint) => Promise<boolean>;
@@ -133,25 +137,12 @@ export function PaintControls({
     legend,
     currentHexes,
   } = paintControlsOpenState(paint, fields);
-  // The ramp's distribution, refetched when the source moves. Keyed by
-  // attribute so a stale distribution never renders for the wrong column
-  // while the fresh one is in flight.
-  const [statsFor, setStatsFor] = useState<{
-    attribute: string;
-    stats: FieldStats;
-  } | null>(null);
-  useEffect(() => {
-    if (!rampAttribute) return;
-    let cancelled = false;
-    void fetchStats(rampAttribute).then((s) => {
-      if (!cancelled && s) setStatsFor({ attribute: rampAttribute, stats: s });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [rampAttribute, fetchStats]);
-  const stats =
-    statsFor && statsFor.attribute === rampAttribute ? statsFor.stats : null;
+  // A classed ramp draws the distribution its classification sees.
+  const stats = useRampStats(
+    fetchStats,
+    rampAttribute,
+    paint.type === "quantile" ? "classification" : undefined,
+  );
 
   // A palette that no longer resolves (a deleted custom palette id) must
   // not dead-end the controls: retry once without it, falling back to the
@@ -213,7 +204,7 @@ export function PaintControls({
     } else if (next === "classified" && paint.type === "continuous") {
       apply({
         attribute,
-        method: "quantile",
+        method: "automatic",
         palette: palette ?? undefined,
         classes: 5,
         reversed,
@@ -234,11 +225,7 @@ export function PaintControls({
     // A numeric switch keeps the scale mode; categorical fields have none.
     apply({
       attribute: value,
-      method: field.numeric
-        ? continuous
-          ? "continuous"
-          : "quantile"
-        : "categorical",
+      method: !field.numeric ? "categorical" : continuous ? "continuous" : "automatic",
     });
   };
 
@@ -313,40 +300,6 @@ export function PaintControls({
       classes:
         method === "categorical" ? undefined : (overrides.classes ?? classes),
       reversed: overrides.reversed ?? reversed,
-    });
-  };
-
-  // Manual overrides: individual class colors and boundaries are edited in
-  // place; any palette-level action above recomputes and replaces them
-  // (decision 3). "custom" marks the palette as hand-edited.
-  const editColor = (index: number, color: RgbaColor) => {
-    if (paint.type === "quantile") {
-      const colors = paint.colors.map((c, i) => (i === index ? color : c));
-      onPaint({ ...paint, colors, palette: "custom" });
-    } else if (paint.type === "categorical") {
-      if (index < paint.map.length) {
-        const map = paint.map.map((m, i) => (i === index ? { ...m, color } : m));
-        onPaint({ ...paint, map, palette: "custom" });
-      } else {
-        onPaint({ ...paint, other: color, palette: "custom" });
-      }
-    }
-  };
-
-  const editBreak = (index: number, value: number) => {
-    if (paint.type !== "quantile") return;
-    // Order is enforced server-side with an explanatory rejection. A hand
-    // edit makes the scale Custom, remembering the named method it came
-    // from so a class-count change can recompute.
-    const breaks = paint.breaks.map((b, i) => (i === index ? value : b));
-    onPaint({
-      ...paint,
-      breaks,
-      method: "custom",
-      baseMethod:
-        paint.method === "custom"
-          ? (paint.baseMethod ?? "quantile")
-          : (paint.method ?? "quantile"),
     });
   };
 
@@ -441,19 +394,14 @@ export function PaintControls({
           />
 
           {paint.type === "quantile" &&
-            stats?.kind === "numeric" &&
+            stats !== null &&
+            isClassificationDistribution(stats) &&
             stats.min !== null &&
             stats.max !== null &&
             stats.bins.length > 0 && (
               <BreakBrush
                 paint={paint}
-                min={stats.min}
-                max={stats.max}
-                mean={stats.mean}
-                bins={stats.bins}
-                integer={(attributeField?.type ?? "")
-                  .toUpperCase()
-                  .includes("INT")}
+                stats={{ ...stats, min: stats.min, max: stats.max }}
                 disabled={disabled}
                 onPaint={onPaint}
                 onPaintPreview={onPaintPreview}
@@ -480,43 +428,14 @@ export function PaintControls({
             )}
 
           {legend && legend.kind !== "continuous" && (
-            <div className={styles.legendPreview}>
-              {legend.entries.map((e, i) => (
-                <div key={i} className={styles.legendRow}>
-                  <input
-                    type="color"
-                    className={styles.legendSwatchInput}
-                    title="Edit this class color"
-                    aria-label={`${channel} class ${i + 1} color`}
-                    value={toHex(e.color)}
-                    disabled={disabled}
-                    onChange={(ev) =>
-                      editColor(i, fromHex(ev.target.value, e.color.a))
-                    }
-                  />
-                  {paint.type === "quantile" && i < paint.breaks.length ? (
-                    <span className={styles.legendLabel}>
-                      {i === 0 ? "<" : `${compactNumber(paint.breaks[i - 1])} –`}{" "}
-                      <BreakInput
-                        key={`${i}:${paint.breaks[i]}`}
-                        value={paint.breaks[i]}
-                        disabled={disabled}
-                        name={`${channel} class boundary ${i + 1}`}
-                        onCommit={(v) => editBreak(i, v)}
-                      />
-                    </span>
-                  ) : (
-                    <span className={styles.legendLabel}>{e.label}</span>
-                  )}
-                </div>
-              ))}
-              <p className={styles.editHint}>
-                {method === "custom"
-                  ? "Custom boundaries: palettes just recolor; picking a " +
-                    "method or changing steps recomputes."
-                  : "Click a color or boundary to edit it."}
-              </p>
-            </div>
+            <ClassRows
+              paint={paint}
+              legend={legend}
+              channel={channel}
+              custom={method === "custom"}
+              disabled={disabled}
+              onPaint={onPaint}
+            />
           )}
         </>
       )}

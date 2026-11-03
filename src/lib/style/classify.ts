@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api/errors";
 import { boundedEvaluation, isOutOfMemory } from "@/lib/query/bounded";
 import { wrappable } from "@/lib/query/compile";
 import { cappedText, cappedValue } from "@/lib/query/value-ceiling";
+import { WHOLE_NUMBER_TYPE } from "./default-method";
 import { naturalBreakValues } from "./natural-breaks";
 import { niceBreaks } from "./nice-breaks";
 
@@ -46,19 +47,29 @@ export type ClassifyMethod =
   | "categorical"
   | "continuous";
 
+/** Whether a column of the classified result holds whole numbers, by its
+ * engine type: a cell count is a BIGINT whatever the field list calls it,
+ * and an average, sum, minimum or maximum is cast to DOUBLE. The one
+ * determination classification and its distribution share. */
+export async function wholeNumberColumn(
+  conn: Conn,
+  sub: string,
+  col: string,
+): Promise<boolean> {
+  const described = await conn.runAndReadAll(
+    `DESCRIBE SELECT ${col} AS v FROM ${sub}`,
+  );
+  const type = String(described.getRowObjects()[0]?.column_type ?? "");
+  return WHOLE_NUMBER_TYPE.test(type);
+}
+
 /** Column facts nice rounding needs: integer-typed, and the data extent. */
 async function columnMeta(
   conn: Conn,
   sub: string,
   col: string,
 ): Promise<{ integer: boolean; lo: number; hi: number }> {
-  const described = await conn.runAndReadAll(
-    `DESCRIBE SELECT ${col} AS v FROM ${sub}`,
-  );
-  const type = String(described.getRowObjects()[0]?.column_type ?? "");
-  const integer = /^(U?TINYINT|U?SMALLINT|U?INTEGER|U?BIGINT|U?HUGEINT)$/i.test(
-    type,
-  );
+  const integer = await wholeNumberColumn(conn, sub, col);
   const extent = await conn.runAndReadAll(
     `SELECT min(${col}::DOUBLE) AS lo, max(${col}::DOUBLE) AS hi
      FROM ${sub} WHERE ${col} IS NOT NULL`,
@@ -292,7 +303,8 @@ export async function classifyFill(
       // Dedup breaks so low-cardinality data yields distinct classes only,
       // then round to nice values — the stored break IS the shown break.
       const unique = [...new Set(breaks)].sort((a, b) => a - b);
-      const nice = niceBreaks(unique, await columnMeta(conn, sub, col));
+      const meta = await columnMeta(conn, sub, col);
+      const nice = niceBreaks(unique, meta);
       const { palette, colors } = classRampColors(
         options.palette,
         nice.length + 1,
@@ -308,6 +320,10 @@ export async function classifyFill(
         ...(reversed ? { reversed } : {}),
         breaks: nice,
         colors,
+        // The classified result's own type: a cell count is whole whatever
+        // the field list calls it; an average, sum, minimum or maximum is
+        // cast to double and is not.
+        wholeNumbers: meta.integer,
       };
     }
 

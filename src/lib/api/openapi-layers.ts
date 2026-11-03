@@ -71,7 +71,11 @@ export const LAYER_RESOURCE_PATHS = {
         "| grid | heatmap — hexbin/grid aggregate server-side and get " +
         "a fill over their aggregate value automatically), filters " +
         "(applied before aggregation; [] removes them), or legend text " +
-        "overrides. Text labels live in the style's `label` member. When " +
+        "overrides. Text labels live in the style's `label` member. A " +
+        "paint sent is stored as sent, its `wholeNumbers` included; a " +
+        "change of `sql` or of the aggregation that sends no paint " +
+        "removes `wholeNumbers` from the stored ramps it keeps, and a " +
+        "viz fill the server recomputes carries a fresh one. When " +
         "`sql` is changed, it must return at least one geometry column. " +
         "The first geometry column in select order is the primary geometry " +
         "used for simple rendering; additional geometry columns are allowed.",
@@ -368,7 +372,12 @@ export const LAYER_QUERY_PATHS = {
         "text. Computed on the layer's own result — the unfiltered " +
         "extent, so a brush keeps a stable background. A distinct value " +
         "longer than 2,097,152 bytes (2 MiB) as a JSON string refuses " +
-        "the answer with 422 query_result_too_large.",
+        "the answer with 422 query_result_too_large. With " +
+        "`distribution=classification` it answers what a classification " +
+        "of a numeric field sees instead: the effective result, filters " +
+        "applied and an aggregated layer's `value` or `count`, binned on " +
+        "the `axis` a classed histogram draws, with the bin `edges` and " +
+        "the field's `wholeNumbers`.",
       tag: "Layers",
       tool: "get_field_stats", mcp: LOCAL_READ,
       display: {"verb": "Read the statistics of {arg.field} on the layer {subject}", "subject": {"resource": "layers", "argument": "id"}},
@@ -376,6 +385,15 @@ export const LAYER_QUERY_PATHS = {
       parameters: [
         pathParam("id", "Layer id."),
         pathParam("field", "Field name from the layer's result."),
+        {
+          name: "distribution",
+          in: "query",
+          required: false,
+          schema: { type: "string", enum: ["classification"] },
+          description:
+            "Ask for the distribution a classification of a numeric field " +
+            "sees. Omitted, the answer is the filter seed above.",
+        },
       ],
       responses: { "200": jsonOk("#/components/schemas/FieldStats") },
     })),
@@ -394,7 +412,10 @@ export const LAYER_QUERY_PATHS = {
         "paint). Optional palette (curated or saved custom — see " +
         "/api/palettes), class count, and reverse. Classification runs on " +
         "the layer's effective result, so filters are respected and an " +
-        "aggregated layer classifies its `value` or `count`. Returns a " +
+        "aggregated layer classifies its `value` or `count`. A ramp " +
+        "carries `wholeNumbers` from the type of the column it " +
+        "classified there: `count` is whole, `value` is whole only for " +
+        "a count aggregate. Nothing is saved: returns a " +
         "paint to merge into the style — `fill`, or `strokeBy` for a " +
         "data-driven outline — or into the viz fill of an aggregated " +
         "layer. A category longer than 2,097,152 bytes (2 MiB) as a " +

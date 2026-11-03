@@ -41,6 +41,38 @@
   z-index: 1;
 }
 
+/* One lane per handle. A grip that would overlap its neighbour's rides
+   above or below the track, a tie marking its true place on the strip. */
+.lane {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.lane[data-lane="up"] {
+  transform: translateY(-11px);
+}
+
+.lane[data-lane="down"] {
+  transform: translateY(11px);
+}
+
+.tie {
+  position: absolute;
+  width: 1.5px;
+  height: 11px;
+  background: var(--fg);
+  transform: translateX(-50%);
+}
+
+.lane[data-lane="up"] .tie {
+  top: 50%;
+}
+
+.lane[data-lane="down"] .tie {
+  bottom: 50%;
+}
+
 .thumb {
   position: absolute;
   inset: 0;

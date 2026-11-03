@@ -2052,7 +2052,17 @@ export function buildOpenApiDocument() {
             "derived from (quantile|equal|natural) — a later class-count " +
             "change recomputes from it. When a low-cardinality result can " +
             "realize fewer visible classes, classes remembers the " +
-            "requested count.",
+            "requested count. A computed ramp carries wholeNumbers: " +
+            "whether the classified result is a whole-number type (a " +
+            "cell count is; an average, sum, minimum or maximum is not). " +
+            "With it true and whole-number breaks, the legend names the " +
+            "whole numbers each class holds (breaks 1, 2, 3 read ≤ 1, 2, " +
+            "3, > 3); otherwise classes read ≤ b, shared-boundary ranges " +
+            "and > b. A value equal to a break belongs to the lower class. " +
+            "Edits that keep the classes keep wholeNumbers; a layer write " +
+            "that changes sql or the aggregation without sending a paint " +
+            "removes it from the stored ramps the server does not " +
+            "recompute.",
           properties: { type: { type: "string" } },
         },
         CustomPalette: {
@@ -2352,10 +2362,45 @@ export function buildOpenApiDocument() {
               description:
                 "Row counts over equal bins across [min, max] — the " +
                 "distribution histogram behind a range brush. Empty when " +
-                "the extent is missing or a single value.",
+                "the extent is missing or a single value. With the " +
+                "classification distribution, bins are equal on `axis` " +
+                "and bounded by `edges`.",
             },
             values: { type: "array", items: { type: "string" } },
             truncated: { type: "boolean" },
+            distribution: {
+              type: "string",
+              enum: ["classification"],
+              description:
+                "Present when the classification distribution was asked " +
+                "for: min, max, mean and bins are over the effective " +
+                "result a classification sees.",
+            },
+            axis: {
+              type: "string",
+              enum: ["linear", "log"],
+              description:
+                "Classification distribution only: log when every value " +
+                "is positive, the extent is not a single value and the " +
+                "mean lies in the lowest quarter of the extent; linear " +
+                "otherwise.",
+            },
+            edges: {
+              type: "array",
+              items: { type: "number" },
+              description:
+                "Classification distribution only: the bins' boundaries " +
+                "on the value scale, one more than the bins, from min to " +
+                "max. A value equal to an inner edge counts in the bin " +
+                "above it, and max in the last bin.",
+            },
+            wholeNumbers: {
+              type: "boolean",
+              description:
+                "Classification distribution only: whether the field is a " +
+                "whole-number type in the effective result, as computing " +
+                "classes over it would find.",
+            },
           },
           required: ["field", "kind", "numeric"],
         },

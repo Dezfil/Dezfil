@@ -85,13 +85,13 @@ it('3a quantitative: stored field, method, palette, breaks, units and legend lab
   const layer = await journey.call('create_layer', { id: map.id, name: 'Areas', expected_revision: map.editRevision, sql: examples.get('quantitative') });
   const fill = await journey.call('compute_fill', { id: layer.id, attribute: 'area_ha', method: 'equal', palette: 'viridis', classes: 2 });
   expect(fill).toMatchObject({ type: 'quantile', attribute: 'area_ha', method: 'equal', palette: 'viridis', breaks: [20] });
-  await journey.call('update_layer', { id: layer.id, expected_revision: layer.editRevision, style: { ...layer.style, fill }, inLegend: true, legendTitle: 'Park area', legendAttrs: { fill: 'Area (ha)' }, legendLabels: ['Below 20 ha', '20 ha and above'] });
+  await journey.call('update_layer', { id: layer.id, expected_revision: layer.editRevision, style: { ...layer.style, fill }, inLegend: true, legendTitle: 'Park area', legendAttrs: { fill: 'Area (ha)' }, legendLabels: ['Up to 20 ha', 'Over 20 ha'] });
   const stored = await journey.call('get_layer', { id: layer.id });
-  expect(stored).toMatchObject({ inLegend: true, legendTitle: 'Park area', legendAttrs: { fill: 'Area (ha)' }, legendLabels: ['Below 20 ha', '20 ha and above'] });
+  expect(stored).toMatchObject({ inLegend: true, legendTitle: 'Park area', legendAttrs: { fill: 'Area (ha)' }, legendLabels: ['Up to 20 ha', 'Over 20 ha'] });
   expect(stored.style.fill).toEqual(fill);
   const legend = legendFor(stored.style)!; expect(legend.paints[0].attribute).toBe('area_ha');
   expect(legend.paints[0].entries.map(e => e.color)).toEqual(fill.colors);
-  expect(legend.paints[0].entries.map(e => e.label)).toEqual(['< 20', '≥ 20']);
+  expect(legend.paints[0].entries.map(e => e.label)).toEqual(['≤ 20', '> 20']);
 });
 it('3a categorical: ten classes, fallback, corresponding labels and visibility', async () => {
   expect((await run('categorical')).rowCount).toBe(66);

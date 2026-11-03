@@ -13,6 +13,9 @@ import type { StylePanelProps } from "../StylePanel";
 import { useStyleChannels } from "./use-style-channels";
 import { useLabelSetters } from "./use-label-setters";
 import { useLayerFields } from "./use-layer-fields";
+import { useStatsSource } from "./use-stats-source";
+import type { ClassifyRequest } from "./PaintControls";
+import { automaticMethod, wholeNumberField } from "@/lib/style/default-method";
 
 /** Stable select value for an endpoint, independent of object key order. */
 export function endpointKey(endpoint: OdEndpoint | null): string {
@@ -41,8 +44,8 @@ export function useStyleEditing({
   layer, render, onStyle, onStylePreview, onStyleCommit, onViz, onAggregatedFillPreview, onAggregatedFillCommit, onAggregationPreview, onAggregationCommit,
 }: Pick<StylePanelProps, "layer" | "render" | "onStyle" | "onStylePreview" | "onStyleCommit" | "onViz" | "onAggregatedFillPreview" | "onAggregatedFillCommit" | "onAggregationPreview" | "onAggregationCommit">) {
   const fields = useLayerFields(layer);
-  const { busy, channelError, dismissChannelError, classify, resolveScale } =
-    useStyleChannels(layer.id);
+  const channels = useStyleChannels(layer.id);
+  const { busy, channelError, dismissChannelError, resolveScale } = channels;
   const style = layer.style;
   const viz = layer.viz;
   const aggregated = isAggregated(viz);
@@ -70,6 +73,15 @@ export function useStyleEditing({
   const setStrokePaint = (p: FillPaint) => patch(strokePartial(p));
 
   const stylingFields = fields?.styling ?? [];
+
+  /** A new classed colour starts on the method its values suit, judged per
+   * coloured field; where Natural cannot classify them, on Quantile. */
+  const classify = (req: ClassifyRequest) => {
+    if (req.method !== "automatic") return channels.classify({ ...req, method: req.method });
+    const field = stylingFields.find((f) => f.name === req.attribute) ?? { name: req.attribute };
+    const method = automaticMethod(wholeNumberField(viz, field));
+    return channels.classify({ ...req, method }, method === "natural" ? "quantile" : undefined);
+  };
   const filterableFields = fields?.filterable ?? [];
   const numericBase = filterableFields.filter((f) => f.numeric);
   const numericStyling = stylingFields.filter((f) => f.numeric);
@@ -94,12 +106,19 @@ export function useStyleEditing({
     return candidates;
   };
 
-  /** The attribute's stats for the ramp's distribution;
-   * aggregated layers answer for value/count over the effective query. */
+  /** The attribute's stats for the ramp's distribution; aggregated layers
+   * answer for value/count over the effective query, and a classed ramp
+   * asks for the distribution its classification sees. A new function
+   * whenever the source of the values changes or the server comes to hold
+   * it: its identity is the source's, so an answer kept for one never
+   * shows for another, and nothing is read before the server has it. */
+  const { source: statsSource, settled } = useStatsSource(layer);
   const fetchStats = useCallback(
-    async (attribute: string): Promise<FieldStats | null> => {
+    async (attribute: string, distribution?: "classification"): Promise<FieldStats | null> => {
+      if (!settled) return null;
       const response = await fetch(
-        `/api/layers/${layer.id}/fields/${encodeURIComponent(attribute)}`,
+        `/api/layers/${layer.id}/fields/${encodeURIComponent(attribute)}` +
+          (distribution ? `?distribution=${distribution}` : ""),
       );
       return response.ok
         ? ((await response.json()) as FieldStats)
@@ -107,7 +126,7 @@ export function useStyleEditing({
     },
     // Refetch when anything that shifts the distribution changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layer.id, layer.sql, viz, layer.filters],
+    [layer.id, statsSource, settled],
   );
 
   // visualization type ----
