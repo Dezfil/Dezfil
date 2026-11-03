@@ -217,8 +217,9 @@ export async function seed(base, root) {
  * The first map, made by the first account through the operations the
  * builder calls for the page's steps: the cities file uploaded (its
  * latitude and longitude columns become points), a new map, the table added
- * to it as a layer, the layer's fill colored by population with the default
- * classes, and the map's camera on the world. The map stays unpublished, so
+ * to it as a layer, the layer's fill colored by population as Color by
+ * starts it on whole numbers (Natural breaks, five classes), and the map's
+ * camera on the world. The map stays unpublished, so
  * the publish scene shows the step before the link exists. The scenes find
  * the map by its name.
  */
@@ -236,7 +237,7 @@ export async function seedFirstMap(api, root) {
     body: { name: table.name, sql: `SELECT * FROM ${table.name}`, writtenIn: { kind: "console" } },
   }), 201, "add the cities as a layer");
 
-  const fill = expectStatus(await api("POST", `/api/layers/${layer.id}/fill`, { body: { attribute: FIRST_MAP.colorBy, method: "quantile" } }), 200, "classify the cities by population");
+  const fill = expectStatus(await api("POST", `/api/layers/${layer.id}/fill`, { body: { attribute: FIRST_MAP.colorBy, method: "natural" } }), 200, "classify the cities by population");
   const current = expectStatus(await api("GET", `/api/layers/${layer.id}`), 200, "read the cities layer");
   expectStatus(await api("PATCH", `/api/layers/${layer.id}`, { basis: captureBasis(current), body: { style: { ...current.style, fill } } }), 200, "color the cities by population");
   expectStatus(await api("PATCH", `/api/maps/${map.id}`, { body: { viewport: FIRST_MAP.viewport } }), 200, "frame the world");

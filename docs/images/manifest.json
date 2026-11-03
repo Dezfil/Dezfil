@@ -142,10 +142,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 130842
+      "bytes": 129948
     },
     {
       "file": "start/first-map-finished.webp",
@@ -153,10 +153,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 159056
+      "bytes": 158822
     },
     {
       "file": "start/first-map-publish.dark.webp",
@@ -198,10 +198,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 672,
       "height": 956,
-      "bytes": 28132,
+      "bytes": 28762,
       "crop": {
         "x": 85,
         "y": 420,
@@ -215,10 +215,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 672,
       "height": 956,
-      "bytes": 28850,
+      "bytes": 29560,
       "crop": {
         "x": 85,
         "y": 420,
@@ -400,10 +400,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 180434
+      "bytes": 179776
     },
     {
       "file": "use/assistant-builder.webp",
@@ -411,10 +411,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 198974
+      "bytes": 198532
     },
     {
       "file": "use/assistant-confirm.dark.webp",
@@ -558,10 +558,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 167356
+      "bytes": 167432
     },
     {
       "file": "use/build-a-map-builder.webp",
@@ -569,10 +569,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 195598
+      "bytes": 196072
     },
     {
       "file": "use/build-a-map-draw.dark.webp",
@@ -580,10 +580,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-20",
+      "date": "2026-11-03",
       "width": 1976,
       "height": 1648,
-      "bytes": 115890,
+      "bytes": 115320,
       "crop": {
         "x": 438,
         "y": 62,
@@ -597,10 +597,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 1976,
       "height": 1648,
-      "bytes": 140506,
+      "bytes": 138162,
       "crop": {
         "x": 438,
         "y": 62,
@@ -614,10 +614,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 150534
+      "bytes": 143748
     },
     {
       "file": "use/build-a-map-hex-bins.webp",
@@ -625,10 +625,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 171290
+      "bytes": 167740
     },
     {
       "file": "use/import-data-add-data.dark.webp",
@@ -862,10 +862,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2736,
       "height": 1736,
-      "bytes": 131996,
+      "bytes": 131654,
       "crop": {
         "x": 36,
         "y": 16,
@@ -879,10 +879,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2736,
       "height": 1736,
-      "bytes": 150910,
+      "bytes": 150504,
       "crop": {
         "x": 36,
         "y": 16,
@@ -1226,10 +1226,10 @@
       "kind": "picture",
       "theme": "dark",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 137958
+      "bytes": 137114
     },
     {
       "file": "use/widgets-and-tools-widgets.webp",
@@ -1237,10 +1237,10 @@
       "kind": "picture",
       "theme": "light",
       "version": "0.1.0",
-      "date": "2026-10-21",
+      "date": "2026-11-03",
       "width": 2880,
       "height": 1800,
-      "bytes": 165722
+      "bytes": 165354
     },
     {
       "file": "use/workflows-canvas.dark.webp",
