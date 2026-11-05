@@ -158,6 +158,6 @@ export function externalSignInRows(read: Pick<InstanceRead, "settings" | "extern
     { id: "sys-external-sign-out-generation", label: "Sign-out generation", keys: "sign everyone out raised", value: String(mode.signOutGeneration) },
     { id: "sys-external-door-generation", label: "Door generation", keys: "floor raised", value: String(mode.doorGeneration) },
     { id: "sys-external-last-reset", label: "Last door generation reset", keys: "reset recovery applied time date",
-      value: mode.lastReset ? `${mode.lastReset.value} · ${mode.lastReset.appliedAt}` : "None" },
+      value: mode.lastReset ? `${mode.lastReset.value} · ${mode.lastReset.appliedAt}` : "None", mono: !!mode.lastReset },
   ];
 }

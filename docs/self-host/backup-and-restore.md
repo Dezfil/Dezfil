@@ -155,6 +155,8 @@ Then sign in and open **Maps**. You should see your maps as they were at the bac
 > [!NOTE]
 > A restore brings back accounts, sessions and API tokens as they were at the backup. Accounts deleted since return, and tokens revoked since work again. Check the accounts in **Users** before you let people in.
 
+For door generation resets, follow [the restore guidance](configuration/external-sign-in.md#restore-a-backup).
+
 ## Move to another machine
 
 1. From the old machine, copy the backup folder into your home folder on the new one:
