@@ -6974,7 +6974,8 @@
                         "enabled": false,
                         "keyCount": 0,
                         "signOutGeneration": 0,
-                        "doorGeneration": 0
+                        "doorGeneration": 0,
+                        "lastReset": null
                       },
                       "settings": {
                         "mapsLimit": {
@@ -10292,7 +10293,8 @@
                         "enabled": false,
                         "keyCount": 0,
                         "signOutGeneration": 0,
-                        "doorGeneration": 0
+                        "doorGeneration": 0,
+                        "lastReset": null
                       },
                       "settings": {
                         "mapsLimit": {
@@ -64406,13 +64408,41 @@
               "doorGeneration": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "lastReset": {
+                "description": "The last door generation reset applied to this store, even if its value is lower than an earlier reset. Null before any reset. The current deployment variable's value is never disclosed.",
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "appliedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "appliedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
               "enabled",
               "keyCount",
               "signOutGeneration",
-              "doorGeneration"
+              "doorGeneration",
+              "lastReset"
             ],
             "additionalProperties": false
           },

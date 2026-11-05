@@ -130,6 +130,7 @@ function successNames(operation: Operation): string[] {
 describe("the worked examples in the description", () => {
   it("the settings answer includes the undisclosed reset variable and validates against its schema", async () => {
     expect(INSTANCE_SETTINGS.settings.externalSignInGenerationReset.value).toEqual({ set: false });
+    expect(INSTANCE_SETTINGS.externalSignIn.lastReset).toBeNull();
     const doc = buildOpenApiDocument();
     const rewrite = (value: unknown) => JSON.parse(JSON.stringify(value).replaceAll('"#/components/schemas/', '"#/$defs/'));
     const schema = fromJsonSchema({ ...rewrite(doc.components.schemas.InstanceSettings), $defs: rewrite(doc.components.schemas) });

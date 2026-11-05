@@ -58,7 +58,7 @@ it("reports the frozen mode and address to entry, the mode to configuration, and
   expect(entry).toMatchObject({ externalSignIn: { enabled: true, doorUrl: "https://door.example/sign-in" }, setupRequired: false });
   const response = await config(socketRequest(new Request("https://instance.test/api/config", { headers: { authorization: `Bearer ${actor.token}` } })));
   expect(await response.json()).toMatchObject({ externalSignIn: { enabled: true } });
-  expect(readInstanceSettings(actor.context, f.db).externalSignIn).toEqual({ enabled: true, keyCount: 1, signOutGeneration: 0, doorGeneration: 0 });
+  expect(readInstanceSettings(actor.context, f.db).externalSignIn).toEqual({ enabled: true, keyCount: 1, signOutGeneration: 0, doorGeneration: 0, lastReset: null });
   expect(JSON.stringify(entry)).not.toMatch(/owner@example|owner-id|keys/);
   expect(JSON.stringify(readInstanceSettings(actor.context, f.db))).not.toContain(process.env.DEZFIL_EXTERNAL_SIGN_IN_KEYS);
 });

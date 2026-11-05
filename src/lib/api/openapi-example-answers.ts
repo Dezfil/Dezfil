@@ -657,7 +657,7 @@ const NEW_INSTANCE_SETTINGS = {
 /** The instance's settings, as an admin reads them on that instance. */
 export const INSTANCE_SETTINGS = {
   instanceLimits: { maps: { key: "mapsLimit", limit: 0, count: 2 }, projects: { key: "projectsLimit", limit: 0, count: 0 }, people: { key: "peopleLimit", limit: 0, count: 1 }, tokenLifetimeMax: "none" },
-  externalSignIn: { enabled: false, keyCount: 0, signOutGeneration: 0, doorGeneration: 0 },
+  externalSignIn: { enabled: false, keyCount: 0, signOutGeneration: 0, doorGeneration: 0, lastReset: null },
   settings: NEW_INSTANCE_SETTINGS,
   capacities: { geocodeRows: 27, isochroneOrigins: 13 },
   maxImageDimension: 4096,
