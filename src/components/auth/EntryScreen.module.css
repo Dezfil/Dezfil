@@ -5,7 +5,6 @@
 .foot { position: relative; display: flex; flex-direction: column; gap: 6px; }
 .instance { color: var(--entry-pane-text); font-size: var(--text-heading); font-weight: 600; }
 .subtitle { color: var(--entry-pane-muted); font-size: var(--text-label); }
-.coordinate { position: absolute; right: 46px; bottom: 45px; color: var(--entry-pane-muted); font-size: var(--text-meta); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
 .formPane { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 56px 24px 110px; overflow: auto; }
 .column { width: min(340px, 100%); display: flex; flex-direction: column; gap: 18px; }
 .heading { display: flex; flex-direction: column; gap: 4px; }
@@ -27,6 +26,6 @@
   .stage { flex-direction: column; }
   .brandPane { flex: 0 0 132px; padding: 26px 24px; }
   .wordmark { font-size: var(--entry-wordmark-small); }
-  .foot, .coordinate { display: none; }
+  .foot { display: none; }
   .formPane { align-items: flex-start; padding-top: 32px; }
 }
