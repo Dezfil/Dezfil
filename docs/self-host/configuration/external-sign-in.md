@@ -22,6 +22,7 @@ order: 7
 | **First owner's email** | `DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL` |  | unset | An email address | Email of the first admin, read only on an empty store. | By variable, after a restart |
 | **First owner's name** | `DEZFIL_EXTERNAL_SIGN_IN_OWNER_NAME` |  | unset | A display name | Optional name of the first admin, read only on an empty store. | By variable, after a restart |
 | **Door generation floor** | `DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR` |  | `0` | A non-negative safe whole number | Minimum door generation, applied at start. Lowering it never lowers the stored generation. | By variable, after a restart |
+| **Door generation reset** | `DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET` |  | unset | A non-negative safe whole number, including `0`; empty means no reset. Choose a value never used on this instance | Set the door generation and end every session and token at start, once per value per store, in either sign-in mode. | By variable, after a restart |
 
 <!-- settings-external-sign-in:end -->
 

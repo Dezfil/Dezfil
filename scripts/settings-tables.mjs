@@ -44,7 +44,7 @@ export const WIRING_TABLE = { id: "test-wiring", page: "docs/contribute/developm
  * variable follow the catalogue's own groups. */
 const BY_AREA = {
   limits: ["mapsLimit", "projectsLimit", "peopleLimit", "tokenLifetimeMax"],
-  "external-sign-in": ["externalSignInKeys", "externalSignInAudience", "externalSignInUrl", "externalSignInOwnerId", "externalSignInOwnerEmail", "externalSignInOwnerName", "externalSignInGenerationFloor"],
+  "external-sign-in": ["externalSignInKeys", "externalSignInAudience", "externalSignInUrl", "externalSignInOwnerId", "externalSignInOwnerEmail", "externalSignInOwnerName", "externalSignInGenerationFloor", "externalSignInGenerationReset"],
   assistant: ["anthropicApiKey", "openaiApiKey", "aiProvider", "aiModel", "aiModelsAnthropic", "aiModelsOpenai", "assistantOffer",
     "assistantAutoCheck", "assistantStepBudget", "assistantLookTimeoutS", "assistantLookRetention", "assistantLookRetentionMb"],
   proxies: ["trustedProxies", "sessionCookie"],
@@ -103,6 +103,7 @@ const VARIABLE_VALUES = {
   externalSignInOwnerEmail: "An email address",
   externalSignInOwnerName: "A display name",
   externalSignInGenerationFloor: "A non-negative safe whole number",
+  externalSignInGenerationReset: "A non-negative safe whole number, including `0`; empty means no reset. Choose a value never used on this instance",
   assistantAutoCheck: "`0`, `false` or `off` turns it off; any other value turns it on",
   dataDir: "A folder path",
   secretKey: "64 hex characters (32 bytes)",

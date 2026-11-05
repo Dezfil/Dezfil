@@ -8323,6 +8323,31 @@
                           "invalidOverride": false,
                           "storedValue": null
                         },
+                        "externalSignInGenerationReset": {
+                          "key": "externalSignInGenerationReset",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET",
+                          "kind": "secret",
+                          "label": "Door generation reset",
+                          "purpose": "Set the door generation and end every session and token at start, once per value per store, in either sign-in mode.",
+                          "defaultValue": {
+                            "set": false
+                          },
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": true,
+                          "editable": false,
+                          "value": {
+                            "set": false
+                          },
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
                         "assistantAutoCheck": {
                           "key": "assistantAutoCheck",
                           "environment": "DEZFIL_ASSISTANT_AUTO_CHECK",
@@ -11611,6 +11636,31 @@
                           "secret": false,
                           "editable": false,
                           "value": "0",
+                          "source": "default",
+                          "locked": false,
+                          "invalidOverride": false,
+                          "storedValue": null
+                        },
+                        "externalSignInGenerationReset": {
+                          "key": "externalSignInGenerationReset",
+                          "environment": "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET",
+                          "kind": "secret",
+                          "label": "Door generation reset",
+                          "purpose": "Set the door generation and end every session and token at start, once per value per store, in either sign-in mode.",
+                          "defaultValue": {
+                            "set": false
+                          },
+                          "documentedDefault": "unset",
+                          "scope": "instance",
+                          "readBy": "admin",
+                          "changedBy": "deployment",
+                          "environmentTiming": "restart",
+                          "timing": "next-start",
+                          "secret": true,
+                          "editable": false,
+                          "value": {
+                            "set": false
+                          },
                           "source": "default",
                           "locked": false,
                           "invalidOverride": false,
@@ -71155,6 +71205,106 @@
                 ],
                 "additionalProperties": false
               },
+              "externalSignInGenerationReset": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "const": "externalSignInGenerationReset"
+                  },
+                  "environment": {
+                    "const": "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET"
+                  },
+                  "kind": {
+                    "const": "secret"
+                  },
+                  "label": {
+                    "const": "Door generation reset"
+                  },
+                  "purpose": {
+                    "const": "Set the door generation and end every session and token at start, once per value per store, in either sign-in mode."
+                  },
+                  "defaultValue": {
+                    "const": {
+                      "set": false
+                    }
+                  },
+                  "documentedDefault": {
+                    "const": "unset"
+                  },
+                  "scope": {
+                    "const": "instance"
+                  },
+                  "readBy": {
+                    "const": "admin"
+                  },
+                  "changedBy": {
+                    "const": "deployment"
+                  },
+                  "environmentTiming": {
+                    "const": "restart"
+                  },
+                  "timing": {
+                    "const": "next-start"
+                  },
+                  "secret": {
+                    "const": true
+                  },
+                  "editable": {
+                    "const": false
+                  },
+                  "value": {
+                    "type": "object",
+                    "properties": {
+                      "set": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "set"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "environment",
+                      "stored",
+                      "default"
+                    ]
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  },
+                  "invalidOverride": {
+                    "type": "boolean"
+                  },
+                  "storedValue": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "key",
+                  "environment",
+                  "kind",
+                  "label",
+                  "purpose",
+                  "defaultValue",
+                  "documentedDefault",
+                  "scope",
+                  "readBy",
+                  "changedBy",
+                  "environmentTiming",
+                  "timing",
+                  "secret",
+                  "editable",
+                  "value",
+                  "source",
+                  "locked",
+                  "invalidOverride",
+                  "storedValue"
+                ],
+                "additionalProperties": false
+              },
               "assistantAutoCheck": {
                 "type": "object",
                 "properties": {
@@ -80052,6 +80202,7 @@
               "externalSignInOwnerEmail",
               "externalSignInOwnerName",
               "externalSignInGenerationFloor",
+              "externalSignInGenerationReset",
               "assistantAutoCheck",
               "dataDir",
               "secretKey",
