@@ -25,7 +25,7 @@ export function readDoorGenerationReset(value: number, db: Database): DoorGenera
   return db.prepare("SELECT value,applied_at FROM auth_door_generation_resets WHERE value=?").get(value) as DoorGenerationReset | undefined ?? null;
 }
 export function lastDoorGenerationReset(db: Database): DoorGenerationReset | null {
-  return db.prepare("SELECT value,applied_at FROM auth_door_generation_resets ORDER BY rowid DESC LIMIT 1").get() as DoorGenerationReset | undefined ?? null;
+  return db.prepare("SELECT value,applied_at FROM auth_door_generation_resets ORDER BY applied_at DESC, rowid DESC LIMIT 1").get() as DoorGenerationReset | undefined ?? null;
 }
 /** Call in the reset transaction, together with the two generation writes. */
 export function recordDoorGenerationReset(value: number, appliedAt: string, db: Database): void {

@@ -10,6 +10,20 @@ import { MIGRATIONS, open } from "./db";
 import { allocateSqlNames, type SqlNameIdentity } from "./sql-names";
 import { readDoorGenerationReset, lastDoorGenerationReset, recordDoorGenerationReset, readGenerations, setDoorGeneration } from "./auth-generations";
 
+it("uses applied time before rowid and keeps the last reset after VACUUM", () => {
+  const db = new Database(":memory:");
+  try {
+    db.exec(DOOR_GENERATION_RESET_MIGRATION);
+    const latest = { value: 7, applied_at: "2026-01-02T00:00:00.000Z" };
+    // Insert out of time order to make timestamp precedence observable.
+    recordDoorGenerationReset(latest.value, latest.applied_at, db);
+    recordDoorGenerationReset(8, "2026-01-01T00:00:00.000Z", db);
+    expect(lastDoorGenerationReset(db)).toEqual(latest);
+    db.exec("VACUUM");
+    expect(lastDoorGenerationReset(db)).toEqual(latest);
+  } finally { db.close(); }
+});
+
 it("appends one reset-history migration after assistant keys and external sign-in, preserving the store", () => {
   const dir = mkdtempSync(path.join(process.env.DEZFIL_DATA_DIR!, "reset-migration-"));
   const file = path.join(dir, "metadata.sqlite");
