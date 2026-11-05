@@ -6,6 +6,7 @@ import { metadataDb, closeMetadataDb, open } from "@/lib/metadata/db";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { makeStart, startCookieName } from "@/lib/auth/external-sign-in/start";
 import { initializeExternalOwner } from "@/lib/auth/external-sign-in/owner";
+import { initializeAuthGenerations } from "@/lib/auth/generations";
 import { SESSION_COOKIE } from "@/lib/auth/http";
 import type { Ticket } from "@/lib/auth/external-sign-in/ticket";
 
@@ -32,8 +33,14 @@ export function externalFixture() {
   }
   return { signingKey: keys.privateKey.export({ format: "jwk" }), get db() { return db; }, directory, ticket, request,
     restart() { closeMetadataDb(); if (db.open) db.close(); Reflect.deleteProperty(process, Symbol.for("dezfil.external-sign-in-start-key")); db = metadataDb(); },
+    start(env: Record<string, string | undefined> = {}) {
+      for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value);
+      Reflect.deleteProperty(process, Symbol.for("dezfil.external-sign-in"));
+      initializeExternalOwner(db);
+      return initializeAuthGenerations(db);
+    },
     connection() { return open(path.join(directory, "metadata.sqlite")); },
-    snapshot() { return ["accounts", "auth_sessions", "auth_tokens", "auth_links", "auth_ticket_ids", "auth_generations"].map(t => db.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()); },
+    snapshot() { return ["accounts", "auth_sessions", "auth_tokens", "auth_links", "auth_ticket_ids", "auth_generations", "auth_door_generation_resets", "project_people", "assistant_keys"].map(t => db.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()); },
     close() { closeMetadataDb(); if (db.open) db.close(); vi.unstubAllEnvs(); vi.restoreAllMocks(); Reflect.deleteProperty(process, Symbol.for("dezfil.external-sign-in")); rmSync(directory, { recursive: true, force: true }); },
   };
 }

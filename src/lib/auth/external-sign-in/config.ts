@@ -44,6 +44,17 @@ export function externalSignIn(): ExternalSignIn {
   return host[key] ??= parseExternalSignIn(process.env);
 }
 
+/** Recovery is read afresh at every start, including when the mode is off. */
+export function doorGenerationReset(env: Readonly<Record<string, string | undefined>> = process.env): number | null {
+  const raw = env.DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET?.trim() ?? "";
+  if (!raw) return null;
+  const value = Number(raw);
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value)) {
+    throw new Error("DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET must be a non-negative safe whole number.");
+  }
+  return value;
+}
+
 /** Called only while the store has no account. */
 export function firstOwnerConfiguration(env: Readonly<Record<string, string | undefined>> = process.env) {
   return { id: env.DEZFIL_EXTERNAL_SIGN_IN_OWNER_ID?.trim() ?? "",
