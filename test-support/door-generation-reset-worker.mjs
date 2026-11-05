@@ -17,11 +17,29 @@ const { initializeAuthGenerations } = await import("../src/lib/auth/generations.
 const { readGenerations } = await import("../src/lib/metadata/auth-generations.ts");
 const db = metadataDb(), logs = [];
 console.info = line => logs.push(line);
-await new Promise(resolve => {
-  process.once("message", message => { if (message === "release") resolve(); });
+const command = await new Promise(resolve => {
+  process.once("message", resolve);
   process.send({ ready: true, pid: process.pid });
 });
+if (command === "hold") {
+  db.exec("BEGIN IMMEDIATE");
+  await new Promise(resolve => {
+    process.once("message", resolve);
+    process.send({ locked: true });
+  });
+} else {
+  const transaction = db.transaction.bind(db);
+  db.transaction = callback => {
+    const run = transaction(callback);
+    return { immediate() {
+      // Report after any pre-transaction reads, just before SQLite waits for the lock.
+      process.send({ attempting: true });
+      return run.immediate();
+    } };
+  };
+}
 const applied = initializeAuthGenerations(db);
+if (command === "hold") db.exec("COMMIT");
 process.stdout.write(JSON.stringify({ applied, generations: readGenerations(db), logs }));
 closeMetadataDb();
 if (process.connected) process.disconnect();

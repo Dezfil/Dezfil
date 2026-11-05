@@ -201,14 +201,20 @@ it("routine tickets, floors and sign-out move on without repeating a reset, whil
   const beforeLow = f.snapshot(); expect((await arriveExternalSignIn(f.request(f.ticket({ door_generation: 1 })))).status).toBe(401); expect(f.snapshot()).toEqual(beforeLow);
 });
 
-it("applies once when three independent processes start together", async () => {
+it("applies once when two starts queue behind a third holding the write lock", async () => {
   await owner(); vi.stubEnv("DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET", "7");
   const workers = Array.from({ length: 3 }, () => resetContender());
+  const [holder, ...contenders] = workers;
   try {
     const ready = await Promise.all(workers.map(worker => worker.ready));
     expect(ready.every(worker => worker.ready)).toBe(true); expect(new Set(ready.map(worker => worker.pid)).size).toBe(3);
     expect(records()).toEqual([]); expect(readGenerations(f.db).sign_out_generation).toBe(0);
-    workers.forEach(worker => worker.release());
+    holder.hold(); await holder.locked;
+    contenders.forEach(worker => worker.release());
+    await Promise.all(contenders.map(worker => worker.attempting));
+    // Both starts reached lock acquisition while the holder still has not applied the reset.
+    expect(records()).toEqual([]); expect(readGenerations(f.db).sign_out_generation).toBe(0);
+    holder.release();
     const results = await Promise.all(workers.map(worker => worker.result));
     expect(results.map(result => result.applied).sort()).toEqual([false, false, true]);
     for (const result of results) expect(result.generations).toEqual({ sign_out_generation: 1, door_generation: 7 });

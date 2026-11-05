@@ -30,15 +30,22 @@ export function resetContender() {
   const child = spawn(process.execPath, ["--experimental-transform-types", path.resolve("test-support/door-generation-reset-worker.mjs")],
     { stdio: ["ignore", "pipe", "pipe", "ipc"], timeout: 15000 });
   const ready = Promise.withResolvers<Ready>(), result = Promise.withResolvers<Result>();
+  const locked = Promise.withResolvers<void>(), attempting = Promise.withResolvers<void>();
   let output = "", errors = "";
   child.stdout!.on("data", chunk => { output += chunk; }); child.stderr!.on("data", chunk => { errors += chunk; });
-  child.once("message", message => ready.resolve(message as Ready));
-  const fail = (error: Error) => { ready.reject(error); result.reject(error); };
+  child.on("message", message => {
+    const state = message as Ready & { locked?: boolean; attempting?: boolean };
+    if (state.ready) ready.resolve(state);
+    if (state.locked) locked.resolve();
+    if (state.attempting) attempting.resolve();
+  });
+  const fail = (error: Error) => { ready.reject(error); locked.reject(error); attempting.reject(error); result.reject(error); };
   child.once("error", fail);
   child.once("close", code => {
     if (code !== 0) fail(new Error(`Reset worker exited ${code}: ${errors}`));
     else { try { result.resolve(JSON.parse(output)); } catch (error) { fail(error as Error); } }
   });
-  void result.promise.catch(() => {});
-  return { ready: ready.promise, result: result.promise, release: () => child.send("release"), stop: () => child.kill() };
+  for (const promise of [ready.promise, locked.promise, attempting.promise, result.promise]) void promise.catch(() => {});
+  return { ready: ready.promise, locked: locked.promise, attempting: attempting.promise, result: result.promise,
+    hold: () => child.send("hold"), release: () => child.send("release"), stop: () => child.kill() };
 }
