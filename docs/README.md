@@ -197,8 +197,8 @@ Install, secure, configure and back up your own instance.
 
 - [External sign-in](self-host/configuration/external-sign-in.md)
   - path: `docs/self-host/configuration/external-sign-in.md`
-  - summary: Configure the public keys, instance identity and first owner for a trusted sign-in service.
-  - read when: you want a trusted service to sign people into your instance; you need the external sign-in variables and their formats
+  - summary: Configure a trusted sign-in service and recover from a leaked signing key with a one-time door generation reset.
+  - read when: you want a trusted service to sign people into your instance; you need the external sign-in variables and their formats; your door signing key leaked or a forged ticket locked out the legitimate door; you restore a backup with a door generation reset configured
   - audience: operator, developer
 
 ## API and agents

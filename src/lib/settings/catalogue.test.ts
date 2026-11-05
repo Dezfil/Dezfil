@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { readDeploymentSetting } from "./deployment-read";
+import { disclosedDefinition } from "./disclosure";
 import { SETTING_CATALOGUE, TEST_WIRING, settingDefinition } from "./catalogue";
 import { isInstanceDefault } from "./instance-defaults";
 import { catalogueProblems, validateStoredValue } from "./validation";
@@ -30,7 +32,7 @@ describe("settings catalogue", () => {
         .filter(row => file === wiring ? row.table === "test-wiring" : row.table.startsWith("settings-")))
       .map(row => row.variable).filter(Boolean);
     const deployment = SETTING_CATALOGUE.filter(d => d.scope === "instance" && d.environment);
-    expect(deployment).toHaveLength(79);
+    expect(deployment).toHaveLength(80);
     expect(TEST_WIRING).toHaveLength(4);
     expect([...deployment.map(d => d.environment), ...TEST_WIRING.map(d => d.environment)].sort()).toEqual(rows.sort());
     expect(catalogueProblems(SETTING_CATALOGUE)).toEqual([]);
@@ -39,6 +41,21 @@ describe("settings catalogue", () => {
 
   it("defines every absent setting's default, including contextual default rules", () => {
     expect(Object.fromEntries(SETTING_CATALOGUE.map(d => [d.key, d.defaultValue]))).toEqual(DEFAULTS);
+  });
+
+  it("discloses only whether the door reset variable is set, including zero", () => {
+    const definition = settingDefinition("externalSignInGenerationReset");
+    expect(definition).toMatchObject({ kind: "secret", secret: true, defaultValue: null, documentedDefault: "unset", editable: false });
+    try {
+      for (const [raw, set] of [["", false], ["0", true], ["7654321", true]] as const) {
+        vi.stubEnv("DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET", raw);
+        const row = { ...disclosedDefinition(definition), ...readDeploymentSetting(definition) };
+        expect(row.value).toEqual({ set });
+        expect(row.defaultValue).toEqual({ set: false });
+        expect(row.storedValue).toBeNull();
+        expect(JSON.stringify(row)).not.toContain("7654321");
+      }
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it.each([

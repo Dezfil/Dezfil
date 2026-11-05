@@ -4,7 +4,9 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { externalSignIn } = await import("@/lib/auth/external-sign-in/config");
+    const { externalSignIn, doorGenerationReset } = await import("@/lib/auth/external-sign-in/config");
+    try { doorGenerationReset(); }
+    catch (error) { console.error(`[auth] ${(error as Error).message}`); throw error; }
     externalSignIn();
     const { sessionCookieName } = await import("@/lib/auth/session-cookie");
     sessionCookieName();

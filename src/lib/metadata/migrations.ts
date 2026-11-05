@@ -1,3 +1,4 @@
+import { DOOR_GENERATION_RESET_MIGRATION } from "./migrations-door-generation-reset";
 import { ASSISTANT_KEYS_MIGRATION } from "./migrations-assistant-keys";
 import { EXTERNAL_SIGN_IN_MIGRATION } from "./migrations-external-sign-in";
 import { DATASET_CONNECTION_MIGRATIONS } from "./migrations-datasets-connections";
@@ -564,4 +565,5 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE map_pictures ADD COLUMN retired INTEGER NOT NULL DEFAULT 0;`,
   EXTERNAL_SIGN_IN_MIGRATION,
   ASSISTANT_KEYS_MIGRATION,
+  DOOR_GENERATION_RESET_MIGRATION,
 ];

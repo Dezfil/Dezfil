@@ -116,10 +116,14 @@ Accepted ticket ids survive restart in the data directory. Refusals charge the s
 
 A higher door generation ends older sessions, tokens and their delegations and interrupts older assistant work, parked runs included. The arriving session carries the new generation and works.
 
-The door generation and the admin's sign-out generation rise independently. A raise changes no account, role, membership or identity binding. After a restore, set the generation floor appropriate to your deployment before starting it.
+The door generation and the admin's sign-out generation rise independently during ordinary use. A raise changes no account, role, membership or identity binding.
+
+If your signing key leaks, [recover with a door generation reset](configuration/external-sign-in.md#recover-from-a-leaked-door-key). It can lower the door generation and ends every credential, without restoring accounts.
+
+After a restore, choose the appropriate generation floor and read [how the backup's reset history applies](configuration/external-sign-in.md#restore-a-backup) before starting it.
 
 ## Next steps
 
-- [External sign-in configuration](configuration/external-sign-in.md): enable the mode, rotate keys and raise its floor.
+- [External sign-in configuration](configuration/external-sign-in.md): enable the mode, rotate keys, raise its floor and recover from a leaked key.
 - [Errors](../api/errors.md): handle coded refusals.
 - [What leaves the instance](what-leaves-the-instance.md): understand the browser redirect and local signature check.

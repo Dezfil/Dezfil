@@ -86,6 +86,8 @@ A saved value stays saved while a variable overrides it. It applies again once y
 
 A number Dezfil cannot use still locks the row, and the default applies. The row then says, for example, **`DEZFIL_UPLOAD_MAX_MB` in the server's environment is not valid, so the default is used.**
 
+The [door generation reset](configuration/external-sign-in.md#recover-from-a-leaked-door-key) instead refuses startup for a malformed value, in either sign-in mode.
+
 Some settings live in one place only. What new maps start with and who may publish are in Settings alone. The data folder, the encryption key and the assistant's key are variables alone.
 
 > [!NOTE]
@@ -109,7 +111,7 @@ Every setting has one row, in the table of its area. A row gives the variable an
 
 | Table | What it covers | Where to change it |
 |---|---|---|
-| [External sign-in](configuration/external-sign-in.md) | The trusted sign-in service, public keys, audience, first owner and door generation floor | A variable |
+| [External sign-in](configuration/external-sign-in.md) | The trusted sign-in service, public keys, audience, first owner, generation floor and one-time reset that ends every session and token | A variable |
 | [General](configuration/general.md) | The instance's name, the sign-in message, the lost-password contact and the landing page | **General** |
 | [Instance defaults](configuration/defaults.md) | What new maps, layers, workflow canvases, SQL consoles and image exports start with | **Maps**, **Workflows & SQL**, **Publishing** |
 | [Basemaps and imagery](configuration/libraries.md) | The basemaps on offer, satellite imagery and the deployment's own basemap | **Libraries**, or a variable |

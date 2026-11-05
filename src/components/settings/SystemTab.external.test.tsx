@@ -18,7 +18,7 @@ vi.mock("next/link", () => ({
  * rather than reading as unset. The reads are faked.
  */
 
-const ON = { enabled: true, keyCount: 2, signOutGeneration: 3, doorGeneration: 7 };
+const ON = { enabled: true, keyCount: 2, signOutGeneration: 3, doorGeneration: 7, lastReset: null };
 let read: InstanceRead;
 let host: ReturnType<typeof installDomHost>;
 let root: ReturnType<typeof createRoot>;
@@ -57,7 +57,7 @@ const rows = () => card().descendants().filter(element => element.getAttribute("
 it("stands between the Assistant and Server settings, with the mode's whole state while it is on", async () => {
   await open();
   expect(titles()).toEqual(["Status", "Storage", "Assistant", "External sign-in", "Server settings"]);
-  expect(rows()).toEqual(["StatusOn", "Sign-in servicehttps://sign-in.example.test/dezfil", "Public keys2 keys", "Sign-out generation3", "Door generation7"]);
+  expect(rows()).toEqual(["StatusOn", "Sign-in servicehttps://sign-in.example.test/dezfil", "Public keys2 keys", "Sign-out generation3", "Door generation7", "Last door generation resetNone"]);
   expect(card().querySelectorAll("button")).toEqual([]);
 });
 
@@ -68,9 +68,9 @@ it("says one key in the singular", async () => {
 });
 
 it("says Off and both generations while the mode is off, with no service or keys to name", async () => {
-  read = instanceReadFixture({}, { externalSignIn: { enabled: false, keyCount: 0, signOutGeneration: 2, doorGeneration: 0 } });
+  read = instanceReadFixture({}, { externalSignIn: { enabled: false, keyCount: 0, signOutGeneration: 2, doorGeneration: 0, lastReset: null } });
   await open();
-  expect(rows()).toEqual(["StatusOff", "Sign-out generation2", "Door generation0"]);
+  expect(rows()).toEqual(["StatusOff", "Sign-out generation2", "Door generation0", "Last door generation resetNone"]);
 });
 
 it("draws no card from a read without the mode", async () => {
@@ -82,4 +82,11 @@ it("draws no card from a read without the mode", async () => {
 it("names the keys by count in Server settings, set or not", () => {
   expect(shownValue(read.settings.externalSignInKeys)).toEqual({ text: "2 keys" });
   expect(shownValue(instanceReadFixture().settings.externalSignInKeys)).toEqual({ text: "Not set", muted: true });
+});
+
+it("shows the last applied reset's value and exact time in monospace beside the generations", async () => {
+  read = { ...read, externalSignIn: { ...ON, lastReset: { value: 5, appliedAt: "2026-01-01T12:00:00.000Z" } } };
+  await open();
+  expect(rows()).toContain("Last door generation reset5 · 2026-01-01T12:00:00.000Z");
+  expect(card().querySelector('[id="sys-external-last-reset"]')?.querySelector('[data-mono="true"]')?.textContent).toBe("5 · 2026-01-01T12:00:00.000Z");
 });

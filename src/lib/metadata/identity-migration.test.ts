@@ -12,12 +12,12 @@ import { presencesOf } from "@/lib/reach-presence";
 
 const ENTRY = 46, now = "2026-01-02T03:04:05.000Z";
 let directory: string, file: string, db: Database.Database;
-/** Later migrations add the token expiry column, the picture's version and
- * the basemap library's table; these checks compare the store as the
+/** Later migrations add credential and account columns and instance tables,
+ * including door reset history; these checks compare the store as the
  * identity migration left it, every other byte included. */
 const LATER_CREDENTIAL_COLUMNS = /, (?:expires_at INTEGER, )?sign_out_generation INTEGER NOT NULL DEFAULT 0, door_generation INTEGER NOT NULL DEFAULT 0\)$/;
 const LATER_COLUMNS: Record<string, string[]> = { auth_tokens: ["expires_at", "sign_out_generation", "door_generation"], auth_sessions: ["sign_out_generation", "door_generation"], accounts: ["picture_version", "external_identity"] };
-const LATER_TABLES = new Set(["basemap_styles", "map_pictures", "auth_generations", "auth_ticket_ids", "assistant_keys"]);
+const LATER_TABLES = new Set(["basemap_styles", "map_pictures", "auth_generations", "auth_ticket_ids", "assistant_keys", "auth_door_generation_resets"]);
 function schema() {
   return (db.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE NOT (type = 'table' AND name = 'accounts') ORDER BY type, name").all() as
     { type: string; name: string; tbl_name: string; sql: string | null }[])

@@ -5,6 +5,8 @@ import { ADD_YOUR_KEY } from "@/lib/assistant/keys/resolve";
 import { pageCalls } from "@/lib/test-support/page-calls";
 import { buildOpenApiDocument } from "./openapi";
 import { WORKED_EXAMPLES, withExamples } from "./openapi-examples";
+import { INSTANCE_SETTINGS } from "./openapi-example-answers";
+import { fromJsonSchema } from "@modelcontextprotocol/server";
 
 /**
  * The worked examples the guides draw: one for every operation a guide
@@ -126,6 +128,17 @@ function successNames(operation: Operation): string[] {
 }
 
 describe("the worked examples in the description", () => {
+  it("the settings answer includes the undisclosed reset variable and validates against its schema", async () => {
+    expect(INSTANCE_SETTINGS.settings.externalSignInGenerationReset.value).toEqual({ set: false });
+    expect(INSTANCE_SETTINGS.externalSignIn.lastReset).toBeNull();
+    const doc = buildOpenApiDocument();
+    const rewrite = (value: unknown) => JSON.parse(JSON.stringify(value).replaceAll('"#/components/schemas/', '"#/$defs/'));
+    const schema = fromJsonSchema({ ...rewrite(doc.components.schemas.InstanceSettings), $defs: rewrite(doc.components.schemas) });
+    expect((await schema["~standard"].validate(INSTANCE_SETTINGS)).issues).toBeUndefined();
+    const disclosed = structuredClone(INSTANCE_SETTINGS) as unknown as { settings: Record<string, { value: unknown }> };
+    disclosed.settings.externalSignInGenerationReset.value = 7654321;
+    expect((await schema["~standard"].validate(disclosed)).issues).toBeDefined();
+  });
   it("finds the operations a page calls in the page's own code", () => {
     expect(calledBy(readFileSync("docs/api/quickstart.md", "utf8")).sort()).toEqual([...QUICKSTART].sort());
     expect(CALLED.filter((key) => key.includes("unknown"))).toEqual([]);

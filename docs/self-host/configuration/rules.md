@@ -79,6 +79,8 @@ Every session and token made before either generation rose loses access, includi
 
 Sign in again and make new tokens. Old tokens answer `401 token_outdated`. An external ticket's higher door generation, or a raised startup floor, has the same effect on earlier credentials.
 
+For a leaked door key, an operator's [door generation reset](external-sign-in.md#recover-from-a-leaked-door-key) ends every credential even when it lowers the door generation. It changes no account.
+
 In [external sign-in mode](external-sign-in.md), session and token lifetimes still apply. Password and link settings stay stored but those sign-in methods are unavailable. Failed arrivals use the per-address allowance.
 
 [Configuration](../configuration.md) shows how a change in Settings applies.

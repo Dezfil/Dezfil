@@ -25,7 +25,7 @@ Admins manage every account on the **Users** page, in the side menu; members do 
 | Take away someone's picture | Open their row and click **Remove picture** |
 | Close an account and keep its work | Open their row and click **Deactivate** |
 | Delete an account and its work | Deactivate it, then click **Delete account** |
-| Get in when no admin can sign in | Run the [recovery script](#recover-the-admin-account) on the server |
+| Get in when no admin can sign in | Follow [recovery for your sign-in mode](#recover-the-admin-account) on the server |
 
 ## Add a person
 
@@ -119,9 +119,9 @@ To finish a deletion, Dezfil rewrites its metadata database, and answers no requ
 
 ## Recover the admin account
 
-Run the script with the instance's deployment environment. External mode refuses it before opening the store, and refuses every recovery link at redemption.
+With external sign-in, local recovery refuses before opening the store. A [door generation reset](configuration/external-sign-in.md#recover-from-a-leaked-door-key) ends credentials; an owner shut out by an intruder needs [manual recovery](configuration/external-sign-in.md#recover-an-owners-access).
 
-In password mode, if no admin can sign in, run the recovery script on the server. It prints a one-time link with which an admin account chooses a new password.
+In password mode, run the recovery script with the instance's deployment environment. It prints a one-time link for an admin to choose a password.
 
 ::::tabs
 

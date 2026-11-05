@@ -66,6 +66,7 @@ After a fix, [replace the container](configuration.md#set-a-variable) if you cha
 | `DEZFIL_SESSION_COOKIE must be a non-empty cookie-name token` | Use only letters, digits, `-` and `_` in the name, or remove the variable. |
 | `Invalid trusted proxy network` or `Invalid ingress address` | `DEZFIL_TRUSTED_PROXIES` takes IP addresses and CIDR ranges, as [Trusted proxies](reverse-proxy.md#trusted-proxies) lists. A host name is refused. |
 | A `DEZFIL_EXTERNAL_SIGN_IN_` variable | Supply both public keys and audience, a door address, and the first owner on an empty store. [External sign-in](configuration/external-sign-in.md) gives the formats. |
+| `DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET must be a non-negative safe whole number` | Correct the reset value or remove it. It is checked in either sign-in mode. Follow the [leaked-key recovery steps](configuration/external-sign-in.md#recover-from-a-leaked-door-key) when replacing a compromised key. |
 | Any other line | Right after an upgrade, go back to the old version as [Upgrade](upgrade.md#go-back-to-the-old-version) describes. Otherwise, or as well, keep the line for a bug report. |
 
 ### "port is already allocated" or "address already in use"
@@ -157,7 +158,7 @@ Give one of them its own name, such as `-e DEZFIL_SESSION_COOKIE=dezfil_session_
 | `account_not_invited` | An admin must invite the verified email. An email bound to another identity cannot be reassigned. |
 | `account_deactivated` | An admin must reactivate the account. |
 | `external_sign_in_only` | Use the sign-in service. Password sign-in, links and local recovery are unavailable in this mode. |
-| `token_outdated` | Sign in again and create a new API token. A generation raise ended the old one. |
+| `token_outdated` | Sign in again and create a new API token. A generation raise or a door generation reset ended the old one. |
 
 The [door guide](sign-in-service.md) lists the ticket claims and browser exchange.
 

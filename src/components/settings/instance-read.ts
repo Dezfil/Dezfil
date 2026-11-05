@@ -24,8 +24,9 @@ export interface InstanceRead {
   /** The count limits in force with the instance-wide counts, and the longest token lifetime. */
   readonly instanceLimits: ReturnType<typeof readInstanceLimits>;
   /** Sign-in through an outside service: the mode as it was read at start,
-   * how many public keys it trusts and both generations, never a key. */
-  readonly externalSignIn?: { readonly enabled: boolean; readonly keyCount: number; readonly signOutGeneration: number; readonly doorGeneration: number };
+   * how many public keys it trusts, both generations and the last applied reset. */
+  readonly externalSignIn?: { readonly enabled: boolean; readonly keyCount: number; readonly signOutGeneration: number; readonly doorGeneration: number;
+    readonly lastReset: { readonly value: number; readonly appliedAt: string } | null };
   readonly settings: Readonly<Record<string, ReadSetting>>;
   readonly capacities: { readonly geocodeRows: number; readonly isochroneOrigins: number };
   readonly maxImageDimension: number;

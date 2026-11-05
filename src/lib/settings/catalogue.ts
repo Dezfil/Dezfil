@@ -92,6 +92,7 @@ export const SETTING_CATALOGUE: readonly SettingDefinition[] = [
   deployment("externalSignInOwnerEmail", "DEZFIL_EXTERNAL_SIGN_IN_OWNER_EMAIL", "text", "First owner's email", "Email of the first admin, read only on an empty store.", null, "unset"),
   deployment("externalSignInOwnerName", "DEZFIL_EXTERNAL_SIGN_IN_OWNER_NAME", "text", "First owner's name", "Optional name of the first admin, read only on an empty store.", null, "unset"),
   deployment("externalSignInGenerationFloor", "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_FLOOR", "text", "Door generation floor", "Minimum door generation, applied at start. Lowering it never lowers the stored generation.", "0", "0"),
+  deployment("externalSignInGenerationReset", "DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET", "secret", "Door generation reset", "Set the door generation and end every session and token at start, once per value per store, in either sign-in mode.", null, "unset"),
   deployment("assistantAutoCheck", "DEZFIL_ASSISTANT_AUTO_CHECK", "boolean", "Automatic map check", "Check the rendered map after an assistant turn changes it.", true, "on"),
   deployment("dataDir", "DEZFIL_DATA_DIR", "path", "Data directory", "The single durable directory for tables, tiles and metadata.", { rule: "working-directory/data" }, "./data; /data in the container"),
   deployment("secretKey", "DEZFIL_SECRET_KEY", "secret", "Encryption key", "The key that encrypts saved connection passwords and service addresses.", { rule: "key-file-or-generate" }, "generated"),
