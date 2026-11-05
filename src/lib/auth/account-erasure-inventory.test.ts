@@ -24,6 +24,10 @@ it("classifies independent live schema and source discovery in both directions",
   expect(issues(discovered)).toEqual([]);
   for (const classification of ["server", "local", "browser", "immutable"]) expect(discovered.sources.some(s => s.classification === classification)).toBe(true);
 });
+it("retains applied door resets independently of account deletion", () => {
+  expect(erasureInventory.tables.auth_door_generation_resets).toBe("table:auth_door_generation_resets");
+  expect(erasureInventory.stores["table:auth_door_generation_resets"].action).toBe("retain");
+});
 it("rejects an added durable table independently", () => {
   expect(issues(schemaMutation("CREATE TABLE forgotten_store (id TEXT PRIMARY KEY, secret TEXT)"))).toEqual(["Unclassified table: forgotten_store"]);
 });

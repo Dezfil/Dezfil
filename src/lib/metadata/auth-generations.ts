@@ -19,3 +19,20 @@ export function raiseSignOutGeneration(db: Database): CredentialGenerations {
   db.prepare("UPDATE auth_generations SET sign_out_generation=sign_out_generation+1 WHERE singleton=1").run();
   return readGenerations(db);
 }
+
+export interface DoorGenerationReset { value: number; applied_at: string }
+export function readDoorGenerationReset(value: number, db: Database): DoorGenerationReset | null {
+  return db.prepare("SELECT value,applied_at FROM auth_door_generation_resets WHERE value=?").get(value) as DoorGenerationReset | undefined ?? null;
+}
+export function lastDoorGenerationReset(db: Database): DoorGenerationReset | null {
+  return db.prepare("SELECT value,applied_at FROM auth_door_generation_resets ORDER BY rowid DESC LIMIT 1").get() as DoorGenerationReset | undefined ?? null;
+}
+/** Call in the reset transaction, together with the two generation writes. */
+export function recordDoorGenerationReset(value: number, appliedAt: string, db: Database): void {
+  db.prepare("INSERT INTO auth_door_generation_resets(value,applied_at) VALUES (?,?)").run(value, appliedAt);
+}
+/** Recovery alone may lower the door generation. Call inside its immediate transaction. */
+export function setDoorGeneration(value: number, db: Database): void {
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error("Door generation must be a non-negative safe whole number.");
+  db.prepare("UPDATE auth_generations SET door_generation=? WHERE singleton=1").run(value);
+}

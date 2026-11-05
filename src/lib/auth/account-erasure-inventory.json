@@ -888,6 +888,10 @@
       "action": "retain",
       "rule": "Keep the instance sign-out and door generations across account deletion."
     },
+    "table:auth_door_generation_resets": {
+      "action": "retain",
+      "rule": "Keep applied door reset values and times across account deletion so recovery never repeats a value. No account is recorded."
+    },
     "table:assistant_keys": {
       "action": "erase",
       "rule": "Erase the target's own assistant key: its encrypted envelope, provider, last four characters and saving time.",
@@ -942,6 +946,7 @@
     "map_pictures": "table:map_pictures",
     "auth_ticket_ids": "table:auth_ticket_ids",
     "auth_generations": "table:auth_generations",
+    "auth_door_generation_resets": "table:auth_door_generation_resets",
     "assistant_keys": "table:assistant_keys"
   },
   "sources": {

@@ -22,6 +22,10 @@ original-account adoption marker has its own retention rule. References are
 classified as owner, member, historical actor, SQL home or adoption. Historical
 actors are not ownership predicates.
 
+Applied door generation resets retain their values and times across account
+deletion, like the instance generations. They contain no account reference;
+removing their records would repeat a recovery and end unrelated credentials.
+
 The source scan uses TypeScript syntax and symbol binding. It follows imported
 accessor aliases, local variables, path joins, returned paths and writer wrappers
 across files. Concrete path roots are checked as well as source identities. A new
