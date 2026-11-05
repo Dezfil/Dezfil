@@ -77,6 +77,11 @@ const heading = () => container.querySelector("h1")!.parentElement!;
 const lines = () => container.querySelectorAll("p").map(p => p.textContent);
 
 describe("the sign-in page", () => {
+  it("keeps the photograph's pane to the wordmark, the instance's name and the subtitle", async () => {
+    await open("sign-in");
+    expect(container.querySelector("aside")!.textContent).toBe("DezfilAtlasMaps, data and SQL on this instance.");
+  });
+
   it("shows a stored message under its heading as literal text, markup and all", async () => {
     entry.signInMessage = "<img src=x onerror=alert(1)> Use your <b>work</b> email.\nNew here? Ask the GIS team.";
     await open("sign-in");

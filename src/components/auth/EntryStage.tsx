@@ -14,7 +14,6 @@ export function EntryStage({ instance, subtitle, children }: { instance: string 
       <div className={styles.foot}>{instance && <span className={styles.instance}>{instance}</span>}
         <span className={styles.subtitle}>{subtitle}</span>
       </div>
-      <span className={styles.coordinate} aria-hidden="true">32°23′N · 48°24′E</span>
     </aside>
     <div className={styles.theme}><ThemeToggle /></div>
     <main className={styles.formPane}><div className={styles.column}>{children}</div></main>

@@ -25,8 +25,8 @@ test.describe("account entry", () => {
     await expect(page.getByRole("heading", { name: "Create the first account" })).toBeVisible();
     await expect(page.getByText("It becomes this instance's admin.")).toBeVisible();
     await expect(page.getByText("At least 8 characters.")).toBeVisible();
-    await expect(page.getByText("32°23′N · 48°24′E")).toBeVisible();
     const pane = page.locator('aside[aria-label="Dezfil"]');
+    await expect(pane).not.toContainText("°");
     expect(await pane.evaluate(element => getComputedStyle(element).backgroundImage)).toContain("/entry/river-delta.webp");
     const photo = await page.request.get("/entry/river-delta.webp");
     expect(photo.status()).toBe(200);
