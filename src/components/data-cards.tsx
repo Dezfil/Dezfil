@@ -15,8 +15,8 @@ import {
   IconAddToMap,
   IconFolderPlus,
   IconSql,
+  IconTrash,
 } from "./gallery-icons";
-import { CardDelete } from "./CardDelete";
 import {
   CrsChip,
   GeometryChip,
@@ -40,21 +40,19 @@ import styles from "./TablesScreen.module.css";
 
 export interface TableActionsProps {
   table: TableListing;
-  /** True while the deletion is in flight. */
-  deleting: boolean;
   onOpen: () => void;
   onQuery: () => void;
   onAddToMap: () => void;
   /** Filing: the add-to-project dialog over this
    * dataset — on loose and nested rows alike, never on a folder's. */
   onFile: () => void;
-  /** The delete's second press. */
-  onDelete: () => unknown;
+  /** The delete asks first, in a dialog; it is handed the button pressed,
+   * so focus can move on once the deleted item has gone. */
+  onDelete: (opener: HTMLElement) => void;
 }
 
 export function TableActions({
   table: t,
-  deleting,
   onQuery,
   onAddToMap,
   onFile,
@@ -104,15 +102,18 @@ export function TableActions({
       )}
       <ExportMenu name={t.name} dataset={t} spatial={!!t.geometryColumn} />
       {mine && (
-        <CardDelete
-          label={`Delete ${t.name}`}
-          armedLabel={`Confirm deleting ${t.name}`}
-          hint="Delete this table and its data"
-          armedHint="Click again to delete permanently"
-          question="Delete?"
-          disabled={deleting}
-          onConfirm={onDelete}
-        />
+        <button
+          className={gallery.deleteAct}
+          data-card-delete
+          data-hint="Delete this table and its data"
+          aria-label={`Delete ${t.name}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(e.currentTarget);
+          }}
+        >
+          <IconTrash />
+        </button>
       )}
     </span>
   );

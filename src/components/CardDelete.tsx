@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { cardDeletes, focusLost, landAfterRemoval } from "./card-focus";
 import { IconTrash } from "./gallery-icons";
 import gallery from "./gallery.module.css";
 
@@ -79,7 +80,7 @@ export function CardDelete({
     const entry = self.current;
     return () => {
       if (armedNow === entry) armedNow = null;
-      if (button && peers.current && focusLost(button)) land(button, peers.current);
+      if (button && peers.current && focusLost(button)) landAfterRemoval(button, peers.current);
     };
   }, []);
 
@@ -99,10 +100,7 @@ export function CardDelete({
           return;
         }
         const button = e.currentTarget;
-        peers.current =
-          document.activeElement === button
-            ? Array.from(document.querySelectorAll<HTMLElement>("[data-card-delete]"))
-            : null;
+        peers.current = document.activeElement === button ? cardDeletes() : null;
         void Promise.resolve(onConfirm()).finally(disarm);
       }}
       onBlur={disarm}
@@ -115,39 +113,3 @@ export function CardDelete({
 type Armed = { disarm: () => void };
 /** The page's one armed delete, if any. */
 let armedNow: Armed | null = null;
-
-/** Focus is still on the button, or the page dropped it. */
-function focusLost(button: HTMLElement): boolean {
-  const active = document.activeElement;
-  return (
-    active === null ||
-    active === button ||
-    active === document.body ||
-    !active.isConnected
-  );
-}
-
-/** The next card's delete, else the previous card's, else the heading. */
-function land(button: HTMLElement, peers: HTMLElement[]) {
-  const at = peers.indexOf(button);
-  const order = at < 0 ? [] : [...peers.slice(at + 1), ...peers.slice(0, at).reverse()];
-  for (const peer of order) {
-    if (!peer.isConnected || (peer as HTMLButtonElement).disabled) continue;
-    peer.focus();
-    if (document.activeElement === peer) return;
-  }
-  const heading = document.querySelector("[data-list-heading]")?.querySelector<HTMLElement>("h1");
-  if (!heading) return;
-  if (heading.hasAttribute("tabindex")) {
-    heading.focus();
-    return;
-  }
-  // The heading takes focus for this landing only.
-  heading.setAttribute("tabindex", "-1");
-  heading.focus();
-  if (document.activeElement === heading) {
-    heading.addEventListener("blur", () => heading.removeAttribute("tabindex"), { once: true });
-  } else {
-    heading.removeAttribute("tabindex");
-  }
-}

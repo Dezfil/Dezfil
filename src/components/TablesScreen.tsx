@@ -17,6 +17,7 @@ import {
   readRecipes,
 } from "./api";
 import { AddDataDialog } from "./AddDataDialog";
+import { useTableDelete } from "./use-table-delete";
 import { useStorageFullLine } from "./use-instance-rules";
 import { useTransientNotice } from "./use-transient-notice";
 import { TransientNotice } from "./TransientNotice";
@@ -161,7 +162,6 @@ export function TablesScreen({
   const [postgisDoor, setPostgisDoor] = useState<string | null>(
     initialPostgisConnectionId,
   );
-  const [deleting, setDeleting] = useState<string | null>(null);
   const [addToMap, setAddToMap] = useState<string | null>(null);
   // Filing: the same dialog Maps opens, over a dataset.
   const [filing, setFiling] = useState<TableListing | null>(null);
@@ -340,46 +340,32 @@ export function TablesScreen({
     setPostgisDoor(null);
   }, [settleQueueForClose]);
 
-  const remove = useCallback(
-    async (table: TableListing) => {
-      const name = table.name;
-      setDeleting(name);
-      try {
-        const response = await fetch(
-          `/api/tables/${encodeURIComponent(table.qualifiedName)}`,
-          { method: "DELETE" },
-        );
-        if (!response.ok) {
-          setActionError(await readApiError(response));
-          return;
-        }
-        // The deleted dataset goes, by identity: someone else's dataset of
-        // the same name stays listed.
-        mutate((w) => ({
-          ...w,
-          all: w.all.filter((t) => t.id !== table.id),
-          scoped: w.scoped.filter((t) => t.id !== table.id),
-        }));
-        setActionError(null);
-        // A folder the deletion empties out of what is shown (its last
-        // output, or its last match under an output-name search) is
-        // closed, not merely hidden: it must not reappear open when the
-        // search clears (found at review).
-        if (openFolder && tables) {
-          const remaining = tables.filter((t) => t.id !== table.id);
-          const stillShown = shownItems(foldTables(remaining, workflows), {
-            query,
-            filter,
-            sort,
-          }).some((i) => i.kind === "folder" && i.id === openFolder);
-          if (!stillShown) setOpenFolder(null);
-        }
-        void refreshWorkflows();
-      } catch {
-        setActionError(serverUnreachable("delete the table"));
-      } finally {
-        setDeleting(null);
+  // A table's delete asks first, in its dialog; once it has deleted, the
+  // list lets the table go.
+  const removed = useCallback(
+    (table: TableListing) => {
+      // The deleted dataset goes, by identity: someone else's dataset of
+      // the same name stays listed.
+      mutate((w) => ({
+        ...w,
+        all: w.all.filter((t) => t.id !== table.id),
+        scoped: w.scoped.filter((t) => t.id !== table.id),
+      }));
+      setActionError(null);
+      // A folder the deletion empties out of what is shown (its last
+      // output, or its last match under an output-name search) is
+      // closed, not merely hidden: it must not reappear open when the
+      // search clears (found at review).
+      if (openFolder && tables) {
+        const remaining = tables.filter((t) => t.id !== table.id);
+        const stillShown = shownItems(foldTables(remaining, workflows), {
+          query,
+          filter,
+          sort,
+        }).some((i) => i.kind === "folder" && i.id === openFolder);
+        if (!stillShown) setOpenFolder(null);
       }
+      void refreshWorkflows();
     },
     [
       mutate,
@@ -392,6 +378,7 @@ export function TablesScreen({
       sort,
     ],
   );
+  const tableDelete = useTableDelete(removed);
 
   const sourceCounts = useMemo(() => {
     const counts = new Map<TableListing["source"], number>();
@@ -463,14 +450,13 @@ export function TablesScreen({
   // two presses are the shared in-place control's.
   const actionsFor = (t: TableListing): TableActionsProps => ({
     table: t,
-    deleting: deleting === t.name,
     // Every door addresses the dataset by the name its reader types, so
     // someone else's same-named dataset never opens one's own.
     onOpen: () => router.push(datasetPageHref(t)),
     onQuery: () => router.push(datasetQueryHref(t)),
     onAddToMap: () => setAddToMap(t.qualifiedName),
     onFile: () => setFiling(t),
-    onDelete: () => remove(t),
+    onDelete: (opener) => tableDelete.ask(t, opener),
   });
 
   return (
@@ -534,6 +520,7 @@ export function TablesScreen({
           {filedNote}
         </div>
       )}
+      {tableDelete.dialog}
       {filing && (
         <AddToProjectDialog
           subject={{
