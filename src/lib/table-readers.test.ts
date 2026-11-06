@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeMetadataDb, metadataDb } from "@/lib/metadata/db";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { testAccountScope } from "@/lib/test-support/accounts";
-import { shareProject } from "@/lib/test-support/sharing";
+import { shareProject, unfileDataset } from "@/lib/test-support/sharing";
 import { ingestFile } from "@/lib/ingest/ingest";
 import type { AccountScope } from "@/lib/auth/scope";
 import { createMap } from "@/lib/map-service";
@@ -210,6 +210,11 @@ describe("what reads a table", () => {
     shareProject("ada", "Q", [["cyd", "viewer"], ["adm", "viewer"]], [tables.mainRoads]);
     await expect(readTableReaders(scopes.cyd, "ada.main_roads")).rejects.toMatchObject({ status: 403 });
     await expect(readTableReaders(scopes.adm, "ada.main_roads")).rejects.toMatchObject({ status: 403 });
+    // The owner of a project Ada's table is filed in is not its owner either.
+    shareProject("cyd", "R", [["ada", "editor"]], [tables.roads]);
+    await expect(readTableReaders(scopes.cyd, "ada.roads")).rejects.toMatchObject({ status: 403 });
+    await expect(readTableReaders(scopes.cyd, tables.roads)).rejects.toMatchObject({ status: 403 });
+    unfileDataset("R", tables.roads);
     const absent = await readTableReaders(scopes.cyd, "ada.roads").catch((error) => error);
     const missing = await readTableReaders(scopes.cyd, "ada.nothing").catch((error) => error);
     expect(absent.status).toBe(404);
