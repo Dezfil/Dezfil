@@ -47,6 +47,26 @@ export interface MountPlan {
   /** A publication's mount, when its owner's reach holds datasets the map
    * does not name: the catalogue it could discover is not the one it had. */
   withheld?: boolean;
+  /** Set on a plan for reading what statements name, never for running
+   * them: see analysisPlan. */
+  analysis?: true;
+}
+
+/**
+ * A plan for reading the names in other people's statements, never for
+ * running them. It mounts nothing, and admits every name in the qualified
+ * form as the binding it spells: `"bob.roads"` reads as `bob.roads`, which
+ * the guard admits unquoted on any connection. A statement analyzed under
+ * it names datasets the analyzing account may not reach, so nothing it
+ * names is ever bound on that account's behalf: whoever installs it puts
+ * the evaluation's own plan back before anything runs.
+ */
+export function analysisPlan(namespace: Namespace): MountPlan {
+  return {
+    namespace, purpose: "resource", callerIsHome: false,
+    views: new Map(), plain: new Map(), qualified: new Map(), synthetic: new Map(),
+    analysis: true,
+  };
 }
 
 export function planMounts(namespace: Namespace, purpose: EvaluationPurpose, callerIsHome: boolean): MountPlan {
@@ -96,8 +116,9 @@ export function planMounts(namespace: Namespace, purpose: EvaluationPurpose, cal
 
 /** Plans belong to the connection that mounted them, and nothing else. */
 let plans = new WeakMap<DuckDBConnection, MountPlan>();
-export function setMountPlan(conn: DuckDBConnection, plan: MountPlan): void {
-  plans.set(conn, plan);
+export function setMountPlan(conn: DuckDBConnection, plan: MountPlan | undefined): void {
+  if (plan) plans.set(conn, plan);
+  else plans.delete(conn);
 }
 export function mountPlanOf(conn: DuckDBConnection): MountPlan | undefined {
   return plans.get(conn);

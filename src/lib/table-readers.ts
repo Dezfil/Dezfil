@@ -12,6 +12,7 @@ import { declaredReads, type StepDefinition } from "@/lib/operations/step-reads"
 import { boundedEvaluation } from "@/lib/query/bounded";
 import { reachableDatasets, resolveReference, type Namespace, type ReachableDataset } from "@/lib/query/bindings";
 import { readOnlySql } from "@/lib/query/guard";
+import { analysisPlan, mountPlanOf, setMountPlan } from "@/lib/query/mount-plan";
 import { declaredOutputs } from "@/lib/query/namespace";
 import { qualifiedNameParts } from "@/lib/query/qualified-name";
 import { collectReferences, serializeSql } from "@/lib/query/references";
@@ -200,27 +201,35 @@ async function readerIds(
   const outcome: { failed: Candidate["document"] | null } = { failed: null };
   const found = await boundedEvaluation(async (conn) => {
     const ids = new Set<string>();
-    for (const candidate of candidates) {
-      if (signal?.aborted) throw signal.reason ?? new Error("aborted");
-      let references: string[][];
-      if ("references" in candidate.definition) references = candidate.definition.references;
-      else {
-        try {
-          references = await referencesOf(conn, candidate.definition.sql);
-        } catch {
-          outcome.failed = candidate.document;
-          return ids;
+    // Each query is read as written in its own document, whose names the
+    // caller's mounts do not hold: read them under a plan that binds none.
+    const mounted = mountPlanOf(conn);
+    setMountPlan(conn, analysisPlan({ home: { id: target.ownerId, sqlName: target.ownerSqlName }, datasets: [target], outputs: new Map() }));
+    try {
+      for (const candidate of candidates) {
+        if (signal?.aborted) throw signal.reason ?? new Error("aborted");
+        let references: string[][];
+        if ("references" in candidate.definition) references = candidate.definition.references;
+        else {
+          try {
+            references = await referencesOf(conn, candidate.definition.sql);
+          } catch {
+            outcome.failed = candidate.document;
+            return ids;
+          }
+        }
+        for (const parts of references) {
+          const resolution = resolveReference(candidate.namespace, parts);
+          if (resolution.status === "bound" && resolution.dataset.id === target.id) {
+            ids.add(candidate.id);
+            break;
+          }
         }
       }
-      for (const parts of references) {
-        const resolution = resolveReference(candidate.namespace, parts);
-        if (resolution.status === "bound" && resolution.dataset.id === target.id) {
-          ids.add(candidate.id);
-          break;
-        }
-      }
+      return ids;
+    } finally {
+      setMountPlan(conn, mounted);
     }
-    return ids;
   }, {
     scope,
     signal,

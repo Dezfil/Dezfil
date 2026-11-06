@@ -11,6 +11,8 @@ import { createMap } from "@/lib/map-service";
 import { insertLayer, insertMap } from "@/lib/metadata/maps";
 import { addStep, createRecipe } from "@/lib/metadata/recipes";
 import { normalizeStyle } from "@/lib/style/style";
+import { boundedEvaluation } from "@/lib/query/bounded";
+import { readOnlySql } from "@/lib/query/guard";
 import { removeTable } from "@/lib/table-service";
 import { readTableReaders } from "./table-readers";
 
@@ -156,6 +158,25 @@ describe("what reads a table", () => {
   it("counts a reader alone when the owner can open none of them", async () => {
     map("bob", "Bob private", [["Hers", "SELECT * FROM ada.roads"], ["Again", "SELECT * FROM ada.roads"]]);
     expect(await readTableReaders(scopes.ada, "roads")).toEqual({ table: { id: tables.roads, name: "roads", rowCount: 3 }, readers: [], unlisted: 2 });
+  });
+
+  it("reads a quoted name as the qualified name it spells in anyone's query, and admits it to no one's run", async () => {
+    const bobs = map("bob", "Bob private", [
+      ["Joined", "SELECT * FROM ada.roads a JOIN \"bob.roads\" b ON a.id = b.id"],
+      ["Quoted", "SELECT * FROM \"ada.roads\""],
+      ["Own", "SELECT * FROM \"bob.roads\""],
+    ]);
+    map("cyd", "Cyd private", [["Nowhere", "SELECT * FROM \"cyd.nothing\""]]);
+    expect(await readTableReaders(scopes.ada, "roads")).toEqual({ table: { id: tables.roads, name: "roads", rowCount: 3 }, readers: [], unlisted: 2 });
+    expect(await readTableReaders(scopes.bob, "roads")).toEqual({
+      table: { id: tables.bobRoads, name: "roads", rowCount: 3 },
+      readers: [layer("Bob private", bobs, "Joined"), layer("Bob private", bobs, "Own")],
+      unlisted: 0,
+    });
+    // The spelling is read, never bound: Ada's own run of Bob's private
+    // table is refused as before.
+    await expect(boundedEvaluation((conn) => readOnlySql(conn, "SELECT * FROM \"bob.roads\""), { scope: scopes.ada }))
+      .rejects.toMatchObject({ code: "sql_rejected" });
   });
 
   it("never reads the engine's own catalogue as a home table", async () => {
