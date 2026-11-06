@@ -46,12 +46,14 @@ async function ownRelation(conn: DuckDBConnection, name: string, schema: string,
 }
 /** A name this evaluation's own registration bound to a dataset: another
  * owner's `<sql name>.<dataset>` as a qualified name or as its one quoted
- * mount name, never a name a statement could mint for itself. */
+ * mount name, never a name a statement could mint for itself. A plan that
+ * only reads names admits every qualified name, since it binds none. */
 function mountedBinding(conn: DuckDBConnection, parts: string[]): boolean {
   const plan = mountPlanOf(conn);
   if (!plan) return false;
   const classified = classifyReference(parts);
-  return classified.form === "qualified" && plan.qualified.has(`${classified.qualifier}.${classified.name}`);
+  if (classified.form !== "qualified") return false;
+  return plan.analysis === true || plan.qualified.has(`${classified.qualifier}.${classified.name}`);
 }
 async function tableTarget(conn: DuckDBConnection, target: string, ctes: ReadonlySet<string>, catalogues: Set<string>): Promise<void> {
   const parts = qualifiedNameParts(target);

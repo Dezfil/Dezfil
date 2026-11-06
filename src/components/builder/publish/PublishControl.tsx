@@ -23,7 +23,8 @@ export function panelMaxHeight(panelTop: number, windowHeight: number): number {
  * owns, extracted from the header chrome. Dismissal is the kit's
  * popover contract: an outside pointer or Escape closes, the trigger is
  * excluded so its own click does not close and reopen, and Escape hands
- * focus back to it. The open panel is bounded to the room below its
+ * focus back to it. While the panel's Unpublish question is up, the panel
+ * stays open and the question answers the pointer and Escape. The open panel is bounded to the room below its
  * anchor, so a long list inside it scrolls rather than running off the
  * window.
  */
@@ -35,6 +36,8 @@ export function PublishControl({
   onChange: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // The panel's Unpublish question is up: dismissal waits for it.
+  const [held, setHeld] = useState(false);
   const [maxHeight, setMaxHeight] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -45,6 +48,7 @@ export function PublishControl({
     onClose: useCallback(() => setOpen(false), []),
     contentRef: popRef,
     triggerRef,
+    held,
   });
 
   useLayoutEffect(() => {
@@ -81,7 +85,7 @@ export function PublishControl({
           className={styles.pop}
           style={maxHeight === null ? undefined : { maxHeight }}
         >
-          <PublishPopover map={map} onChange={onChange} />
+          <PublishPopover map={map} onChange={onChange} onHold={setHeld} />
         </div>
       )}
     </div>

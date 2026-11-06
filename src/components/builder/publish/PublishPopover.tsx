@@ -1,7 +1,7 @@
 "use client";
 import { useEditorRequest } from "../../document-editor-context";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MapWithLayers } from "@/lib/metadata/maps";
 import { useTheme } from "@/components/theme";
 import { useInstanceRule, useRuleRefusal } from "@/components/use-instance-rules";
@@ -18,6 +18,7 @@ import {
   GlobeIcon,
 } from "@/components/ui/icons";
 import { timeSince } from "./elapsed";
+import { UnpublishQuestion } from "./UnpublishQuestion";
 import styles from "./PublishPopover.module.css";
 
 interface PublishState {
@@ -532,16 +533,26 @@ function Audience({ tense }: { tense: "present" | "future" }) {
 export function PublishPopover({
   map,
   onChange,
+  onHold,
 }: {
   map: MapWithLayers;
   onChange: () => void;
+  /** Told while the Unpublish question is up, so the panel holding this
+   * content keeps its dismissal for the question. */
+  onHold?: (held: boolean) => void;
 }) {
   const request = useEditorRequest();
   const [busy, setBusy] = useState(false);
   const [copied, flagCopied] = useTransientFlag();
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"main" | "embed">("main");
+  const [asking, setAsking] = useState(false);
   const { theme } = useTheme();
+  useLayoutEffect(() => {
+    if (!asking) return;
+    onHold?.(true);
+    return () => onHold?.(false);
+  }, [asking, onHold]);
   // Who may publish, as the instance's rule has it for this person: when it
   // holds them back, publishing and changing a live publication wait, and a
   // published map keeps its link, its embed and Unpublish.
@@ -593,23 +604,6 @@ export function PublishPopover({
       const state = (await response.json()) as PublishState;
       const link = `${window.location.origin}/v/${state.token}`;
       if (await copyText(link)) flagCopied();
-      onChange();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const unpublish = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await request(`/api/maps/${map.id}/publish`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        setError(await readApiError(response));
-        return;
-      }
       onChange();
     } finally {
       setBusy(false);
@@ -705,12 +699,22 @@ export function PublishPopover({
               <Button
                 variant="quiet"
                 className={styles.unpublish}
-                onClick={() => void unpublish()}
-                busy={busy}
+                onClick={() => setAsking(true)}
               >
                 Unpublish
               </Button>
             </div>
+            {asking && (
+              <UnpublishQuestion
+                mapId={map.id}
+                mapName={map.name}
+                onClose={() => setAsking(false)}
+                onUnpublished={() => {
+                  setAsking(false);
+                  onChange();
+                }}
+              />
+            )}
           </div>
         </>
       ) : (

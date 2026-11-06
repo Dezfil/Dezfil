@@ -2680,6 +2680,22 @@
       }
     },
     {
+      "name": "list_table_readers",
+      "description": "What reads a table. A dataset is reached by its owner and by the owner and people of every project it is filed in. Lists, schema discovery and counts cover exactly the reached datasets and name each one's owner and the name the caller would type for it: the plain name for the caller's own, <sql name>.<name> for another owner's. Another owner's dataset is shown without connection facts and without links to what the caller cannot reach: a PostGIS snapshot shows its origin kind, with neither its connection nor its remote schema and table. A bare dataset name in a path or parameter is the caller's own dataset. On dataset reads, features, downloads and operation parameters, another owner's dataset the caller reaches is addressed by its qualified name, and in a /api/tables path also by its identifier; changing one by any address answers forbidden. Datasets change, refresh and go only by their owner; administrators reach nothing more. Upload and sketch suffixes ignore other accounts' names. Unreached and missing datasets, maps and project references return not_found before source or artifact access; a refused change leaves resources unchanged. Refresh and geometry changes preserve the dataset's identity and owner and recheck account activity at commit. Ask before deleting one of your own tables: every saved map layer and workflow step whose current definition reads it. A layer's query, a SQL step's query and a verb's dataset parameters are analyzed with the product's own binding rules: a plain name is the table of the map's or workflow's SQL home, a qualified name is that owner's table, a workflow's declared output is never a same-named home table, and comments, strings, aliases, CTEs and the engine's own catalogues never count. A pending edit is read in place of the step it edits; hidden layers and steps that never ran count; a step that only produces the table does not. Templates and the builder's one-step records are not read. Readers in maps and workflows you can open are listed, maps first then workflows, each by name and then layer or step order; the others are only counted in `unlisted`, and nothing else about them is answered. Only the table's owner may ask; anyone else who reaches it answers forbidden, as a delete does. A definition that cannot be analyzed, or a check that outlives its budget, fails the whole read with `dependencies_unresolved`: a shorter list never presents as complete.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Table name, or its identifier."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
       "name": "list_operations",
       "description": "List the operations this instance offers. The instance-wide operation catalog, shared by every authenticated account: each verb's id, group, the input geometry it accepts, and its parameters. Read this to discover what may be passed to the run endpoint.",
       "input_schema": {

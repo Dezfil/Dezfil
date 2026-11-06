@@ -21,6 +21,7 @@ export function usePopoverDismiss({
   contentRef,
   triggerRef,
   alsoInside,
+  held = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -40,9 +41,17 @@ export function usePopoverDismiss({
    * became unreachable while looking perfectly clickable.
    */
   alsoInside?: (target: Element) => boolean;
+  /**
+   * True while a modal question the panel opened is up. The question is
+   * portalled to the document, so a press on it reads as outside, and its
+   * Escape reaches this listener first: either would close the panel and
+   * the question with it. While held, the panel leaves both to the
+   * question.
+   */
+  held?: boolean;
 }) {
   useEffect(() => {
-    if (!open) return;
+    if (!open || held) return;
     const onPointerDown = (e: PointerEvent) => {
       const node = e.target as Node;
       if (
@@ -68,7 +77,7 @@ export function usePopoverDismiss({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, onClose, contentRef, triggerRef, alsoInside]);
+  }, [open, held, onClose, contentRef, triggerRef, alsoInside]);
 }
 
 /** What a popover trigger must say. `id` is the panel's.

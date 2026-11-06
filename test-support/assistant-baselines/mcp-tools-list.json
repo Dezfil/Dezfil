@@ -1,6 +1,6 @@
 {
-  "count": 165,
-  "overall": "1a134ebe4452de486d5f5d6ca09fd9bf6e821d8632e0d8cdce2bf17a6ff1a433",
+  "count": 166,
+  "overall": "8f08f46ec8b5ad16d21aea34ad591c6f076916148ec6f5e7ff1c6a2792f0161c",
   "tools": {
     "sign_everyone_out": "4d0df86dc39f3ff5326ad5c26c546724e023fde7e2c10101bc6509ec252e7123",
     "get_account": "bdb509f7c0b7dd82b52b9cdd2aa6604f0c178f38eb22d8277fbab536ce86eb52",
@@ -74,6 +74,7 @@
     "get_table_features": "92740815eeb1bee454bb4d71475cabdeb021c8f0a27db9b484b30190965399d8",
     "inspect_table": "c023bee102948783a782737c4881fc3d536fb452e7ec8256cffe843dd892e456",
     "delete_table": "c28e7dd9cf7dc11fd57b93425c38774c74ff212a701a27c698f4b5559d50de5c",
+    "list_table_readers": "aa002b7a26d5f3a324ad3c94e153a28f1bc521ce00154694021972c98b0a95bd",
     "list_operations": "a075882f43de0133c7cad2d8ad97d28acee340d85d011cd69fc85c1b15946057",
     "run_operation": "ce73b8841c2e7e5f36f0112665f9b151f73e659b331678a77fe7b7f03a72d299",
     "list_operation_runs": "7a0a7fc81a83e86bc22e1f5571d4cc1ebb68253a5f5f42fd1f107bee284aa22e",

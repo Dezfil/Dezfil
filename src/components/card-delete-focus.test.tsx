@@ -12,11 +12,13 @@ import { TablesScreen } from "./TablesScreen";
 import { WorkflowsScreen } from "./WorkflowsScreen";
 
 /**
- * A card's in-place Delete on the four list pages, pressed twice from the
- * keyboard: the deleted card takes its focused button with it, and focus
- * lands on the next card's Delete rather than on the document. Each page's
- * list is a stand-in that holds its state, so the page's own deletion
- * removes the card; the server answers every deletion.
+ * A card's Delete on the four list pages, pressed from the keyboard: the
+ * deleted card takes its focused button with it, and focus lands on the
+ * next card's Delete rather than on the document. Maps, Workflows and
+ * Projects ask in place, on a second press; the Data page asks in its
+ * delete dialog, which says what reads the table first. Each page's list
+ * is a stand-in that holds its state, so the page's own deletion removes
+ * the card; the server answers every deletion.
  */
 
 const server = vi.hoisted(() => ({ world: null as unknown, deleted: [] as string[] }));
@@ -128,8 +130,10 @@ const pages = {
   Data: {
     screen: () => <TablesScreen />,
     world: () => ({ projects: [], all: [], scoped: [table("quays"), table("roads")] }),
-    path: /^\/api\/tables\/(\w+)$/,
-    drop: (w: { all: { name: string }[]; scoped: { name: string }[] }, key: string) => ({ ...w, all: w.all.filter((x) => x.name !== key), scoped: w.scoped.filter((x) => x.name !== key) }),
+    // The dialog deletes by the table's identifier.
+    path: /^\/api\/tables\/([\w-]+)$/,
+    drop: (w: { all: { id: string }[]; scoped: { id: string }[] }, key: string) => ({ ...w, all: w.all.filter((x) => x.id !== key), scoped: w.scoped.filter((x) => x.id !== key) }),
+    asks: "dialog",
   },
 } as const;
 
@@ -143,6 +147,8 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (input: string, init?: RequestInit) => {
     const url = String(input);
     const key = page.path.exec(url)?.[1];
+    const readers = /^\/api\/tables\/([\w-]+)\/readers$/.exec(url)?.[1];
+    if (readers) return Response.json({ table: { id: readers, name: readers.slice(2), rowCount: 10 }, readers: [], unlisted: 0 });
     if (init?.method === "DELETE" && key) {
       server.deleted.push(key);
       server.world = (page.drop as (w: unknown, key: string) => unknown)(server.world, key);
@@ -178,10 +184,17 @@ describe.each(Object.keys(pages) as (keyof typeof pages)[])("the %s page's in-pl
     const gone = first.getAttribute("aria-label");
     first.focus();
     await act(async () => first.click());
-    expect(first.textContent, "the first press arms").toMatch(/^Delete\?/);
-    await act(async () => first.click());
+    if ("asks" in page) {
+      await settle();
+      const confirm = host.document.querySelector('[role="dialog"]')!.querySelectorAll("button").find((b) => b.textContent === "Delete table")!;
+      expect(confirm.disabled, "the dialog has checked what reads the table").toBe(false);
+      await act(async () => confirm.click());
+    } else {
+      expect(first.textContent, "the first press arms").toMatch(/^Delete\?/);
+      await act(async () => first.click());
+    }
     await settle();
-    expect(server.deleted, "the second press deletes").toHaveLength(1);
+    expect(server.deleted, "the confirming press deletes").toHaveLength(1);
     expect(deletes().map((b) => b.getAttribute("aria-label"))).not.toContain(gone);
     const active = host.document.activeElement;
     expect(active).not.toBe(host.document.body);

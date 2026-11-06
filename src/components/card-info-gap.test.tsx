@@ -101,7 +101,7 @@ const cases: [string, ReactNode][] = [
   ["a map's chips", <MapCard key="m" map={map} owner={null} />],
   ["a workflow's chips", <WorkflowCard key="w" workflow={flow} lastRun={null} groupOf={() => null} owner={null} />],
   ["a dataset's chips", <TableCard key="t" table={table} index={0}
-    actions={{ table, deleting: false, onOpen: noop, onQuery: noop, onAddToMap: noop, onFile: noop, onDelete: noop }} />],
+    actions={{ table, onOpen: noop, onQuery: noop, onAddToMap: noop, onFile: noop, onDelete: noop }} />],
   ["a project's counts", projectCard(project({ mapCount: 2, tableCount: 1, sizeBytes: 4096 }))],
   ["an empty project's Empty", projectCard(project({}))],
 ];

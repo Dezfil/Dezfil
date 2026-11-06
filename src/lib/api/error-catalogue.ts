@@ -64,8 +64,10 @@ export const ERROR_CATALOGUE: Record<ErrorCode, string> = {
   not_refreshable:
     "The table has no re-runnable remote source, so it cannot be refreshed.",
   dependencies_unresolved:
-    "A layer's statement could not be analyzed, so the map's datasets " +
-    "cannot be listed completely. Fix the layer's SQL and try again.",
+    "A layer's or workflow step's statement could not be analyzed, or the " +
+    "check ran out of time, so the datasets a map or workflow reads, or " +
+    "what reads a table, cannot be listed completely. Fix the SQL and try " +
+    "again.",
   export_failed:
     "The project archive could not be assembled; nothing was delivered. " +
     "Retry, and check the server's disk space if it recurs.",

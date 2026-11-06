@@ -144,9 +144,20 @@
 
 /* ---- options rail ---- */
 
+/* The options scroll; the bottom row (the note, an export error, Close
+ * and Download PNG) sits under them, always in view, whatever the scroll
+ * position and the window's height. */
 .rail {
   width: 300px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.optionsScroll {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 17px;
@@ -300,8 +311,8 @@
 }
 
 .railFoot {
-  margin-top: auto;
-  padding-top: 14px;
+  flex-shrink: 0;
+  padding: 14px 18px 16px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;

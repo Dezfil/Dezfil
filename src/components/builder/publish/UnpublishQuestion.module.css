@@ -1,0 +1,5 @@
+/* The question's refusal sits inside the dialog's side margins. */
+
+.note {
+  margin: 0 18px;
+}

@@ -574,23 +574,25 @@ export function ExportImageCard({
         </div>
 
         <div className={styles.rail}>
-          <ExportOptionsRail
-            def={def}
-            setDef={setDef}
-            aspect={activeAspect}
-            onAspect={onAspect}
-            onWidth={onWidth}
-            onLegendCorner={moveLegend}
-            aspectLabel={shapeLabel}
-            mapStep={mapStep}
-            onMapStep={changeMapStep}
-            mapStepReasons={mapStepReasons}
-            legendPresent={legendPresent}
-            widgets={stage.widgets}
-            basemapKind={stage.basemapKind}
-          />
+          <div className={styles.optionsScroll} data-export-options="">
+            <ExportOptionsRail
+              def={def}
+              setDef={setDef}
+              aspect={activeAspect}
+              onAspect={onAspect}
+              onWidth={onWidth}
+              onLegendCorner={moveLegend}
+              aspectLabel={shapeLabel}
+              mapStep={mapStep}
+              onMapStep={changeMapStep}
+              mapStepReasons={mapStepReasons}
+              legendPresent={legendPresent}
+              widgets={stage.widgets}
+              basemapKind={stage.basemapKind}
+            />
+          </div>
 
-          <div className={styles.railFoot}>
+          <div className={styles.railFoot} data-export-foot="">
             <p className={styles.footNote}>PNG · attribution included</p>
             {error && (
               <ErrorNote message={error} onRetry={() => void download()} />

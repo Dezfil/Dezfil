@@ -30,8 +30,9 @@ import { POLICY_REFUSAL_CODE } from "./policy";
  * Profile pictures add the read of a person's picture, setting and removing
  * one's own, and an admin's removal of another's. A person's own AI key adds
  * its read, its save and its removal, which MCP has and the in-app assistant
- * does not. */
-const GENERATED_TOOLS = 165;
+ * does not. What reads a table adds one read, offered to the owner before a
+ * delete. */
+const GENERATED_TOOLS = 166;
 
 describe("the page action policy is documented", () => {
   const document = buildOpenApiDocument();

@@ -113,7 +113,7 @@ To change what readers can do, click **Published** at the top right:
 
 These changes keep the link and reach readers on their next load.
 
-To stop sharing, click **Published**, then **Unpublish**. The link stops working at once, and readers see **Map not found**. Publishing the map again gives it a new link, opening in the mode you are working in, with every control on.
+To stop sharing, click **Published**, **Unpublish**, then **Unpublish map**. The link and every embed stop working at once, and readers see **Map not found**. Publishing again gives a new link, opening in your current mode, with every control on.
 
 On the **Maps** page, a card's **Publish map** publishes a draft, and **Copy share link** copies a published map's link.
 

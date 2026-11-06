@@ -145,7 +145,7 @@ describe("the Data list's card and row", () => {
       source: "upload", createdAt: "2026-09-01T00:00:00Z", importedAt: null,
     }) as unknown as TableListing;
   const actions = (t: TableListing): TableActionsProps => ({
-    table: t, deleting: false, onOpen: vi.fn(), onQuery: vi.fn(), onAddToMap: vi.fn(),
+    table: t, onOpen: vi.fn(), onQuery: vi.fn(), onAddToMap: vi.fn(),
     onFile: vi.fn(), onDelete: vi.fn(),
   });
 

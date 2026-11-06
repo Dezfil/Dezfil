@@ -132,7 +132,7 @@ Every style option is in [Build a map](../use/build-a-map.md#3-style-a-layer).
 
 You should see **Published** with the map's link, **Copy link** and **Open**. If your browser allows it, Dezfil also copies the link for you, and **Copy link** reads **Link copied** for a moment. Anyone with the link can view the map, without an account.
 
-Click **Open** to see the map as its readers do. To stop sharing it, click **Published** at the top right, then **Unpublish**.
+Click **Open** to see the map as its readers do. To stop sharing it, click **Published** at the top right, then **Unpublish** and **Unpublish map**.
 
 ## Troubleshooting
 
