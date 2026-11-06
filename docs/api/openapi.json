@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Dezfil API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Upload files, query them with SQL, compose styled map layers, and publish read-only shareable views. Every capability the UI offers is one of these documented calls; the whole journey can be driven headlessly. Protected operations require a current cookie session or account bearer token. Every map, dataset, workflow, connection and project has one owner and is private to its owner unless a project shares it: a project's owner gives people the viewer or editor role, and they reach the project and everything filed in it, whoever owns it. A viewer reads; an editor also changes the content of its maps and workflows and runs its workflows; deletion, publication, sharing and transfer stay the owner's, and datasets change only by their owner. Connections are never shared, and standalone jobs, renders and downloads stay with the account that started them. Administrators have no additional content access. Dataset and connection names are owner-local: in SQL another person's reachable dataset is <sql name>.<dataset>, and a map's or workflow's SQL reads in its SQL home. Unreached and missing resources share the same refusal. Instance catalogues and saved palettes remain shared. User SQL reads named datasets only; direct or indirect file reads and path discovery are refused. Cookie mutations require the same trusted Origin. Identity-bearing responses, including authentication refusals, are private, no-store. Only entry, readiness and the token-scoped read-only published projection permit anonymous access. Maps and workflows have one durable editRevision, paired with state on document, child and list reads. Covered writes require X-Edit-Revision (MCP expected_revision); order writes and chain the accepted JSON result. Missing or malformed revisions return 400 invalid_request. Stale revisions return 409 stale_revision: This item has changed. Reload it before trying again. Refusal changes nothing. Reload explicitly and compose a new edit, never replay an old payload under a fresh token. This breaks unversioned writers and clients expecting bodyless covered successes. Whole-document deletion has no surviving revision. Viewport-only saves, picture refresh and run cancellation keep their documented exceptions. Attribution names the last accepted actor, not the owner; legacy authors can be unknown. Shared map undo retains original authors. Run starts use the plan revision; admitted runs track executable definitions, preserving concurrent layout and lifecycle changes. Unsupported methods on documented paths return 405 method_not_allowed with an exact Allow header after authentication. HEAD is bodyless and OPTIONS reports Allow."
   },
   "tags": [
@@ -10075,7 +10075,7 @@
                         "isochroneOrigins": 13
                       },
                       "maxImageDimension": 4096,
-                      "version": "0.1.0",
+                      "version": "0.2.0",
                       "startedAt": "2026-10-20T09:00:00.000Z",
                       "warnings": [],
                       "parts": {
@@ -13394,7 +13394,7 @@
                         "isochroneOrigins": 13
                       },
                       "maxImageDimension": 4096,
-                      "version": "0.1.0",
+                      "version": "0.2.0",
                       "startedAt": "2026-10-20T09:00:00.000Z",
                       "warnings": [],
                       "parts": {
@@ -21862,7 +21862,7 @@
                       "openapi": "3.1.0",
                       "info": {
                         "title": "Dezfil API",
-                        "version": "0.1.0"
+                        "version": "0.2.0"
                       },
                       "paths": {
                         "/api/query": {

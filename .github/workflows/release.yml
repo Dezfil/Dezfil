@@ -9,8 +9,9 @@ name: Release
 # Docker Hub receives the same tags when the repository holds a
 # DOCKERHUB_TOKEN secret (and DOCKERHUB_USERNAME, if not `dezfil`).
 #
-# To release: give the changelog a section for the version and package.json
-# the same version, merge that, then tag the merge commit and push the tag:
+# To release: give the changelog a section for the version, and package.json
+# and src/lib/api/version.ts the same version, merge that, then tag the
+# merge commit and push the tag:
 #   git tag -a v0.1.0 -m "Dezfil 0.1.0" && git push origin v0.1.0
 on:
   push:

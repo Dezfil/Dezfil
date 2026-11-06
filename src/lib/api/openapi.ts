@@ -1,4 +1,5 @@
 import { STORAGE_STATE_SCHEMA } from "./openapi-storage";
+import { APP_VERSION } from "./version";
 import { EXTERNAL_SIGN_IN_PATHS, EXTERNAL_SIGN_IN_SCHEMAS } from "./openapi-external-sign-in";
 import { SMALL_JSON_BODY_MAX_BYTES } from "./request-bounds";
 import { withAutomaticMethods } from "./openapi-methods";
@@ -69,7 +70,7 @@ export function buildOpenApiDocument() {
     openapi: "3.1.0",
     info: {
       title: "Dezfil API",
-      version: "0.1.0",
+      version: APP_VERSION,
       description:
         "Upload files, query them with SQL, compose styled map layers, and " +
         "publish read-only shareable views. Every capability the UI offers is " +

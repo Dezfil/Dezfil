@@ -1,3 +1,4 @@
+import { APP_VERSION } from "./version";
 import {
   ACCOUNT,
   ASSISTANT_ENABLED,
@@ -440,7 +441,7 @@ export const WORKED_EXAMPLES: WorkedExamples = {
       description: "Needs a token. An excerpt: the answer is the whole description, as this document.",
       response: answer("200", {
         openapi: "3.1.0",
-        info: { title: "Dezfil API", version: "0.1.0" },
+        info: { title: "Dezfil API", version: APP_VERSION },
         paths: { "/api/query": { post: { summary: "Run read-only SQL", requestBody: { "x-byte-limit": 16_777_216, "x-byte-error": "request_body_too_large" } } } },
       }),
     },

@@ -1,4 +1,5 @@
 import { settingDefinition } from "@/lib/settings/catalogue";
+import { APP_VERSION } from "./version";
 
 /**
  * The answers the worked examples show, taken from one run of the API
@@ -661,7 +662,7 @@ export const INSTANCE_SETTINGS = {
   settings: NEW_INSTANCE_SETTINGS,
   capacities: { geocodeRows: 27, isochroneOrigins: 13 },
   maxImageDimension: 4096,
-  version: "0.1.0",
+  version: APP_VERSION,
   startedAt: "2026-10-20T09:00:00.000Z",
   warnings: [],
   parts: {
