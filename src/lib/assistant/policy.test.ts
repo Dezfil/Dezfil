@@ -67,7 +67,7 @@ describe("the page action policy", () => {
       "list_layers", "list_map_sketches", "list_maps", "list_operation_runs", "list_operations",
       "list_overture_countries", "list_overture_division_levels", "list_overture_releases", "list_overture_states",
       "list_palettes", "list_postgis_connections", "list_postgis_snapshots", "list_postgis_tables",
-      "list_project_people", "list_projects", "list_recipe_runs", "list_recipes", "list_tables", "list_templates", "list_users",
+      "list_project_people", "list_projects", "list_recipe_runs", "list_recipes", "list_table_readers", "list_tables", "list_templates", "list_users",
       "look_at_map", "preview_overture_import", "preview_postgis_relation", "preview_table_geometry",
       "preview_user_deletion", "published_layer_extent", "read_account_picture", "read_map_look_image", "read_table_catalogue",
       "read_widget_values", "render_layer", "run_osm_query", "run_overture_query", "run_sql", "sanitize_icon_svg",
