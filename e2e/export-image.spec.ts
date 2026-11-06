@@ -1336,7 +1336,23 @@ test.describe("the bottom row stays in view", () => {
     await expect(page.locator("[data-export-foot]").getByRole("button", { name: "Close" })).toBeInViewport({ ratio: 1 });
   }
 
+  // The dialog eases into a new size (a quarter-second transition on its
+  // width and height), so a measure taken the instant the window changes
+  // reads the size it is leaving. Wait until two reads 100 ms apart agree.
+  async function settled(page: Page): Promise<void> {
+    let last = -1;
+    await expect
+      .poll(async () => {
+        const height = (await page.locator("[data-export-card]").boundingBox())?.height ?? 0;
+        const still = Math.abs(height - last) < 0.5;
+        last = height;
+        return still;
+      }, { intervals: [100], timeout: 5_000 })
+      .toBe(true);
+  }
+
   async function acrossTheScroll(page: Page, size: string): Promise<void> {
+    await settled(page);
     const options = page.locator("[data-export-options]");
     // The options really overflow at this size: otherwise "top, middle
     // and bottom" would all be one place and the check would hold for the
@@ -1380,6 +1396,7 @@ test.describe("the bottom row stays in view", () => {
     await page.setViewportSize({ width: 900, height: 700 });
     await openBuilder(page, mapId);
     await openCard(page);
+    await settled(page);
     await rowInside(page, "900 x 700, before the error");
     await page.locator("[data-export-download]").click();
     await expect(page.locator("[data-export-foot]").getByRole("button", { name: "Try again" })).toBeVisible({ timeout: 30_000 });

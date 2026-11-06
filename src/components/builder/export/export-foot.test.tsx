@@ -71,15 +71,15 @@ it("keeps the bottom row outside the scrolling options, and only the options scr
 
   const rail = options.parentNode as HostElement;
   expect(rail.className).toMatch(/(^|\s)_rail_/);
-  expect(options.className).toMatch(/(^|\s)_railOptions_/);
+  expect(options.className).toMatch(/(^|\s)_optionsScroll_/);
   expect(foot.className).toMatch(/(^|\s)_railFoot_/);
   // The rail itself does not scroll; the options take the room left and
   // scroll inside it; the row keeps its height.
   expect(body(".rail")).not.toMatch(/overflow/);
   expect(declares(".rail", "min-height", "0")).toBe(true);
-  expect(declares(".railOptions", "overflow-y", "auto")).toBe(true);
-  expect(declares(".railOptions", "min-height", "0")).toBe(true);
-  expect(declares(".railOptions", "flex", "1")).toBe(true);
+  expect(declares(".optionsScroll", "overflow-y", "auto")).toBe(true);
+  expect(declares(".optionsScroll", "min-height", "0")).toBe(true);
+  expect(declares(".optionsScroll", "flex", "1")).toBe(true);
   expect(declares(".railFoot", "flex-shrink", "0")).toBe(true);
   expect(body(".railFoot")).not.toMatch(/margin-top/);
 });

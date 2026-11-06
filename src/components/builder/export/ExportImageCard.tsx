@@ -574,7 +574,7 @@ export function ExportImageCard({
         </div>
 
         <div className={styles.rail}>
-          <div className={styles.railOptions} data-export-options="">
+          <div className={styles.optionsScroll} data-export-options="">
             <ExportOptionsRail
               def={def}
               setDef={setDef}
