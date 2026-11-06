@@ -5,7 +5,7 @@ import { buildTools } from "@/lib/tools/tools";
 
 it("publishes dataset reach, the reader's name for a dataset and the absent-resource response in every affected operation and tool", () => {
   const document = buildOpenApiDocument() as unknown as { paths: Record<string, Record<string, { description: string; responses: Record<string, unknown> }>> };
-  const paths = ["/api/tables", "/api/tables/{name}", "/api/tables/{name}/features", "/api/tables/{name}/export", "/api/tables/{name}/refresh",
+  const paths = ["/api/tables", "/api/tables/{name}", "/api/tables/{name}/readers", "/api/tables/{name}/features", "/api/tables/{name}/export", "/api/tables/{name}/refresh",
     "/api/catalogue/tables", "/api/tables/{name}/geometry", "/api/tables/{name}/geometry/preview",
     "/api/maps/{id}/sketches", "/api/sketches/{name}", "/api/sketches/{name}/features", "/api/sketches/{name}/features/{featureId}",
     "/api/imports/url", "/api/imports/osm", "/api/imports/overture", "/api/imports/postgis"];
@@ -18,9 +18,9 @@ it("publishes dataset reach, the reader's name for a dataset and the absent-reso
     expect(operation.description, path).not.toContain("resolve only in the authenticated account's space");
     expect(operation.responses, path).toHaveProperty("404"); count++;
   }
-  expect(count).toBe(23);
+  expect(count).toBe(24);
   const tools = buildTools().filter(tool => paths.includes(tool.path));
-  expect(tools).toHaveLength(22);
+  expect(tools).toHaveLength(23);
   for (const tool of tools) {
     expect(tool.description, tool.name).toContain("Unreached and missing datasets, maps and project references return not_found");
     expect(tool.inputSchema.properties, tool.name).not.toHaveProperty("ownerId");

@@ -239,7 +239,7 @@ async function readerIds(
 function disclose(scope: AccountScope, targetId: string, ids: Set<string>, db: Database): TableReaders {
   return db.transaction(() => {
     const reached = requireOwnDataset(scope, targetId);
-    const readers: (TableReader & { order: [number, string, number] })[] = [];
+    const readers: { reader: TableReader; order: [number, string, number] }[] = [];
     let unlisted = 0;
     if (ids.size > 0) {
       const list = JSON.stringify([...ids]);
@@ -250,9 +250,11 @@ function disclose(scope: AccountScope, targetId: string, ids: Set<string>, db: D
       for (const layer of layers) {
         if (!canReach(scope, "map", layer.map_id, db)) { unlisted++; continue; }
         readers.push({
-          kind: "layer",
-          map: { id: layer.map_id, name: layer.map_name, published: layer.published === 1 },
-          layer: { id: layer.id, name: layer.name },
+          reader: {
+            kind: "layer",
+            map: { id: layer.map_id, name: layer.map_name, published: layer.published === 1 },
+            layer: { id: layer.id, name: layer.name },
+          },
           order: [0, layer.map_name, layer.ordinal],
         });
       }
@@ -262,20 +264,22 @@ function disclose(scope: AccountScope, targetId: string, ids: Set<string>, db: D
       for (const step of steps) {
         if (!canReach(scope, "workflow", step.recipe_id, db)) { unlisted++; continue; }
         readers.push({
-          kind: "step",
-          workflow: { id: step.recipe_id, name: step.recipe_name },
-          step: { id: step.id, position: step.ordinal + 1, operation: step.operation, label: findOperation(step.operation).label },
+          reader: {
+            kind: "step",
+            workflow: { id: step.recipe_id, name: step.recipe_name },
+            step: { id: step.id, position: step.ordinal + 1, operation: step.operation, label: findOperation(step.operation).label },
+          },
           order: [1, step.recipe_name, step.ordinal],
         });
       }
     }
     readers.sort((a, b) => a.order[0] - b.order[0]
       || a.order[1].localeCompare(b.order[1])
-      || documentId(a).localeCompare(documentId(b))
+      || documentId(a.reader).localeCompare(documentId(b.reader))
       || a.order[2] - b.order[2]);
     return {
       table: { id: reached.table.id, name: reached.table.name, rowCount: reached.table.rowCount },
-      readers: readers.map(({ order: _order, ...reader }) => reader),
+      readers: readers.map(({ reader }) => reader),
       unlisted,
     };
   })();

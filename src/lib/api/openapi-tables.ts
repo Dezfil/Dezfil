@@ -264,9 +264,113 @@ export const TABLE_RESOURCE_PATHS = {
       responses: { "204": { description: "Deleted." } },
     })),
   },
+  "/api/tables/{name}/readers": {
+    get: op(datasetAccess({
+      summary: "What reads a table",
+      description:
+        "Ask before deleting one of your own tables: every saved map layer " +
+        "and workflow step whose current definition reads it. A layer's " +
+        "query, a SQL step's query and a verb's dataset parameters are " +
+        "analyzed with the product's own binding rules: a plain name is the " +
+        "table of the map's or workflow's SQL home, a qualified name is that " +
+        "owner's table, a workflow's declared output is never a same-named " +
+        "home table, and comments, strings, aliases, CTEs and the engine's " +
+        "own catalogues never count. A pending edit is read in place of the " +
+        "step it edits; hidden layers and steps that never ran count; a step " +
+        "that only produces the table does not. Templates and the builder's " +
+        "one-step records are not read. Readers in maps and workflows you can " +
+        "open are listed, maps first then workflows, each by name and then " +
+        "layer or step order; the others are only counted in `unlisted`, " +
+        "and nothing else about them is answered. Only the table's owner may " +
+        "ask; anyone else who reaches it answers forbidden, as a delete does. " +
+        "A definition that cannot be analyzed, or a check that outlives its " +
+        "budget, fails the whole read with `dependencies_unresolved`: a " +
+        "shorter list never presents as complete.",
+      tag: "Tables",
+      tool: "list_table_readers", mcp: LOCAL_READ,
+      display: {"verb": "Read what reads the dataset {subject}", "subject": {"resource": "tables", "argument": "name"}},
+      effects: READ_ONLY,
+      parameters: [pathParam("name", "Table name, or its identifier.")],
+      responses: {
+        "200": jsonOk("#/components/schemas/TableReaders"),
+        "403": ERROR_RESPONSE,
+        "422": ERROR_RESPONSE,
+      },
+    })),
+  },
 };
 
 export const TABLE_SCHEMAS = {
+  TableReaders: {
+    type: "object",
+    additionalProperties: false,
+    required: ["table", "readers", "unlisted"],
+    properties: {
+      table: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "name", "rowCount"],
+        properties: { id: { type: "string" }, name: { type: "string" }, rowCount: { type: "integer" } },
+      },
+      readers: {
+        type: "array",
+        description: "The readers in maps and workflows the caller can open: maps first, then workflows, each by name, then layer or step order. Two layers of one map are two entries.",
+        items: {
+          oneOf: [
+            {
+              type: "object",
+              additionalProperties: false,
+              required: ["kind", "map", "layer"],
+              properties: {
+                kind: { type: "string", const: "layer" },
+                map: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["id", "name", "published"],
+                  properties: { id: { type: "string" }, name: { type: "string" }, published: { type: "boolean" } },
+                },
+                layer: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["id", "name"],
+                  properties: { id: { type: "string" }, name: { type: "string" } },
+                },
+              },
+            },
+            {
+              type: "object",
+              additionalProperties: false,
+              required: ["kind", "workflow", "step"],
+              properties: {
+                kind: { type: "string", const: "step" },
+                workflow: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["id", "name"],
+                  properties: { id: { type: "string" }, name: { type: "string" } },
+                },
+                step: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["id", "position", "operation", "label"],
+                  properties: {
+                    id: { type: "string" },
+                    position: { type: "integer", description: "The step's place in its workflow, from 1." },
+                    operation: { type: "string", description: "The operation's catalogue id." },
+                    label: { type: "string", description: "The operation's catalogue label, as the canvas shows it." },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      unlisted: {
+        type: "integer",
+        description: "How many more layers and steps read the table in maps and workflows the caller cannot open. They are never named or described.",
+      },
+    },
+  },
   Table: {
     type: "object",
     properties: {
