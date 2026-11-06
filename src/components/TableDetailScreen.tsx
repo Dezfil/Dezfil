@@ -14,6 +14,7 @@ import {
   readApiError,
 } from "./api";
 import { AddToMapDialog, tableSubject } from "./AddToMapDialog";
+import { DeleteTableDialog } from "./DeleteTableDialog";
 import { BackLink } from "./BackLink";
 import { ExportMenu } from "./ExportMenu";
 import { datasetQueryHref } from "./dataset-doors";
@@ -150,17 +151,6 @@ export function TableDetailScreen({
     [name],
   );
 
-  const remove = useCallback(async () => {
-    const response = await fetch(`/api/tables/${encodeURIComponent(name)}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) {
-      setError(await readApiError(response));
-      return;
-    }
-    router.push("/data");
-  }, [name, router]);
-
   // Pending, failed-with-retry and content are distinct, and the empty
   // shell is never shown as if the read had finished.
   usePathContribution(tableState.status === "ready" ? tableState.value : null);
@@ -196,7 +186,6 @@ export function TableDetailScreen({
       setConfirming={setConfirming}
       refreshing={refreshing}
       refresh={refresh}
-      remove={remove}
       addToMap={addToMap}
       setAddToMap={setAddToMap}
       recipes={recipesError ? null : recipes}
@@ -223,7 +212,6 @@ function TableDetail({
   setConfirming,
   refreshing,
   refresh,
-  remove,
   addToMap,
   setAddToMap,
   recipes,
@@ -241,7 +229,6 @@ function TableDetail({
   setConfirming: (confirming: boolean) => void;
   refreshing: boolean;
   refresh: (release?: string) => Promise<void>;
-  remove: () => Promise<void>;
   addToMap: string | null;
   setAddToMap: (name: string | null) => void;
   recipes: ReturnType<typeof useRecipes>["recipes"] | null;
@@ -367,20 +354,7 @@ function TableDetail({
               <IconRefresh />
             </button>
           )}
-          {!own ? null : confirming ? (
-            <span className={styles.confirm}>
-              Delete this table and its data?
-              <button className={styles.dangerBtn} onClick={remove}>
-                Delete
-              </button>
-              <button
-                className={styles.quietBtn}
-                onClick={() => setConfirming(false)}
-              >
-                Keep
-              </button>
-            </span>
-          ) : (
+          {own && (
             <button
               className={`${styles.aux} ${styles.auxDanger}`}
               title="Delete this table and its data"
@@ -389,6 +363,13 @@ function TableDetail({
             >
               <IconTrash />
             </button>
+          )}
+          {own && confirming && (
+            <DeleteTableDialog
+              table={{ id: table.id, name: table.name, rowCount: table.rowCount }}
+              onClose={() => setConfirming(false)}
+              onDeleted={() => router.push("/data")}
+            />
           )}
         </div>
       </div>

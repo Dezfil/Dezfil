@@ -255,26 +255,14 @@
   {
     "file": "src/components/TableDetailScreen.module.css",
     "rule": "duration",
-    "value": "0.15s",
-    "count": 2
-  },
-  {
-    "file": "src/components/TableDetailScreen.module.css",
-    "rule": "duration",
     "value": "0.25s",
-    "count": 1
-  },
-  {
-    "file": "src/components/TableDetailScreen.module.css",
-    "rule": "duration",
-    "value": "0.2s",
     "count": 1
   },
   {
     "file": "src/components/TableDetailScreen.module.css",
     "rule": "font-size",
     "value": "12.5px",
-    "count": 3
+    "count": 1
   },
   {
     "file": "src/components/TablePreviewGrid.module.css",

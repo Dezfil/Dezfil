@@ -13,6 +13,7 @@ import { normalizeStyle } from "@/lib/style/style";
 import { buildTools } from "@/lib/tools/tools";
 import { executeTool } from "@/lib/tools/execute";
 import { GET } from "./route";
+import { DELETE } from "../route";
 
 /**
  * The readers read over HTTP and through its generated tool, against an
@@ -82,4 +83,23 @@ it("answers the owner, refuses the rest, and agrees with its generated tool", as
   }) as typeof fetch);
   expect(result).toMatchObject({ status: 200, ok: true, body: expected });
   expect(JSON.stringify(result.body)).not.toMatch(/Bob/);
+});
+
+it("addresses the table it was opened for: a same-named replacement is neither checked nor deleted by the old identifier", async () => {
+  const old = roads;
+  const removal = (address: string) => DELETE(
+    testAccountRequest(new Request(`http://localhost/api/tables/${encodeURIComponent(address)}`, { method: "DELETE" }), undefined, "ada"),
+    { params: Promise.resolve({ name: address }) },
+  );
+  expect((await removal(old)).status).toBe(204);
+  const file = path.join(directory, "roads-again.csv");
+  await writeFile(file, "id,lon,lat\n1,1,2\n");
+  await ingestFile(scopes.ada, file, "roads.csv");
+  const replacement = (metadataDb().prepare("SELECT id FROM data_tables WHERE owner_id = 'ada' AND name = 'roads'").get() as { id: string }).id;
+  expect(replacement).not.toBe(old);
+
+  expect((await call("ada", old)).status).toBe(404);
+  expect((await removal(old)).status).toBe(404);
+  expect(metadataDb().prepare("SELECT id FROM data_tables WHERE id = ?").get(replacement)).toEqual({ id: replacement });
+  expect((await call("ada", "roads")).body.table).toEqual({ id: replacement, name: "roads", rowCount: 1 });
 });
