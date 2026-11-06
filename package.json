@@ -1,6 +1,6 @@
 {
   "name": "dezfil",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "Apache-2.0",
   "description": "Self-hosted spatial SQL and map publishing, powered by DuckDB and files",
