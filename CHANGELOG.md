@@ -13,37 +13,52 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Sign-in through a trusted outside service, off by default. With it on, the
   instance takes a signed, single-use ticket from a sign-in service you run,
-  and refuses its own passwords and sign-in links. The first owner is named in
-  the configuration, so an empty instance cannot be claimed, and an invitation
-  carries no credential until a ticket for that email arrives. The self-host
-  docs have the configuration page and a guide to writing such a service.
+  and refuses its own passwords, sign-in links and recovery script. The first
+  owner is named in the configuration, so an empty instance cannot be
+  claimed, and an invitation carries no credential until a ticket for that
+  email arrives. The self-host docs have the configuration page and a guide
+  to writing such a service.
 - **Sign everyone out**, in **Settings** > **Security**: it ends every
   session, API token and assistant work begun before it, in either sign-in
-  mode.
+  mode. A credential it ended answers `401 token_outdated`.
 - A door generation reset, `DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET`, for
   when the sign-in service's signing key leaks. Applied once per value at
-  start, it ends every session and token and lets the real service in again.
-  Admins see the last applied reset on the External sign-in card.
-- The assistant on a person's own Anthropic or OpenAI key, set in
-  **Settings** > **Assistant**, beside or instead of the instance's key. The
-  key is kept encrypted, never shown again, readable by no admin and sent
-  only to its provider. The model line says whose key answers, and a
-  rejected key names who must replace it. New operations
-  `GET`, `PUT` and `DELETE /api/account/assistant-key`, with the tools
+  start, it ends every session and token. Together with the service's new
+  public key alone and its minimum, as the External sign-in page's recovery
+  steps say, it lets the real service in again. Admins see the last applied
+  reset on the External sign-in card.
+- The assistant on a person's own Anthropic or OpenAI key, beside or instead
+  of the instance's key. It is set in **Settings** > **Assistant**, or in the
+  assistant pane where the instance has no key. The key is kept encrypted,
+  never shown again and readable by no admin. It goes only to
+  `api.anthropic.com` or `api.openai.com`: the base address and other
+  provider variables apply to the instance key alone. The model line says
+  whose key answers, and a rejected key names who must replace it. Changing
+  or removing a key ends the turns begun on the old one; a confirmation sent
+  for one of them answers `assistant_key_changed`. New operations `GET`,
+  `PUT` and `DELETE /api/account/assistant-key`, with the tools
   `get_assistant_key`, `set_assistant_key` and `remove_assistant_key`.
 - Instance limits, in **Settings** > **Limits**: how many maps, projects and
-  people one instance holds, and the longest token lifetime. All are off by
-  default, and can be locked with `DEZFIL_MAPS_LIMIT`,
-  `DEZFIL_PROJECTS_LIMIT`, `DEZFIL_PEOPLE_LIMIT` and
-  `DEZFIL_TOKEN_LIFETIME_MAX`. Creating past a limit answers
-  `instance_limit_reached` with the limit and the count. Lowering a limit
-  deletes nothing.
+  people one instance holds. All are off by default, and can be locked with
+  `DEZFIL_MAPS_LIMIT`, `DEZFIL_PROJECTS_LIMIT` and `DEZFIL_PEOPLE_LIMIT`.
+  While one is set, Maps, Projects and Users show "3 of 20" beside the
+  heading. Creating past a limit answers `instance_limit_reached` with the
+  limit and the count; lowering a limit deletes nothing.
+- A longest token lifetime, in the same tab or `DEZFIL_TOKEN_LIFETIME_MAX`.
+  It bounds what new tokens may be given and removes **Never** while it is
+  set; tokens made earlier keep their own expiry. A tokens setting above the
+  bound answers `400 invalid_request`, and a stored one reads as the bound.
 - A clear answer on a full disk. At 512 MB free or less on the data volume,
-  uploads, imports, conversions, exports and other new file work answer
-  `409 storage_full` and write nothing. A write the volume refuses answers
-  `507 storage_exhausted` and leaves no partial file. A 64 MB reserve keeps
-  signing in, signing out, revoking and deleting working, so space can be
-  freed. Data, Add data and the Storage card say when storage is full.
+  uploads, imports, conversions and other new file work answer
+  `409 storage_full` and write nothing, and a declared upload must fit above
+  that line. Stored GeoParquet files stay downloadable; CSV and GeoJSON
+  conversions are refused. A write the volume refuses answers
+  `507 storage_exhausted` and leaves no partial file. When there is room for
+  it, the instance keeps a 64 MB reserve and releases it in 8 MB steps so
+  signing in, signing out, revoking and deleting can still work and space can
+  be freed; once the reserve is used up, they answer `507` too. Data, Add
+  data and the Storage card say when storage is full, and `GET /api/config`
+  and `GET /api/instance/storage` carry the volume's state.
 - A classed paint carries `wholeNumbers`: whether the result it classified
   is a whole-number type. On whole numbers the legend names what each class
   holds: breaks 1, 2, 3 read "≤ 1", "2", "3", "> 3", and breaks 4, 14
@@ -82,7 +97,10 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   method it is given.
 
 - Each account holds at most two unsubmitted assistant reservations and four
-  running turns, so one account cannot hold the assistant from the others.
+  turns running or waiting for a confirmation, so one account cannot hold the
+  assistant from the others.
+- The API description and the MCP server report the release's version; both
+  said 0.1.0.
 - The screens before sign-in no longer show a coordinate in the picture's
   corner.
 - Updated libraries, among them the spatial engine's Node client to DuckDB
@@ -90,13 +108,26 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Upgrading from 0.1.0
 
+- Breaking: redeeming a sign-in link now revokes the account's API tokens and
+  ends its assistant work begun before it, running and parked. Issuing the
+  link also removes the account's own AI key. Scripts that used the account's
+  tokens need new ones after a password reset.
+- Compatibility: with outside sign-in on, `POST /api/users` answers without
+  `signInUrl` and `expiresAt`, changing an email answers
+  `external_sign_in_only`, and the recovery script refuses to run. With it
+  off, nothing changes.
 - Compatibility: an instance whose data volume has 512 MB free or less
-  refuses uploads, imports, conversions and exports after the upgrade, with
-  `storage_full`, until space is freed. The instance also keeps 64 MB of the
-  volume in a reserve file.
+  refuses uploads, imports and conversions after the upgrade, with
+  `storage_full`, until space is freed. A reserve is made only once there is
+  more than 576 MB free.
 - Compatibility: the assistant status read answers per caller, with
   `instanceKey` and `payer`. A turn reservation is no longer refused for
-  capacity; the turn is refused when it starts instead.
+  capacity: the submission is, with `409 assistant_capacity`, and the
+  reservation stays for a retry. A third unsubmitted reservation answers
+  `409 assistant_reservation_limit`.
+- Compatibility: `GET /api/config` carries `instanceLimits`, with the
+  instance's counts of maps, projects and people, to every signed-in
+  account, whether or not a limit is set.
 - Compatibility: a classed colour's legend reads "≤" and ">" where it read
   "<" and "≥".
 - Compatibility: on its first start this version adds tables to the metadata

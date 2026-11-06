@@ -9,6 +9,7 @@ import {
 } from "@modelcontextprotocol/server";
 import { buildTools } from "@/lib/tools/tools";
 import { selfBaseUrl } from "@/lib/self-url";
+import { APP_VERSION } from "@/lib/api/version";
 
 /**
  * The MCP face of the API (the documented surface served as MCP tools;
@@ -20,7 +21,7 @@ import { selfBaseUrl } from "@/lib/self-url";
 
 export function buildMcpFetchHandler(fetchImpl?: typeof fetch) {
   const handler = createMcpHandler(({ requestInfo }) => {
-    const server = new McpServer({ name: "dezfil", version: "0.1.0" });
+    const server = new McpServer({ name: "dezfil", version: APP_VERSION });
     const baseUrl = selfBaseUrl(requestInfo);
 
     const tools = buildTools();
