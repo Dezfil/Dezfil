@@ -501,7 +501,8 @@ test("delete inside a folder updates its facts and state; the last deletion remo
   await expect(pane(page, ids.folder).locator("[data-table-card]")).toHaveCount(1);
   await inPane(F("out_b")).hover();
   await inPane(F("out_b")).getByRole("button", { name: `Delete ${F("out_b")}` }).click();
-  await inPane(F("out_b")).getByRole("button", { name: `Confirm deleting ${F("out_b")}` }).click();
+  // The delete asks first, naming what reads the table.
+  await page.getByRole("dialog", { name: `Delete ${F("out_b")}` }).getByRole("button", { name: "Delete table" }).click();
   await expect(folderCard(page, ids.folder)).toHaveCount(0);
   await search.fill("");
   await expect(folderCard(page, ids.folder)).toBeVisible();
@@ -520,7 +521,8 @@ test("delete inside a folder updates its facts and state; the last deletion remo
   await activator(page, ids.folder).click();
   await inPane(F("out_a")).hover();
   await inPane(F("out_a")).getByRole("button", { name: `Delete ${F("out_a")}` }).click();
-  await inPane(F("out_a")).getByRole("button", { name: `Confirm deleting ${F("out_a")}` }).click();
+  // The delete asks first, naming what reads the table.
+  await page.getByRole("dialog", { name: `Delete ${F("out_a")}` }).getByRole("button", { name: "Delete table" }).click();
   await expect(folderCard(page, ids.folder)).toHaveCount(0);
   await expect(pane(page, ids.folder)).toHaveCount(0);
   await expect(chip(page, "All")).toContainText(String(all - 2));
@@ -572,7 +574,8 @@ test("the tables never wait for the workflows: pending, failed with Retry, folde
   const plain = tableCard(page, T("plain"));
   await plain.hover();
   await plain.getByRole("button", { name: `Delete ${T("plain")}` }).click();
-  await plain.getByRole("button", { name: `Confirm deleting ${T("plain")}` }).click();
+  // The delete asks first, naming what reads the table.
+  await page.getByRole("dialog", { name: `Delete ${T("plain")}` }).getByRole("button", { name: "Delete table" }).click();
   await expect(plain).toHaveCount(0);
   const refreshNote = page.locator("[data-workflows-refresh-note]");
   await expect(refreshNote).toBeVisible();

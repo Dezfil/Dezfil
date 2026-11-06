@@ -130,12 +130,35 @@ test("publish, unpublish, republish — the link lifecycle a reader sees", async
     ).toBeVisible();
   });
 
-  await test.step("unpublish: the link stops resolving with the documented presentation", async () => {
+  await test.step("unpublish asks first: Cancel and Escape keep the map published and its link working", async () => {
     await page.goto(`/maps/${mapId}`);
     // The opener reads "Published" while a publish stands.
     await page.getByRole("button", { name: "Published", exact: true }).click();
-    await page.getByRole("button", { name: "Unpublish" }).click();
+    const question = page.getByRole("dialog", { name: "Unpublish publish lifecycle" });
+    await page.getByRole("button", { name: "Unpublish", exact: true }).click();
+    await expect(question).toContainText("Unpublish publish lifecycle?");
+    await expect(question).toContainText("The link and every embed stop working. If you publish again, the map gets a new link.");
+    await question.getByRole("button", { name: "Cancel" }).click();
+    await expect(question).toHaveCount(0);
+    // The panel stayed open under the question, the map published.
+    await expect(page.getByRole("button", { name: "Copy link" })).toBeVisible();
+    await page.getByRole("button", { name: "Unpublish", exact: true }).click();
+    await expect(question).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(question).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Copy link" })).toBeVisible();
+    const token = firstUrl.split("/v/")[1];
+    expect((await page.request.get(`/api/published/${token}`)).status()).toBe(200);
+  });
+
+  await test.step("unpublish: the link and its embed stop resolving with the documented presentation", async () => {
+    await page.getByRole("button", { name: "Unpublish", exact: true }).click();
+    await page.getByRole("dialog", { name: "Unpublish publish lifecycle" }).getByRole("button", { name: "Unpublish map" }).click();
     await expect(page.getByRole("button", { name: "Publish map" })).toBeVisible();
+    // The embed is the same publication: it stops with the link.
+    await page.goto(`${firstUrl}?embed=1`);
+    await expect(page.getByText("Map not found")).toBeVisible();
+    await consumeExpected(consoleErrors, exactly(`${new URL(page.url()).origin}/v/${firstUrl.split("/v/")[1]}?embed=1`), /status of 404/);
     // The reader's view of a dead link: the documented not-found page,
     // not an error dump.
     await page.goto(firstUrl);
@@ -185,6 +208,10 @@ test("publish, unpublish, republish — the link lifecycle a reader sees", async
       (await page
         .locator("[data-publish-url]")
         .getAttribute("data-publish-url")) ?? "";
+    // A new link: the old one stays dead.
+    expect(nextUrl).toMatch(/\/v\/.+/);
+    expect(nextUrl).not.toBe(firstUrl);
+    expect((await page.request.get(`/api/published/${firstUrl.split("/v/")[1]}`)).status()).toBe(404);
     await page.goto(nextUrl);
     await expect(page.locator(".maplibregl-canvas")).toBeVisible();
     await expect(page.getByText("made with Dezfil")).toBeVisible();

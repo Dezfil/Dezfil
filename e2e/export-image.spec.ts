@@ -1315,3 +1315,75 @@ test.describe("the short side holds the steps steady", () => {
     await route.close();
   });
 });
+
+test.describe("the bottom row stays in view", () => {
+  // The row under the options (the attribution note, an export error,
+  // Close and Download PNG) is pinned under them: the options scroll, the
+  // row never leaves the dialog or the window. Measured before anything is
+  // pressed, then at the top, middle and bottom of the scrolled options.
+  async function rowInside(page: Page, where: string): Promise<void> {
+    const row = await page.locator("[data-export-foot]").boundingBox();
+    const card = await page.locator("[data-export-card]").boundingBox();
+    const view = page.viewportSize()!;
+    expect(row, `${where}: the row is drawn`).not.toBeNull();
+    expect(card, `${where}: the dialog is drawn`).not.toBeNull();
+    expect(row!.y, `${where}: row top inside the dialog`).toBeGreaterThanOrEqual(card!.y - 0.5);
+    expect(row!.y + row!.height, `${where}: row bottom inside the dialog`).toBeLessThanOrEqual(card!.y + card!.height + 0.5);
+    expect(row!.y + row!.height, `${where}: row bottom inside the window`).toBeLessThanOrEqual(view.height + 0.5);
+    expect(row!.x, `${where}: row left inside the dialog`).toBeGreaterThanOrEqual(card!.x - 0.5);
+    expect(row!.x + row!.width, `${where}: row right inside the dialog`).toBeLessThanOrEqual(card!.x + card!.width + 0.5);
+    await expect(page.locator("[data-export-download]")).toBeInViewport({ ratio: 1 });
+    await expect(page.locator("[data-export-foot]").getByRole("button", { name: "Close" })).toBeInViewport({ ratio: 1 });
+  }
+
+  async function acrossTheScroll(page: Page, size: string): Promise<void> {
+    const options = page.locator("[data-export-options]");
+    // The options really overflow at this size: otherwise "top, middle
+    // and bottom" would all be one place and the check would hold for the
+    // wrong reason.
+    const room = await options.evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }));
+    expect(room.scroll, `${size}: the options overflow`).toBeGreaterThan(room.client);
+    await rowInside(page, `${size}, as opened`);
+    for (const [label, share] of [["middle", 0.5], ["bottom", 1], ["top", 0]] as const) {
+      await options.evaluate((el, at) => { el.scrollTop = (el.scrollHeight - el.clientHeight) * at; }, share);
+      await rowInside(page, `${size}, options scrolled to the ${label}`);
+    }
+  }
+
+  test("at 1440 x 900 and 900 x 700, scrolled anywhere and after a resize, and the download still works", async ({
+    page,
+    context,
+  }) => {
+    await routeHouse(context);
+    const { mapId } = await seed(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openBuilder(page, mapId);
+    await openCard(page);
+    await acrossTheScroll(page, "1440 x 900");
+    await page.setViewportSize({ width: 900, height: 700 });
+    await acrossTheScroll(page, "900 x 700 after a resize");
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.locator("[data-export-download]").click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.png$/);
+  });
+
+  test("with an export error showing, at 900 x 700", async ({ page, context }) => {
+    await routeHouse(context);
+    await page.addInitScript(() => {
+      HTMLCanvasElement.prototype.toBlob = function toBlobBroken(cb: BlobCallback) {
+        cb(null);
+      };
+    });
+    const { mapId } = await seed(page);
+    await page.setViewportSize({ width: 900, height: 700 });
+    await openBuilder(page, mapId);
+    await openCard(page);
+    await rowInside(page, "900 x 700, before the error");
+    await page.locator("[data-export-download]").click();
+    await expect(page.locator("[data-export-foot]").getByRole("button", { name: "Try again" })).toBeVisible({ timeout: 30_000 });
+    await acrossTheScroll(page, "900 x 700 with the error");
+    await expect(page.locator("[data-export-foot]").getByRole("button", { name: "Try again" })).toBeInViewport({ ratio: 1 });
+  });
+});
