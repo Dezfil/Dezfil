@@ -64,3 +64,17 @@ it("opens the dialog from the trash button, deletes nothing until asked, and lan
   expect(calls.filter((call) => call.startsWith("DELETE"))).toEqual(["DELETE /api/tables/t-roads"]);
   expect(push).toHaveBeenCalledExactlyOnceWith("/data");
 });
+
+it("keeps the table it was opened for when a reread brings a same-named replacement", async () => {
+  await act(async () => root.render(<TableDetailScreen name="roads" />));
+  await act(async () => { byLabel("Delete roads").click(); });
+  expect(dialog()?.textContent).toContain("This deletes the table and its 3 rows.");
+  // A refresh rereads the page while the dialog is open, and the name now
+  // holds a replacement with its own identifier.
+  vi.mocked(useAsync).mockReturnValue({ state: { status: "ready", value: { ...table, id: "t-roads-2", rowCount: 7 } }, retry: vi.fn() });
+  await act(async () => root.render(<TableDetailScreen name="roads" />));
+  expect(dialog()?.textContent).toContain("This deletes the table and its 3 rows.");
+  await act(async () => { button("Delete table").click(); });
+  expect(calls.filter((call) => call.startsWith("DELETE"))).toEqual(["DELETE /api/tables/t-roads"]);
+  expect(calls.some((call) => call.includes("t-roads-2"))).toBe(false);
+});

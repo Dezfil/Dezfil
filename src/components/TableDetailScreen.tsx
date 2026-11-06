@@ -14,7 +14,7 @@ import {
   readApiError,
 } from "./api";
 import { AddToMapDialog, tableSubject } from "./AddToMapDialog";
-import { DeleteTableDialog } from "./DeleteTableDialog";
+import { DeleteTableDialog, type DeletableTable } from "./DeleteTableDialog";
 import { BackLink } from "./BackLink";
 import { ExportMenu } from "./ExportMenu";
 import { datasetQueryHref } from "./dataset-doors";
@@ -82,7 +82,10 @@ export function TableDetailScreen({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  // The table the delete dialog was opened for, kept as it was when the
+  // trash button was pressed: a reread can hand this page a same-named
+  // replacement while the dialog is open, and the dialog must not follow it.
+  const [deleting, setDeleting] = useState<DeletableTable | null>(null);
   const [version, setVersion] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [addToMap, setAddToMap] = useState<string | null>(null);
@@ -182,8 +185,8 @@ export function TableDetailScreen({
       setTab={setTab}
       error={error}
       setError={setError}
-      confirming={confirming}
-      setConfirming={setConfirming}
+      deleting={deleting}
+      setDeleting={setDeleting}
       refreshing={refreshing}
       refresh={refresh}
       addToMap={addToMap}
@@ -208,8 +211,8 @@ function TableDetail({
   setTab,
   error,
   setError,
-  confirming,
-  setConfirming,
+  deleting,
+  setDeleting,
   refreshing,
   refresh,
   addToMap,
@@ -225,8 +228,8 @@ function TableDetail({
   setTab: (tab: Tab) => void;
   error: string | null;
   setError: (error: string | null) => void;
-  confirming: boolean;
-  setConfirming: (confirming: boolean) => void;
+  deleting: DeletableTable | null;
+  setDeleting: (table: DeletableTable | null) => void;
   refreshing: boolean;
   refresh: (release?: string) => Promise<void>;
   addToMap: string | null;
@@ -359,15 +362,15 @@ function TableDetail({
               className={`${styles.aux} ${styles.auxDanger}`}
               title="Delete this table and its data"
               aria-label={`Delete ${table.name}`}
-              onClick={() => setConfirming(true)}
+              onClick={() => setDeleting({ id: table.id, name: table.name, rowCount: table.rowCount })}
             >
               <IconTrash />
             </button>
           )}
-          {own && confirming && (
+          {own && deleting && (
             <DeleteTableDialog
-              table={{ id: table.id, name: table.name, rowCount: table.rowCount }}
-              onClose={() => setConfirming(false)}
+              table={deleting}
+              onClose={() => setDeleting(null)}
               onDeleted={() => router.push("/data")}
             />
           )}
