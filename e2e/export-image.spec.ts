@@ -1336,18 +1336,24 @@ test.describe("the bottom row stays in view", () => {
     await expect(page.locator("[data-export-foot]").getByRole("button", { name: "Close" })).toBeInViewport({ ratio: 1 });
   }
 
-  // The dialog eases into a new size (a quarter-second transition on its
-  // width and height), so a measure taken the instant the window changes
-  // reads the size it is leaving. Wait until two reads 100 ms apart agree.
+  // The dialog fits itself to the window (its height is the smaller of its
+  // own and the window's, less a margin) and eases into a new size over a
+  // quarter second, and the browser can still be laying out for the old
+  // window when the new size is reported. So wait until the dialog sits
+  // inside the window and two reads 100 ms apart agree. That holds for the
+  // old layout too, whose row then lay past the end of the scrolled
+  // options, so the checks after it still tell the two apart.
   async function settled(page: Page): Promise<void> {
+    const view = page.viewportSize()!;
     let last = -1;
     await expect
       .poll(async () => {
-        const height = (await page.locator("[data-export-card]").boundingBox())?.height ?? 0;
-        const still = Math.abs(height - last) < 0.5;
+        const box = await page.locator("[data-export-card]").boundingBox();
+        const height = box?.height ?? 0;
+        const still = !!box && Math.abs(height - last) < 0.5 && box.y + box.height <= view.height + 0.5;
         last = height;
         return still;
-      }, { intervals: [100], timeout: 5_000 })
+      }, { intervals: [100], timeout: 10_000 })
       .toBe(true);
   }
 
