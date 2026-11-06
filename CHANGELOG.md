@@ -20,7 +20,9 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   to writing such a service.
 - **Sign everyone out**, in **Settings** > **Security**: it ends every
   session, API token and assistant work begun before it, in either sign-in
-  mode. A credential it ended answers `401 token_outdated`.
+  mode. An API token it ended answers `401 token_outdated`, and a browser
+  session it ended answers `401 authentication_required` until its person
+  signs in again.
 - A door generation reset, `DEZFIL_EXTERNAL_SIGN_IN_GENERATION_RESET`, for
   when the sign-in service's signing key leaks. Applied once per value at
   start, it ends every session and token. Together with the service's new
@@ -124,7 +126,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `instanceKey` and `payer`. A turn reservation is no longer refused for
   capacity: the submission is, with `409 assistant_capacity`, and the
   reservation stays for a retry. A third unsubmitted reservation answers
-  `409 assistant_reservation_limit`.
+  `409 assistant_reservation_limit`, and a reservation where neither the
+  caller nor the instance has a usable key answers `404 assistant_disabled`.
 - Compatibility: `GET /api/config` carries `instanceLimits`, with the
   instance's counts of maps, projects and people, to every signed-in
   account, whether or not a limit is set.
