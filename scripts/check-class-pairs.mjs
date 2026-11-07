@@ -54,212 +54,19 @@
  *   --all also prints the SAME pairs;
  *   --json prints the result as JSON.
  */
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import {
+  EMPTY, bindingsOf, blank, cmp, functionOf, isComponentName, parseRules, product, resolveImport, specificity, splitTop,
+  subjectOf, union, walk,
+} from "./source-collector.mjs";
+
+// The parsing shared with the source collector, kept importable from here.
+export { parseRules, specificity, splitTop, subjectOf };
 
 /* ---- stylesheets ---- */
-
-/** Comments blanked, line breaks kept so lines stay countable. */
-const blank = (css) => css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
-
-/** Split at a separator that stands outside brackets and quotes. */
-export function splitTop(text, sep) {
-  const out = [];
-  let depth = 0;
-  let quote = "";
-  let cur = "";
-  for (const ch of text) {
-    if (quote) {
-      if (ch === quote) quote = "";
-    } else if (ch === '"' || ch === "'") quote = ch;
-    else if (ch === "(" || ch === "[") depth += 1;
-    else if (ch === ")" || ch === "]") depth -= 1;
-    if (!quote && depth === 0 && sep.test(ch)) {
-      if (cur.trim()) out.push(cur.trim());
-      cur = "";
-      continue;
-    }
-    cur += ch;
-  }
-  if (cur.trim()) out.push(cur.trim());
-  return out;
-}
-
-function declarationsOf(body) {
-  const out = [];
-  for (const part of splitTop(body, /;/)) {
-    const colon = part.indexOf(":");
-    if (colon < 1) continue;
-    const prop = part.slice(0, colon).trim();
-    if (!/^(--)?[a-zA-Z-]+$/.test(prop)) continue;
-    let value = part.slice(colon + 1).replace(/\s+/g, " ").trim();
-    const important = /!\s*important$/i.test(value);
-    if (important) value = value.replace(/!\s*important$/i, "").trim();
-    out.push({ prop: prop.startsWith("--") ? prop : prop.toLowerCase(), value, important });
-  }
-  return out;
-}
-
-/** Every style rule of a stylesheet: its selectors, the at-rules around it,
- * its declarations and its line. Grouping at-rules are read through;
- * keyframes, font faces and the like hold no element rules. */
-export function parseRules(css) {
-  const src = blank(css);
-  const rules = [];
-  const lineAt = (i) => src.slice(0, i).split("\n").length;
-  const walk = (start, end, context) => {
-    let head = start;
-    for (let i = start; i < end; i += 1) {
-      const ch = src[i];
-      if (ch === ";" ) {
-        head = i + 1;
-        continue;
-      }
-      if (ch !== "{") continue;
-      let depth = 1;
-      let j = i + 1;
-      for (; j < end && depth > 0; j += 1) {
-        if (src[j] === "{") depth += 1;
-        else if (src[j] === "}") depth -= 1;
-      }
-      const prelude = src.slice(head, i).trim();
-      const at = head + (src.slice(head, i).length - src.slice(head, i).trimStart().length);
-      if (prelude.startsWith("@")) {
-        if (/^@(media|container|supports|layer|scope)\b/i.test(prelude)) {
-          walk(i + 1, j - 1, [...context, prelude.replace(/\s+/g, " ")]);
-        }
-      } else if (prelude) {
-        rules.push({
-          selectors: splitTop(prelude, /,/).map((s) => s.replace(/\s+/g, " ")),
-          context: context.join(" "),
-          decls: declarationsOf(src.slice(i + 1, j - 1)),
-          line: lineAt(at),
-        });
-      }
-      i = j - 1;
-      head = j;
-    }
-  };
-  walk(0, src.length, []);
-  return rules;
-}
-
-/** A selector's compounds, split at its top-level combinators. */
-function compoundsOf(selector) {
-  const out = [];
-  let depth = 0;
-  let quote = "";
-  let cur = "";
-  for (const ch of selector) {
-    if (quote) {
-      if (ch === quote) quote = "";
-      cur += ch;
-      continue;
-    }
-    if (ch === '"' || ch === "'") quote = ch;
-    else if (ch === "(" || ch === "[") depth += 1;
-    else if (ch === ")" || ch === "]") depth -= 1;
-    if (depth === 0 && /[\s>+~]/.test(ch)) {
-      if (cur) out.push(cur);
-      cur = "";
-      continue;
-    }
-    cur += ch;
-  }
-  if (cur) out.push(cur);
-  return out;
-}
-
-const ELEMENT_PSEUDOS = new Set(["before", "after", "first-line", "first-letter"]);
-
-/** The simple selectors of one compound: [kind, text, argument]. */
-function simplesOf(compound) {
-  const out = [];
-  let i = 0;
-  const ident = () => {
-    const m = /^-?[_a-zA-Z -￿\\][-_a-zA-Z0-9 -￿\\]*/.exec(compound.slice(i));
-    const name = m ? m[0] : "";
-    i += name.length;
-    return name;
-  };
-  const balanced = () => {
-    let depth = 0;
-    const start = i;
-    for (; i < compound.length; i += 1) {
-      if (compound[i] === "(") depth += 1;
-      else if (compound[i] === ")" && --depth === 0) {
-        i += 1;
-        break;
-      }
-    }
-    return compound.slice(start + 1, i - 1);
-  };
-  while (i < compound.length) {
-    const ch = compound[i];
-    if (ch === ".") {
-      i += 1;
-      out.push(["class", ident()]);
-    } else if (ch === "#") {
-      i += 1;
-      out.push(["id", ident()]);
-    } else if (ch === "[") {
-      const end = compound.indexOf("]", i);
-      out.push(["attr", compound.slice(i, end + 1)]);
-      i = end + 1;
-    } else if (ch === ":") {
-      const element = compound[i + 1] === ":";
-      i += element ? 2 : 1;
-      const name = ident().toLowerCase();
-      const arg = compound[i] === "(" ? balanced() : null;
-      out.push([element || ELEMENT_PSEUDOS.has(name) ? "pseudo-element" : "pseudo", name, arg]);
-    } else if (ch === "*" || ch === "&") {
-      i += 1;
-    } else {
-      const name = ident();
-      if (!name) i += 1;
-      else out.push(["type", name]);
-    }
-  }
-  return out;
-}
-
-const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const max = (list) => list.reduce((best, s) => (cmp(s, best) > 0 ? s : best), [0, 0, 0]);
-const cmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
-
-/** A selector's specificity, as Selectors Level 4 counts it; :global()
- * and :local() are transparent. */
-export function specificity(selector) {
-  let total = [0, 0, 0];
-  for (const compound of compoundsOf(selector)) {
-    for (const [kind, name, arg] of simplesOf(compound)) {
-      if (kind === "id") total = add(total, [1, 0, 0]);
-      else if (kind === "class" || kind === "attr") total = add(total, [0, 1, 0]);
-      else if (kind === "type" || kind === "pseudo-element") total = add(total, [0, 0, 1]);
-      else if (kind === "pseudo") {
-        if (name === "where") continue;
-        if (["global", "local"].includes(name) && arg !== null) total = add(total, specificity(arg));
-        else if (["is", "not", "has", "matches"].includes(name) && arg !== null) {
-          total = add(total, max(splitTop(arg, /,/).map(specificity)));
-        } else if (/^nth-(last-)?child$/.test(name) && arg && / of /.test(arg)) {
-          total = add(total, add([0, 1, 0], max(splitTop(arg.split(/ of /)[1], /,/).map(specificity))));
-        } else total = add(total, [0, 1, 0]);
-      }
-    }
-  }
-  return total;
-}
-
-/** For one selector, the module classes its subject must carry, and what
- * else the subject and its ancestors ask, so two subjects can be compared. */
-export function subjectOf(selector) {
-  const compounds = compoundsOf(selector);
-  const subject = compounds[compounds.length - 1] ?? "";
-  const classes = simplesOf(subject).filter(([kind]) => kind === "class").map(([, name]) => name);
-  return { classes, subject, ancestors: compounds.slice(0, -1).join(" "), specificity: specificity(selector) };
-}
 
 /** The subject with one of its classes taken out: its state. */
 const stateOf = (subject, cls) => subject.replace(new RegExp(`\\.${cls.replace(/[$\\]/g, "\\$&")}(?![-_a-zA-Z0-9])`), "");
@@ -423,67 +230,6 @@ function readStylesheets(root, files) {
 }
 
 /* ---- components ---- */
-
-const CAP = 256;
-const EMPTY = [[]];
-const union = (...lists) => {
-  const seen = new Map();
-  for (const list of lists) for (const alt of list) seen.set([...alt].sort().join("\n"), alt);
-  return [...seen.values()];
-};
-function product(lists) {
-  let out = EMPTY;
-  for (const list of lists) {
-    const next = [];
-    for (const a of out) for (const b of list) next.push([...new Set([...a, ...b])]);
-    out = union(next);
-    // Past the cap the branches are merged: an over-reading, never a miss.
-    if (out.length > CAP) out = [[...new Set(out.flat())]];
-  }
-  return out;
-}
-
-function resolveImport(root, fromFile, spec) {
-  let base;
-  if (spec.startsWith("@/")) base = path.posix.join("src", spec.slice(2));
-  else if (spec.startsWith(".")) base = path.posix.join(path.posix.dirname(fromFile), spec);
-  else return null;
-  if (base.endsWith(".css")) return base;
-  for (const candidate of [base, base + ".tsx", base + ".ts", base + "/index.tsx", base + "/index.ts"]) {
-    if (/\.(tsx?|jsx?)$/.test(candidate) && existsSync(path.join(root, candidate))) return candidate;
-  }
-  return null;
-}
-
-const isComponentName = (name) => /^[A-Z]/.test(name);
-
-/** The function a component is: itself, or the one wrapped by forwardRef or memo. */
-function functionOf(node) {
-  if (!node) return null;
-  if (ts.isFunctionDeclaration(node) || ts.isArrowFunction(node) || ts.isFunctionExpression(node)) return node;
-  if (ts.isCallExpression(node)) return node.arguments.map(functionOf).find(Boolean) ?? null;
-  if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node)) return functionOf(node.expression);
-  return null;
-}
-
-/** A component's props as its body reads them: each destructured prop's
- * local name, the rest binding, and a props identifier. */
-function bindingsOf(fn) {
-  const param = fn.parameters[0];
-  const props = new Map();
-  let rest = null;
-  let whole = null;
-  if (param && ts.isObjectBindingPattern(param.name)) {
-    for (const element of param.name.elements) {
-      if (element.dotDotDotToken && ts.isIdentifier(element.name)) rest = element.name.text;
-      else if (ts.isIdentifier(element.name)) {
-        const prop = element.propertyName && ts.isIdentifier(element.propertyName) ? element.propertyName.text : element.name.text;
-        props.set(element.name.text, prop);
-      }
-    }
-  } else if (param && ts.isIdentifier(param.name)) whole = param.name.text;
-  return { props, rest, whole, bound: new Set(props.values()) };
-}
 
 /** Read one component file: its stylesheet imports, its other imports, its
  * exports, its components, and every element a class can land on. */
@@ -683,15 +429,6 @@ function readComponents(root, file) {
 }
 
 /* ---- the sweep ---- */
-
-function walk(dir, keep, out = []) {
-  for (const entry of readdirSync(dir)) {
-    const p = path.join(dir, entry);
-    if (statSync(p).isDirectory()) walk(p, keep, out);
-    else if (keep(p)) out.push(p);
-  }
-  return out;
-}
 
 export function sweep(root) {
   const rel = (p) => path.relative(root, p).split(path.sep).join("/");
