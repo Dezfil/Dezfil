@@ -969,7 +969,8 @@ test.describe("Transparency and the Preview on Appearance", () => {
           const drawn = (at: string, property: string) => preview.locator(at).first().evaluate((el, prop) => getComputedStyle(el).getPropertyValue(prop), property);
           for (const [row, choice, at, property, value] of [
             ["Color", "Harbor", '[data-piece="side-menu"] [data-on]', "color", "var(--accent)"],
-            ["Contrast", "More contrast", '[data-piece="inspector"] > span:last-child', "color", "var(--fg-faint)"],
+            // The inspector's "Saved just now" is a secondary fact, so it reads in the muted ink, which More contrast strengthens.
+            ["Contrast", "More contrast", '[data-piece="inspector"] > span:last-child', "color", "var(--fg-muted)"],
             ["Typeface", "System", '[data-piece="header"]', "font-family", "inherit"],
             ["Corners", "Soft", '[data-piece="header"]', "border-top-left-radius", "var(--radius-card)"],
           ] as const) {
