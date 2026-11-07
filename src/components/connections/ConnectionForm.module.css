@@ -74,7 +74,7 @@
 }
 
 .field em {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-style: normal;
 }
 
@@ -121,7 +121,7 @@
 
 .note,
 .sslNote {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
   line-height: 1.5;
 }

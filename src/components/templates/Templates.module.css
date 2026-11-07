@@ -52,7 +52,7 @@
 .credit {
   margin-top: 9px;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;

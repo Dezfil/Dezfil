@@ -109,19 +109,6 @@
   flex: 1;
 }
 
-/* The same rail footnote as the Add-data dialog's, which this one had
-   diverged from: the ramp's meta role, the decoration ink, and the rule
-   that makes it read as a footer instead of a stray full-width paragraph
-   among indented nav items. It was 11.5px muted with no rule. */
-.navFoot {
-  font-size: var(--text-meta);
-  color: var(--fg-faint);
-  line-height: 1.5;
-  padding: 10px 8px 0;
-  border-top: 1px solid var(--border);
-  text-wrap: pretty;
-}
-
 /* ---------- main column ---------- */
 
 .main {
@@ -353,7 +340,7 @@
 .scopeNote {
   margin: 0;
   font-size: 12px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   line-height: 1.5;
   /* A 120-character unbroken project name wraps instead of running
      under the dialog's edge (the Add data dialog's rule). */
@@ -602,5 +589,5 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
 }

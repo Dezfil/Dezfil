@@ -59,8 +59,8 @@
   --entry-pane-bg: #0e2a21;
   --entry-pane-scrim: #082a23;
   --entry-pane-mark: #ffffff;
-  --entry-pane-text: rgba(255, 255, 255, 0.92);
-  --entry-pane-muted: rgba(255, 255, 255, 0.6);
+  --entry-pane-text: #ebeeed;
+  --entry-pane-muted: #9caaa7;
   --grp-data: #3b7dd8;
   --grp-overlay: #0d9c74;
   --grp-proximity: #1c9ba0;
@@ -159,8 +159,8 @@
 /* wheelhouse:feed tokens-dark start */
 :root[data-theme="dark"] {
   --entry-pane-mark: #e9ecf3;
-  --entry-pane-text: rgba(233, 236, 243, 0.9);
-  --entry-pane-muted: rgba(233, 236, 243, 0.55);
+  --entry-pane-text: #d3d9de;
+  --entry-pane-muted: #849595;
   --bg: #0b0e14;
   --bg-panel: #10141d;
   --bg-raised: #151b27;
@@ -206,8 +206,8 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --entry-pane-mark: #e9ecf3;
-    --entry-pane-text: rgba(233, 236, 243, 0.9);
-    --entry-pane-muted: rgba(233, 236, 243, 0.55);
+    --entry-pane-text: #d3d9de;
+    --entry-pane-muted: #849595;
     --bg: #0b0e14;
     --bg-panel: #10141d;
     --bg-raised: #151b27;
@@ -1165,7 +1165,6 @@ code, .mono { font-family: var(--font-mono); }
   cursor: pointer;
   font-size: var(--text-meta);
   font-weight: 500;
-  opacity: 0.85;
   list-style: none;
 }
 
@@ -2482,7 +2481,7 @@ select.kit-field-field {
     <div class="principles" style="margin-top:14px">
       <div class="principle"><span class="idx">R1</span><span class="pt"><b>The type ramp, floor 11px</b><span>Six roles (the ladder above); nothing renders below 11px, and in-between sizes snap to the nearest rung as surfaces are touched. Weights are 400/500/600 only.</span></span></div>
       <div class="principle"><span class="idx">R2</span><span class="pt"><b>The mono boundary</b><span>Mono carries code and data — SQL, dataset-table and dataset-list values, schema and machine identifiers, expression inputs, feature readouts, raw errors — never control labels, buttons, prose sentences, or chrome figures: counts and coordinates read the UI face, tabular where steadiness matters.</span></span></div>
-      <div class="principle"><span class="idx">R3</span><span class="pt"><b>The ink hierarchy</b><span>Full ink for anything you act on or need to read — names, values, labels of controls. Muted only for secondary description. Faint only for decoration-grade text — never a value, never a label, never anything you'd miss if it vanished. Each application is checked against rendered evidence; where the rule worsens a surface, that returns as a question, never a silent exception.</span></span></div>
+      <div class="principle"><span class="idx">R3</span><span class="pt"><b>The ink hierarchy</b><span>Full ink for what you act on or must read: names, values you edit, the labels of controls and buttons. Muted for what explains or adds a secondary fact: hints, consequences, descriptions, counts, sizes, times, column types shown beside a name, captions, empty states, credits, and kickers (the small uppercase group labels, all in one kicker ink). Where the two meet, the secondary role wins: a count or a time is muted though it is also a value. Faint for decoration only: placeholders, ornament and separators, the bare no-value mark, line and row numbers; never a sentence, a value or a label. Accent for links and link-styled actions, taking the link hover. Disabled controls keep their own treatment. Each application is checked against rendered evidence; where the rule worsens a surface, that returns as a question, never a silent exception.</span></span></div>
       <!-- wheelhouse:allow — R4 must print the glyphs it bans --><div class="principle"><span class="idx">R4</span><span class="pt"><b>Drawn icons, three tiers</b><span>SVG icons only — action at 13px/2.0 stroke, chrome normally at 16px with a 1.6–2.0 stroke, illustrative at 20px/1.5. Chrome may use a 22px filled directional mark where that geometry needs the control height; the stage compass is the named instance. Unicode glyphs (▸ ✓ ＋ ◇ ⚠ …) are banned in UI chrome.</span></span></div>
       <div class="principle"><span class="idx">R5</span><span class="pt"><b>The radius family, closed</b><span>sm 4 · 9 · control 12 · lg 14 · card 20 · rail 18 · pill. Everything snaps to family and reads it through its token, so the Corners pick reaches every rounded edge; only pills and rounds are written as values.</span></span></div>
       <div class="principle"><span class="idx">R6</span><span class="pt"><b>Four motion roles</b><span>Panel 0.3s, micro 0.13s, entrance 0.22s on the settle curve, feedback 0.35s after a readable hold — all collapsing under reduced motion. Three continuous identities are named exceptions, not a fifth role, and stay as they are in code: the compass's linear tracking, the indefinite tile-preparation pulse, and the drag settle-and-reveal on its 250ms bespoke curve.</span></span></div>

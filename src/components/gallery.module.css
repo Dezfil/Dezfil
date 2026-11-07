@@ -482,9 +482,10 @@
 
 .cardWhen {
   margin-left: auto;
-  /* A card timestamp reads as quiet prose, not as a value: the UI face,
-     faint (a field ruling, reading — it keeps the ramp's 11px floor). */
-  color: var(--fg-faint);
+  /* A card timestamp is a secondary fact, so it reads muted in the UI
+     face: times are muted by the ink rule, and faint is for decoration
+     only. It keeps the ramp's 11px floor. */
+  color: var(--fg-muted);
   font-size: var(--text-meta);
   white-space: nowrap;
   transition: opacity var(--dur-micro);
@@ -565,7 +566,7 @@
 }
 
 .projCell[data-none] {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-style: italic;
 }
 
@@ -749,7 +750,6 @@
 .ghost small {
   font-size: var(--text-meta);
   color: var(--fg-muted);
-  opacity: 0.8;
 }
 
 /* ---- list views ---- */

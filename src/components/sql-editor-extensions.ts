@@ -276,7 +276,7 @@ export const completionLook: Extension = EditorView.theme({
   ".cm-completionDetail": {
     fontFamily: "var(--font-ui)",
     fontSize: "10.5px",
-    color: "var(--fg-faint)",
+    color: "var(--fg-muted)",
     marginLeft: "12px",
     fontStyle: "normal",
   },

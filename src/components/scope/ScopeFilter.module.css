@@ -85,7 +85,7 @@
 
 .faceCount {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   /* Tabular, as the reference draws it (03-consistent-pages.html) and
      as the menu's own rows already count: the face must not change
      width with its digits, or the whole row after it shifts when the
@@ -156,7 +156,7 @@
 }
 
 .rowCount {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
   flex: none;
 }

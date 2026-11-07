@@ -18,6 +18,6 @@
 .note {
   margin: 4px 0 0;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   line-height: 1.45;
 }

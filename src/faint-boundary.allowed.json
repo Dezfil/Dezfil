@@ -1,0 +1,1829 @@
+[
+  {
+    "layer": "ink",
+    "id": "src/app/(workspace)/layout.module.css :: .accountRow .accountOut",
+    "kind": "non-text",
+    "elements": [
+      "src/components/UserBadge.tsx :: UserBadge <IconButton.accountOut.hint.iconBtn>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/app/(workspace)/layout.module.css :: .crumbSep",
+    "kind": "ornament",
+    "elements": [
+      "src/components/NavLinks.tsx :: HeaderCrumbs <span.crumbSep> \"/\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/app/(workspace)/layout.module.css :: .railLink",
+    "kind": "non-text",
+    "elements": [
+      "src/components/NavLinks.tsx :: RailDocsLink <a.railLink>",
+      "src/components/NavLinks.tsx :: RailLink <Link.railLink>",
+      "src/components/UserBadge.tsx :: UserBadge <Link.railLink>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/AddDataDialog.module.css :: .close",
+    "kind": "non-text",
+    "elements": [
+      "src/components/AddDataDialog.tsx :: AddDataDialogBody <IconButton.close.hint.iconBtn>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .search::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <input.search>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/assistant/TalkingAbout.module.css :: .entry:disabled, .entry:disabled:hover",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/assistant/EntryChips.tsx :: EntryChips <button.entry> {chip.label}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/AssistantPanel.module.css :: .chevron",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/assistant/CheckNote.tsx :: CheckNote <span.chevron>",
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <span.chevron>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/BasemapPanel.module.css :: .groupSection[data-inert=\"true\"] .groupLabel, .groupSection[data-inert=\"true\"] .groupEye",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/BasemapPanel.tsx :: BasemapPanel <IconButton.groupEye.hint.iconBtn>",
+      "src/components/builder/BasemapPanel.tsx :: BasemapPanel <span.groupLabel> {BASEMAP_LAYER_GROUP_LABELS[group]}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/BasemapPanel.module.css :: .styleArt",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/BasemapPanel.tsx :: BasemapPanel <span.styleArt>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/CustomBasemapSection.module.css :: .action:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <button.action> \"Cancel\"",
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <button.action> \"Change\"",
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <button.action> \"Remove\"",
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <button.action> {checking ? \"Checking…\" : \"Check\"}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/CustomBasemapSection.module.css :: .door:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <button.door>"
+    ],
+    "inherits": [
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <span> \"Custom…\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/CustomBasemapSection.module.css :: .doorPlus",
+    "kind": "ornament",
+    "elements": [
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <span.doorPlus> \"+\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/drawer/FaceHeader.module.css :: .mark",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/drawer/FaceHeader.tsx :: FaceHeader <span.mark>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/drawer/OperationPicker.module.css :: .glyph",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <span.glyph>",
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <span.glyph> #2"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .tableGlyph",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/drawer/TablePicker.tsx :: TableRows <span.tableGlyph>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/export/ExportComposition.module.css :: .creditDot",
+    "kind": "ornament",
+    "elements": [
+      "src/components/builder/export/ExportComposition.tsx :: ExportComposition <span.creditDot> \"·\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/export/ExportControl.module.css :: .menu .door[aria-disabled=\"true\"]:hover .doorTile, .menu .door[aria-disabled=\"true\"]:focus-visible .doorTile",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/export/ExportControl.tsx :: MenuBody <span.doorTile>",
+      "src/components/builder/export/ExportControl.tsx :: MenuBody <span.doorTile> #2"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/export/ExportControl.module.css :: .menu .doorChevron",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/export/ExportControl.tsx :: MenuBody <span.doorChevron>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/export/ExportImageCard.module.css :: .titleInput::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/builder/export/ExportOptionsRail.tsx :: ExportOptionsRail <input.titleInput> placeholder \"No title\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/FilterSection.module.css :: .searchRow",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/FilterSection.tsx :: AddFilterPicker <div.searchRow>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/FilterSection.module.css :: .to",
+    "kind": "ornament",
+    "elements": [
+      "src/components/builder/FilterSection.tsx :: TimeControl <span.to> \"–\"",
+      "src/components/builder/filters/NumericControl.tsx :: NumericControl <span.to> \"–\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/LayerList.module.css :: .eye[data-off=\"true\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/LayerList.tsx :: FloatingCard <span.eye>",
+      "src/components/builder/LayerList.tsx :: LayerList <IconButton.eye.hint.iconBtn>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/LayerList.module.css :: .grip",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/LayerList.tsx :: FloatingCard <span.grip>",
+      "src/components/builder/LayerList.tsx :: LayerList <button.grip.hint>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/LayerList.module.css :: .menuChevron",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <span.menuChevron>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/LayerList.module.css :: .menuIco",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Mark <span.menuIco> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/LegendTab.module.css :: .attrHide[data-off=\"true\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/LegendTab.tsx :: LegendEditor <button.attrHide.hint>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/LegendTab.module.css :: .attrInput::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/builder/LegendTab.tsx :: LegendEditor <input.attrInput>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/LegendTab.module.css :: .grip",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/LegendTab.tsx :: LegendTab <button.grip.hint>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/LegendTab.module.css :: .titleInput::placeholder, .entryInput::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/builder/LegendTab.tsx :: LegendEditor <input.entryInput>",
+      "src/components/builder/LegendTab.tsx :: LegendEditor <input.titleInput>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/MapBuilder.module.css :: .chromeBtn:disabled, .chromeBtn:disabled:hover",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/BuilderChrome.tsx :: HeaderChrome <AssistantDoor.chromeBtn>",
+      "src/components/builder/BuilderChrome.tsx :: HeaderChrome <ExportControl.chromeBtn.trigger> {trigger}",
+      "src/components/builder/BuilderChrome.tsx :: HeaderChrome <a.chromeBtn>",
+      "src/components/builder/SharedHistoryControls.tsx :: SharedHistoryControls <IconButton.chromeBtn.hint.iconBtn>",
+      "src/components/builder/drawer/ToolsControl.tsx :: ToolsControl <button.chromeBtn.trigger>",
+      "src/components/sql/SqlAssistantHost.tsx :: SqlAssistantHost <AssistantDoor.chromeBtn>",
+      "src/components/workflow-canvas/WorkflowAssistantHost.tsx :: WorkflowAssistantDoor <AssistantDoor.chromeBtn>"
+    ],
+    "inherits": [
+      "src/components/builder/BuilderChrome.tsx :: HeaderChrome <span> \"Preview\"",
+      "src/components/builder/assistant/AssistantDoor.tsx :: AssistantDoor <span> \"Assistant\"",
+      "src/components/builder/drawer/ToolsControl.tsx :: ToolsControl <span.word> \"Tools\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/MapBuilder.module.css :: .crumbSep",
+    "kind": "ornament",
+    "elements": [
+      "src/components/builder/BuilderChrome.tsx :: HeaderChrome <span.crumbSep> \"/\"",
+      "src/components/shell/PlainCrumbTail.tsx :: PlainCrumbTail <span.crumbSep> \"/\"",
+      "src/components/shell/ProjectCrumbTail.tsx :: ProjectCrumbTailView <span.crumbSep> \"/\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/PaletteControl.module.css :: .chevron",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <span.chevron>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/panel.module.css :: .sectionChevron",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/CollapsibleSection.tsx :: CollapsibleSection <span.sectionChevron>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/search/SearchControl.module.css :: .field::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/builder/search/SearchControl.tsx :: SearchControl <input.field> placeholder \"Search map & places\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/style-panel/IconPicker.module.css :: .door svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/StylePanel.module.css :: .rangeSep",
+    "kind": "ornament",
+    "elements": [
+      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <span.rangeSep> \"–\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/builder/WidgetsTab.module.css :: .grip",
+    "kind": "non-text",
+    "elements": [
+      "src/components/builder/WidgetsTab.tsx :: WidgetsTab <button.grip.hint>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/connections/ConnectionForm.module.css :: .field input::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono>",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #2",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #3",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> placeholder \"db.example.org\"",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> placeholder \"postgres://user:password@ho",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input>",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input> placeholder \"City geodata\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/connections/ConnectionMenu.module.css :: .mark",
+    "kind": "non-text",
+    "elements": [
+      "src/components/connections/ConnectionMenu.tsx :: Mark <span.mark> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/connections/PostgisPane.module.css :: .relationTile[data-attribute]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationTile>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/connections/PostgisPane.module.css :: .rowChevron",
+    "kind": "non-text",
+    "elements": [
+      "src/components/connections/PostgisPicker.tsx :: PostgisPicker <span.rowChevron>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/connections/PostgisPane.module.css :: .schemaCaret",
+    "kind": "non-text",
+    "elements": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.schemaCaret>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/gallery-icons.tsx :: MapPlaceholder <svg> style > color",
+    "kind": "non-text",
+    "elements": [
+      "src/components/gallery-icons.tsx :: MapPlaceholder <svg>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/gallery.module.css :: .ghost",
+    "kind": "non-text",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <button.ghost>",
+      "src/components/MapsScreen.tsx :: MapsScreen <button.ghost> #2",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <button.ghost>",
+      "src/components/TablesScreen.tsx :: TablesScreen <button.ghost.ghostData>",
+      "src/components/TablesScreen.tsx :: TablesScreen <button.ghost>",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <button.ghost>",
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <button.ghost>",
+      "src/components/home/HomeStart.tsx :: HomeStart <Link.ghost.ghostData.startTile>",
+      "src/components/home/HomeStart.tsx :: HomeStart <button.ghost.ghostData.startTile>",
+      "src/components/home/HomeStart.tsx :: HomeStart <button.ghost.ghostData.startTile> #2",
+      "src/components/home/HomeStart.tsx :: HomeStart <button.ghost.ghostData.startTile> #3"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/gallery.module.css :: .projTag svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/gallery-icons.tsx :: Stroke <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/gallery.module.css :: .search",
+    "kind": "non-text",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <label.search>",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <label.search>",
+      "src/components/TablesScreen.tsx :: TablesScreen <label.search>",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <label.search>",
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <label.search>",
+      "src/components/templates/TemplatesScreen.tsx :: TemplatesScreen <label.search>",
+      "src/components/users/UsersScreen.tsx :: UsersScreen <label.search>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/gallery.module.css :: .search input::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <input> placeholder \"Search maps…\"",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <input> placeholder \"Search projects…\"",
+      "src/components/TablesScreen.tsx :: TablesScreen <input> placeholder \"Search data…\"",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <input> placeholder \"Search workflows…\"",
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <input> placeholder \"Search connections…\"",
+      "src/components/templates/TemplatesScreen.tsx :: TemplatesScreen <input> placeholder \"Search templates…\"",
+      "src/components/users/UsersScreen.tsx :: UsersScreen <input> placeholder \"Search users…\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/map/MapCanvas.module.css :: .popupClose",
+    "kind": "non-text",
+    "elements": [
+      "src/components/map/MapPopup.tsx :: MapPopup <button.popupClose>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/map/search-marker.module.css :: .close",
+    "kind": "non-text",
+    "elements": [],
+    "unseen": "the marker's close button is built with DOM calls, not JSX"
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/OsmPane.module.css :: .chips input::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <input> placeholder \"key=value ⏎\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/AddItemsDialog.module.css :: .text small i",
+    "kind": "ornament",
+    "elements": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <i> \"·\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/AddItemsDialog.module.css :: .tile[data-kind=\"none\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <span.tile>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/AddToProjectDialog.module.css :: .newNameInput::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <input.newNameInput> placeholder \"Name the project\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/AddToProjectDialog.module.css :: .selAll i",
+    "kind": "ornament",
+    "elements": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <i> \"·\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/AddToProjectDialog.module.css :: .typeTile[data-kind=\"none\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.typeTile>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/EmptyHome.module.css :: .plateGlyph",
+    "kind": "non-text",
+    "elements": [
+      "src/components/projects/EmptyHome.tsx :: EmptyHome <span.plateGlyph>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .selAll i",
+    "kind": "ornament",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <i> \"·\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .typeTile[data-kind=\"none\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.typeTile>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/HomeSections.module.css :: .rowAct a",
+    "kind": "non-text",
+    "elements": [
+      "src/components/projects/ItemCards.tsx :: PublishedLink <a.pubAct>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/ProjectHome.module.css :: .factGlyph",
+    "kind": "non-text",
+    "elements": [
+      "src/components/projects/ProjectHomeScreen.tsx :: ProjectHomeVisit <span.factGlyph>",
+      "src/components/users/DeletionTotals.tsx :: DeletionTotals <span.factGlyph>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/ProjectPicture.module.css :: .tile[data-empty]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/projects/ProjectPicture.tsx :: ProjectPicture <span.tile>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/projects/RecentList.module.css :: .text small i",
+    "kind": "ornament",
+    "elements": [
+      "src/components/projects/RecentList.tsx :: RowContent <i> \"·\"",
+      "src/components/projects/RecentList.tsx :: RowContent <i> \"·\" #2"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/ProjectsScreen.module.css :: .counts svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/gallery-icons.tsx :: Stroke <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/ProjectsScreen.module.css :: .listRowActs button",
+    "kind": "non-text",
+    "textInk": "src/components/gallery.module.css :: .rowActs button[data-confirm]",
+    "elements": [
+      "src/components/CardDelete.tsx :: CardDelete <button.deleteAct> {armed ? question : <IconTrash />}",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <button.deleteAct>",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <button>",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <button> #2",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <button> #3"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/ResultGrid.module.css :: .nullCell",
+    "kind": "no-value",
+    "elements": [
+      "src/components/ResultGrid.tsx :: ResultGrid <span.nullCell> \"∅\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/scope/ScopeFilter.module.css :: .caret",
+    "kind": "non-text",
+    "elements": [
+      "src/components/scope/ScopeFilter.tsx :: ScopeFilter <span.caret>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .formats button svg",
+    "kind": "non-text",
+    "elements": [],
+    "unseen": "the icon is a component picked from a table at run time"
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .select svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/settings/LibrariesTab.module.css :: .styleArt",
+    "kind": "non-text",
+    "elements": [
+      "src/components/settings/BasemapsCard.tsx :: Picture <span.styleArt>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/settings/SettingsFrame.module.css :: .item svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: ChromeSvg <svg> {children}",
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/settings/SettingsSearch.module.css :: .clear",
+    "kind": "non-text",
+    "elements": [
+      "src/components/settings/SettingsSearch.tsx :: SearchField <IconButton.clear.hint.iconBtn>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/settings/SettingsSearch.module.css :: .result > svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/settings/SettingsSearch.module.css :: .search",
+    "kind": "non-text",
+    "elements": [
+      "src/components/settings/SettingsSearch.tsx :: SearchField <label.search>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/settings/SettingsSearch.module.css :: .search input::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/settings/SettingsSearch.tsx :: SearchField <input> placeholder \"Search settings\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/settings/WorkflowsTab.module.css :: .code [data-token=\"comment\"]",
+    "kind": "syntax",
+    "elements": [
+      "src/components/settings/WorkflowsTab.tsx :: EditorSample <span> {text}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/settings/WorkflowsTab.module.css :: .gutter",
+    "kind": "numbering",
+    "elements": [
+      "src/components/settings/WorkflowsTab.tsx :: EditorSample <span.gutter> {index + 1}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sharing/LastChanged.module.css :: .head svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sharing/MembersLine.module.css :: .members[data-none] svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sharing/ShareDialog.module.css :: .note svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sharing/ShareDialog.module.css :: .pick input::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/sharing/ShareDialog.tsx :: ShareDialog <input>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sharing/ShareDialog.module.css :: .remove",
+    "kind": "non-text",
+    "elements": [
+      "src/components/sharing/ShareDialog.tsx :: MemberRow <button.remove>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sharing/ShareDialog.module.css :: .roleBtn svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sharing/ShareDialog.module.css :: .token button",
+    "kind": "non-text",
+    "elements": [
+      "src/components/sharing/ShareDialog.tsx :: ShareDialog <button>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sql/SqlConsole.module.css :: .grid td[data-kind=\"null\"]",
+    "kind": "no-value",
+    "elements": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <td> {f.text.length > 120 ? f.text.slice(0, 1"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sql/SqlConsole.module.css :: .rn",
+    "kind": "numbering",
+    "elements": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <td.rn> {i + 1}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <th.rn>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sql/SqlConsole.module.css :: .rowGlyph[data-kind=\"none\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.rowGlyph>",
+      "src/components/sql/HistoryList.tsx :: HistoryList <span.rowGlyph>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sql/SqlConsole.module.css :: .search::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <input.search>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/sql/SqlConsole.module.css :: .tkCm",
+    "kind": "syntax",
+    "elements": [],
+    "unseen": "the class comes from the highlighter at run time"
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/SqlEditor.tsx :: editorTheme > \".cm-gutters\" > color",
+    "kind": "numbering",
+    "elements": [],
+    "unseen": "the editor draws its gutter itself"
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/SqlEditor.tsx :: editorTheme > \".cm-placeholder\" > color",
+    "kind": "placeholder",
+    "elements": [],
+    "unseen": "the editor draws its placeholder itself"
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/SqlEditor.tsx :: highlight > color",
+    "kind": "syntax",
+    "elements": [],
+    "unseen": "the editor draws its highlighted tokens itself"
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/TablePreviewGrid.module.css :: .nullCell",
+    "kind": "no-value",
+    "elements": [
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <span.nullCell> \"∅\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/templates/Templates.module.css :: .absent svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/gallery-icons.tsx :: Stroke <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/templates/Templates.module.css :: .catalogueLine svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/templates/TemplateView.module.css :: .chevron",
+    "kind": "non-text",
+    "elements": [
+      "src/components/templates/HowItsMade.tsx :: Fold <span.chevron>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/ui/Field.module.css :: .field::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <NumberInput.field.stopPos>",
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <Select.field.select>",
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <TextInput.field.saveName> placeholder \"Save as…\"",
+      "src/components/builder/assistant/AssistantComposer.tsx :: AssistantComposer <Textarea.field.input>",
+      "src/components/builder/publish/PublishPopover.tsx :: EmbedView <Textarea.field.snippet>",
+      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <Select.field.mono>",
+      "src/components/set-geometry/SetGeometryControls.tsx :: OtherCodeField <TextInput.field.mono> placeholder \"EPSG code, for example 3146",
+      "src/components/settings/BasemapsCard.tsx :: AddStyleForm <TextInput.addressField.field> placeholder \"https://tiles.example.org/s",
+      "src/components/settings/LimitsTab.tsx :: LimitsRowView <Select.field.select>",
+      "src/components/settings/MapsTab.tsx :: NewLayersCard <Select.field.select>",
+      "src/components/settings/RuleCard.tsx :: RuleRowView <Select.field.select>",
+      "src/components/settings/RuleCard.tsx :: SitesRow <Textarea.field.sites> placeholder \"https://www.stadtwerke.exam",
+      "src/components/settings/SatelliteCard.tsx :: CreditRow <TextInput.creditField.field>",
+      "src/components/settings/ServiceAddressRow.tsx :: ServiceAddressRow <TextInput.addressField.field>",
+      "src/components/settings/SettingRows.tsx :: NumberField <NumberInput.field.number>",
+      "src/components/ui/Field.tsx :: NumberInput <input.field>",
+      "src/components/ui/Field.tsx :: Select <select.field> {children}",
+      "src/components/ui/Field.tsx :: TextInput <input.field>",
+      "src/components/ui/Field.tsx :: Textarea <textarea.field>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/ui/IconButton.module.css :: .iconBtn[data-tone=\"default\"], .iconBtn[data-tone=\"danger\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/AddDataDialog.tsx :: AddDataDialogBody <IconButton.close.hint.iconBtn>",
+      "src/components/UserBadge.tsx :: UserBadge <IconButton.accountOut.hint.iconBtn>",
+      "src/components/auth/EntryScreen.tsx :: EntryScreen <IconButton.eye.hint.iconBtn>",
+      "src/components/builder/BasemapPanel.tsx :: BasemapPanel <IconButton.groupEye.hint.iconBtn>",
+      "src/components/builder/BasemapPanel.tsx :: BasemapPanel <IconButton.groupEye.hint.iconBtn> #2",
+      "src/components/builder/BuilderStageControls.tsx :: BuilderStageControls <StageButton.fullscreenBtn.hint.iconBtn.stageBtn>",
+      "src/components/builder/FilterSection.tsx :: FilterSection <IconButton.hint.iconBtn.remove>",
+      "src/components/builder/LayerList.tsx :: LayerList <IconButton.eye.hint.iconBtn>",
+      "src/components/builder/LayerList.tsx :: LayerList <IconButton.hint.iconBtn>",
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <IconButton.hint.iconBtn.itemDelete>",
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <IconButton.hint.iconBtn.stopRemove>",
+      "src/components/builder/SharedHistoryControls.tsx :: SharedHistoryControls <IconButton.chromeBtn.hint.iconBtn>",
+      "src/components/builder/add-layer/AddLayerCatalog.tsx :: AddLayerCatalog <IconButton.close.hint.iconBtn>",
+      "src/components/builder/add-layer/AddLayerCatalog.tsx :: AddLayerCatalog <IconButton.close.hint.iconBtn> #2",
+      "src/components/builder/draw/DrawDock.tsx :: DrawDock <StageButton.dockBtn.hint.iconBtn.stageBtn>",
+      "src/components/map/StageStack.tsx :: StageButton <IconButton.hint.iconBtn.stageBtn>",
+      "src/components/map/StageStack.tsx :: StageStack <StageButton.compassBtn.hint.iconBtn.stageBtn>",
+      "src/components/set-geometry/SetGeometryControls.tsx :: SetGeometryControls <IconButton.hint.iconBtn.swap>",
+      "src/components/settings/SettingsSearch.tsx :: SearchField <IconButton.clear.hint.iconBtn>",
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <IconButton.hint.iconBtn.rowAct>",
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <IconButton.hint.iconBtn.rowAct> #2",
+      "src/components/sql/HistoryList.tsx :: HistoryList <IconButton.hint.iconBtn.rowAct>",
+      "src/components/sql/HistoryList.tsx :: HistoryList <IconButton.hint.iconBtn.rowAct> #2",
+      "src/components/ui/ErrorNote.tsx :: ErrorNote <IconButton.dismiss.hint.iconBtn>",
+      "src/components/ui/IconButton.tsx :: IconButton <button.hint.iconBtn>",
+      "src/components/workflow-canvas/CanvasStage.tsx :: CanvasStage <StageButton.hint.iconBtn.lockBtn.stageBtn>",
+      "src/components/workflow-canvas/HeaderHistory.tsx :: HeaderHistory <IconButton.hint.histBtn.iconBtn>",
+      "src/components/workflow-canvas/HeaderHistory.tsx :: HeaderHistory <IconButton.hint.histBtn.iconBtn> #2"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/ui/Switch.module.css :: .row:has(.switch:disabled)",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <SwitchRow.checkRow.row> {label}",
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <SwitchRow.checkRow.row> {label} #2",
+      "src/components/builder/StylePanel.tsx :: StylePanel <SwitchRow.checkRow.row> {label}",
+      "src/components/builder/StylePanel.tsx :: StylePanel <SwitchRow.checkRow.row> {label} #2",
+      "src/components/builder/StylePanel.tsx :: StylePanel <SwitchRow.checkRow.row> {label} #3",
+      "src/components/builder/export/ExportOptionsRail.tsx :: ExportOptionsRail <SwitchRow.row.switchRow> {label}",
+      "src/components/builder/export/ExportOptionsRail.tsx :: ExportOptionsRail <SwitchRow.row.switchRow> {label} #2",
+      "src/components/builder/style-panel/HoverFieldsSections.tsx :: FieldsSection <SwitchRow.checkRow.row> {label}",
+      "src/components/builder/style-panel/LabelSection.tsx :: LabelSection <SwitchRow.checkRow.row> {label}",
+      "src/components/ui/Switch.tsx :: SwitchRow <label.row> {label}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/users/UsersScreen.module.css :: .facts .sep",
+    "kind": "ornament",
+    "elements": [
+      "src/components/users/UserRow.tsx :: UserRow <span.sep> \"·\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/InputPicker.module.css :: .glyph[data-kind=\"none\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.glyph>",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.glyph> #2",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.glyph> #3"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/InputPicker.module.css :: .search",
+    "kind": "non-text",
+    "elements": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <div.search>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/InputPicker.module.css :: .trigger svg:last-child",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}",
+      "src/components/ui/operation-icons.tsx :: Glyph <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/NoteNode.module.css :: .placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/workflow-canvas/NoteNode.tsx :: NoteEditor <pre.placeholder> {placeholder.lead + PLACEHOLDER}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .lead svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/gallery-icons.tsx :: Stroke <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .acceptGlyph[data-kind=\"none\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.acceptGlyph>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .paneSearch svg",
+    "kind": "non-text",
+    "elements": [
+      "src/components/ui/icons.tsx :: Svg <svg> {children}"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .paneSearchInput::placeholder",
+    "kind": "placeholder",
+    "elements": [
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <input.paneSearchInput>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .planArrow",
+    "kind": "ornament",
+    "elements": [
+      "src/components/workflow-canvas/RunConfirmDialog.tsx :: RunConfirmDialog <span.planArrow> \"→\""
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .rowGlyph[data-kind=\"none\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.rowGlyph>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .src .tIcon[data-kind=\"none\"]",
+    "kind": "non-text",
+    "elements": [
+      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.tIcon>"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/WorkflowScreen.module.css :: .crumbSep",
+    "kind": "ornament",
+    "elements": [
+      "src/components/WorkflowScreen.tsx :: CrumbName <span.crumbSep> \"/\"",
+      "src/components/WorkflowScreen.tsx :: CrumbName <span.crumbSep> \"/\" #2"
+    ]
+  },
+  {
+    "layer": "ink",
+    "id": "src/components/WorkflowScreen.module.css :: .histBtn:disabled, .histBtn:disabled:hover",
+    "kind": "disabled",
+    "elements": [
+      "src/components/workflow-canvas/HeaderHistory.tsx :: HeaderHistory <IconButton.hint.histBtn.iconBtn>",
+      "src/components/workflow-canvas/HeaderHistory.tsx :: HeaderHistory <IconButton.hint.histBtn.iconBtn> #2"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/AddToMapDialog.module.css :: .card:disabled, .newCard:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <button.card>",
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <button.newCard>"
+    ],
+    "inside": [
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <b> \"New map\"",
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <b> {m.name}",
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <small> \"Start a blank map with this layer\"",
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <small> \"layer\" \"· edited\" {m.layerCount === 1 ?",
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <span.metaVal> {formatRelativeTime(m.updatedAt)}",
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <span.metaVal> {m.layerCount}",
+      "src/components/ui/Status.tsx :: StatusDot <span.dotText> {state}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/AreaSemanticsToggle.module.css :: .seg button:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/AreaSemanticsToggle.tsx :: AreaSemanticsToggle <button> \"Entirely inside\"",
+      "src/components/AreaSemanticsToggle.tsx :: AreaSemanticsToggle <button> \"Touching the area\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .primaryBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/add-layer/CatalogTablesView.tsx :: CatalogTablesView <Button.btn.primaryBtn> {busy ? \"Adding…\" : \"Add layer\"}",
+      "src/components/builder/add-layer/CatalogWorkbench.tsx :: CatalogWorkbench <button.primaryBtn> {busy ? mode === \"edit\" ? \"Updating…\" : "
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/assistant/ModelPicker.module.css :: .chip:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/assistant/ModelPicker.tsx :: ModelPicker <button.chip>"
+    ],
+    "inside": [
+      "src/components/builder/assistant/ModelPicker.tsx :: ModelPicker <b> {words.name}",
+      "src/components/builder/assistant/ModelPicker.tsx :: ModelPicker <span> \"·\" {payer}",
+      "src/components/builder/assistant/ModelPicker.tsx :: ModelPicker <span> \"·\" {words.effort}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/AssistantPanel.module.css :: .send:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/AssistantPanel.tsx :: AssistantPanel <button.send> \"Check request outcome\"",
+      "src/components/builder/AssistantPanel.tsx :: AssistantPanel <button.send> \"Recover pending action:\" {item.confirma",
+      "src/components/builder/assistant/AssistantComposer.tsx :: AssistantComposer <button.send.stop> \"Stop\" {stop ? <><StopIcon />Stop</> : \""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/BasemapPanel.module.css :: .groupSection[data-inert=\"true\"] .groupLabel, .groupSection[data-inert=\"true\"] .groupEye",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/BasemapPanel.tsx :: BasemapPanel <span.groupLabel> {BASEMAP_LAYER_GROUP_LABELS[group]}"
+    ],
+    "inside": [
+      "src/components/builder/BasemapPanel.tsx :: BasemapPanel <span.groupAbsent> \"· not in this style\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/CornerDrag.module.css :: .wrap[data-dragging=\"true\"]",
+    "kind": "transient",
+    "elements": [
+      "src/components/builder/CornerDrag.tsx :: CornerDrag <div.wrap> {children}"
+    ],
+    "inside": [
+      "src/components/map/LegendPanel.tsx :: InlineLabel <button.editable> {display}",
+      "src/components/map/LegendPanel.tsx :: InlineLabel <input.labelInput>",
+      "src/components/map/LegendPanel.tsx :: LegendBlock <button.editable> {content}",
+      "src/components/map/LegendPanel.tsx :: LegendBlock <div.channelHead> {CHANNEL_NAME[p.channel]}",
+      "src/components/map/LegendPanel.tsx :: LegendBlock <div.channelHead> {CHANNEL_NAME[s.channel]}",
+      "src/components/map/LegendPanel.tsx :: LegendBlock <span.rampCenter> \"◦\" {p.ramp.center}",
+      "src/components/map/LegendPanel.tsx :: LegendBlock <span> {content}",
+      "src/components/map/LegendPanel.tsx :: LegendBlock <span> {p.ramp.labels[0]}",
+      "src/components/map/LegendPanel.tsx :: LegendBlock <span> {p.ramp.labels[1]}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/CustomBasemapSection.module.css :: .save:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <button.save> {saving ? \"Saving…\" : \"Use anyway\"}",
+      "src/components/builder/CustomBasemapSection.tsx :: CustomBasemapSection <button.save> {saving ? \"Saving…\" : \"Use this style\"}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/drawer/OperationPicker.module.css :: .row:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <button.row>",
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <button.row> #2"
+    ],
+    "inside": [
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <span.blurb> {operation.blurb}",
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <span.blurb> {operation.blurb} #2",
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <span.name> {operation.label}",
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <span.name> {operation.label} #2",
+      "src/components/builder/drawer/OperationPicker.tsx :: OperationPicker <span.unavailable> {operation.availability.reason}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .run:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <button.run> \"Run\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .tableRow:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/drawer/TablePicker.tsx :: TableRows <button.tableRow>"
+    ],
+    "inside": [
+      "src/components/builder/drawer/TablePicker.tsx :: TableRows <span.tableMeta> \"features\" {formatCount(table.rowCount)}",
+      "src/components/builder/drawer/TablePicker.tsx :: TableRows <span.tableName> {table.name}",
+      "src/components/builder/drawer/TablePicker.tsx :: TableRows <span> {refusalFor(accepts, table)}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/ExceptionStrip.module.css :: .ignore",
+    "kind": "ornament",
+    "elements": [
+      "src/components/builder/ExceptionStrip.tsx :: ExceptionStrip <button.ignore> \"×\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/export/ExportImageCard.module.css :: .subControl[data-off]",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/export/ExportOptionsRail.tsx :: ExportOptionsRail <div.subControl> #2",
+      "src/components/builder/export/ExportOptionsRail.tsx :: ExportOptionsRail <div.subControl> #3"
+    ],
+    "inside": [
+      "src/components/builder/export/ExportOptionsRail.tsx :: ExportOptionsRail <ChoiceGroup.seg.segItem> {choice.label} #2",
+      "src/components/builder/export/ExportOptionsRail.tsx :: ExportOptionsRail <ChoiceGroup.seg.segItem> {choice.label} #3",
+      "src/components/ui/ChoiceGroup.tsx :: ChoiceGroup <button> {choice.label}",
+      "src/components/ui/ChoiceGroup.tsx :: ChoiceGroup <span> {choice.title}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/LayerList.module.css :: .card[data-dragging=\"true\"]",
+    "kind": "transient",
+    "elements": [
+      "src/components/builder/LayerList.tsx :: SortableCard <li.card> {foot}"
+    ],
+    "inside": [
+      "src/components/builder/ExceptionStrip.tsx :: ExceptionStrip <button.ignore> \"×\"",
+      "src/components/builder/ExceptionStrip.tsx :: ExceptionStrip <button.rerun> \"Re-run\"",
+      "src/components/builder/ExceptionStrip.tsx :: ExceptionStrip <span.copy> {running ? \"re-running…\" : (failure ?? c",
+      "src/components/builder/LayerList.tsx :: SortableCard <div.expanded> {expanded}",
+      "src/components/builder/LayerList.tsx :: SortableCard <div.head> {head({ ref: setActivatorNodeRef, attrib"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/LayerList.module.css :: .iconBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: LayerRowMenu <Menu.iconBtn.menu.menuWrap.trigger> {open && target && createPortal( <span r"
+    ],
+    "inside": [
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <MenuItem> \"Cancel\"",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <MenuItem> \"Cancel\" #2",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <MenuItem> \"Create a copy\"",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <MenuItem> {cascade ? `Delete “${layerName}” and ${",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <MenuItem> {f.label}",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <small> {f.hint}",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <span.menuLabel> \"Duplicate\"",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <span.menuLabel> \"Edit source\"",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <span.menuLabel> \"Export data\"",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <span.menuLabel> \"Rename\"",
+      "src/components/builder/layer-row/LayerRowMenu.tsx :: Body <span.menuLabel> {cascade ? \"Delete layer + dataset…\" : \"",
+      "src/components/ui/Menu.tsx :: Menu <button.trigger> {trigger}",
+      "src/components/ui/Menu.tsx :: MenuItem <a> {children}",
+      "src/components/ui/Menu.tsx :: MenuItem <button> {children}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/LegendTab.module.css :: .attrInput:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/LegendTab.tsx :: LegendEditor <input.attrInput>"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/PaletteControl.module.css :: .head:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <button.head>"
+    ],
+    "inside": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <span.headName> {activeLabel}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/PaletteControl.module.css :: .item:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <button.item>",
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <button.item> #2"
+    ],
+    "inside": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <span.itemName> {p.label}",
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <span.itemName> {p.label} #2"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/StatusBar.module.css :: .item[data-stale] .val",
+    "kind": "transient",
+    "elements": [
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> \"unavailable\"",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {records.count < records.total ? `${reco"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/style-panel/IconPicker.module.css :: .dropZone[data-busy]",
+    "kind": "transient",
+    "elements": [
+      "src/components/builder/style-panel/IconPicker.tsx :: IconPicker <div.dropZone>"
+    ],
+    "inside": [
+      "src/components/builder/style-panel/IconPicker.tsx :: IconPicker <button.use> \"Use this icon\"",
+      "src/components/builder/style-panel/IconPicker.tsx :: IconPicker <input.fileInput>",
+      "src/components/builder/style-panel/IconPicker.tsx :: IconPicker <p.dropHint> \"Drop an .svg here, or click to choose a",
+      "src/components/builder/style-panel/IconPicker.tsx :: IconPicker <p.note> \"Checking…\"",
+      "src/components/builder/style-panel/IconPicker.tsx :: IconPicker <p.note> \"Multi-color SVGs flatten to a silhouett",
+      "src/components/builder/style-panel/IconPicker.tsx :: IconPicker <p.note> \"Removed:\" {pending.dropped .map((d) => ",
+      "src/components/builder/style-panel/IconPicker.tsx :: IconPicker <p.note> {error}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/StylePanel.module.css :: .segment:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/StylePanel.tsx :: StylePanel <button.segment> {face.label}",
+      "src/components/builder/style-panel/PaintControls.tsx :: PaintControls <button.segment> \"Classified\"",
+      "src/components/builder/style-panel/PaintControls.tsx :: PaintControls <button.segment> \"Continuous\""
+    ],
+    "inside": [
+      "src/components/builder/StylePanel.tsx :: StylePanel <span> {state.reason}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/WidgetsTab.module.css :: .formActions .save:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/widget-editor/WidgetDraftEditor.tsx :: WidgetDraftEditor <button.save> {draft.id === null ? draft.type === \"not"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/builder/WidgetsTab.module.css :: .typeTile:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/builder/widget-editor/WidgetDraftEditor.tsx :: WidgetDraftEditor <button.typeTile> {TYPE_ICONS[t]} {TYPE_LABELS[t]}"
+    ],
+    "inside": [
+      "src/components/builder/widget-editor/WidgetDraftEditor.tsx :: WidgetDraftEditor <span> \"Add a layer first\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/connections/ConnectionForm.module.css :: .primary:disabled, .secondary:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <button.primary> {busy ? \"Testing…\" : saved ? \"Saved\" : m",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <button.secondary> {cancelLabel}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/connections/ConnectionsLedger.module.css :: .testButton:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <button.testButton> \"Test\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/connections/PostgisPane.module.css :: .newConnection:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/connections/PostgisPicker.tsx :: PostgisPicker <button.newConnection> \"New connection\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/connections/PostgisPane.module.css :: .primary:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/connections/PostgisDataDone.tsx :: PostgisDataDone <button.primary> \"Open table\"",
+      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <button.primary> \"Done\"",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <button.primary> \"Import\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/gallery.module.css :: .ghost:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <button.ghost>",
+      "src/components/MapsScreen.tsx :: MapsScreen <button.ghost> #2",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <button.ghost>",
+      "src/components/TablesScreen.tsx :: TablesScreen <button.ghost.ghostData>",
+      "src/components/TablesScreen.tsx :: TablesScreen <button.ghost>",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <button.ghost>",
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <button.ghost>",
+      "src/components/home/HomeStart.tsx :: HomeStart <Link.ghost.ghostData.startTile>",
+      "src/components/home/HomeStart.tsx :: HomeStart <button.ghost.ghostData.startTile>",
+      "src/components/home/HomeStart.tsx :: HomeStart <button.ghost.ghostData.startTile> #2",
+      "src/components/home/HomeStart.tsx :: HomeStart <button.ghost.ghostData.startTile> #3"
+    ],
+    "inside": [
+      "src/components/MapsScreen.tsx :: MapsScreen <b> \"New map\"",
+      "src/components/MapsScreen.tsx :: MapsScreen <b> \"New map\" #2",
+      "src/components/MapsScreen.tsx :: MapsScreen <small> {tileSubLine( \"map\", scope, scope.kind =",
+      "src/components/MapsScreen.tsx :: MapsScreen <small> {tileSubLine( \"map\", scope, scope.kind = #2",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <b> \"New project\"",
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <small> \"A name, nothing else\"",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> \"Add data\"",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> \"Add data\" #2",
+      "src/components/TablesScreen.tsx :: TablesScreen <small> {tileSubLine(\"data\", scope, scopeProject",
+      "src/components/TablesScreen.tsx :: TablesScreen <small> {tileSubLine(\"data\", scope, scopeProject #2",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <b> \"New workflow\"",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <small> {tileSubLine( \"workflow\", scope, scope.k",
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <b> \"Add connection\"",
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <small> \"Snapshot tables from a PostGIS database",
+      "src/components/home/HomeStart.tsx :: HomeStart <b> \"Add data\"",
+      "src/components/home/HomeStart.tsx :: HomeStart <b> \"New map\"",
+      "src/components/home/HomeStart.tsx :: HomeStart <b> \"New workflow\"",
+      "src/components/home/HomeStart.tsx :: HomeStart <b> \"Open SQL\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/gallery.module.css :: .primary:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/app/(workspace)/not-found.tsx :: WorkspaceNotFound <Link.primary> \"Go to Home\"",
+      "src/components/ItemNotFound.tsx :: ItemNotFound <Link.primary> {back}",
+      "src/components/ListHeading.tsx :: ListHeading <Link.primary> {action.label}",
+      "src/components/ListHeading.tsx :: ListHeading <button.primary> {action.label}",
+      "src/components/TableDetailScreen.tsx :: TableDetail <button.primary> \"Add to a map\"",
+      "src/components/TableDetailScreen.tsx :: TableDetail <button.primary> \"Set geometry\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/map/BasemapCredit.module.css :: .dot",
+    "kind": "ornament",
+    "elements": [
+      "src/components/map/BasemapCredit.tsx :: BasemapCredit <span.dot> \"·\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/OsmPane.module.css :: .chip button",
+    "kind": "ornament",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <button> \"×\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/OsmPane.module.css :: .formPart[data-disabled]",
+    "kind": "disabled",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <div.formPart>"
+    ],
+    "inside": [
+      "src/components/AreaSemanticsToggle.tsx :: AreaSemanticsToggle <button> \"Entirely inside\"",
+      "src/components/AreaSemanticsToggle.tsx :: AreaSemanticsToggle <button> \"Touching the area\"",
+      "src/components/AreaSemanticsToggle.tsx :: AreaSemanticsToggle <p.note> \"crossing the edge are included.\" {edgeN",
+      "src/components/OsmPane.tsx :: OsmPane <b> {areaKm2 === null ? \"—\" : formatKm2(area",
+      "src/components/OsmPane.tsx :: OsmPane <button.preset> {PRESET_ICONS[p.key]} {p.label}",
+      "src/components/OsmPane.tsx :: OsmPane <button> \"×\"",
+      "src/components/OsmPane.tsx :: OsmPane <div.sectT> \"Query Area\"",
+      "src/components/OsmPane.tsx :: OsmPane <div.sectT> \"Quick queries\"",
+      "src/components/OsmPane.tsx :: OsmPane <div.sectT> \"Tags\"",
+      "src/components/OsmPane.tsx :: OsmPane <input.mono>",
+      "src/components/OsmPane.tsx :: OsmPane <input> placeholder \"key=value ⏎\"",
+      "src/components/OsmPane.tsx :: OsmPane <label> \"Table name\"",
+      "src/components/OsmPane.tsx :: OsmPane <small> \"Lands split by geometry:\" \"_points / _l",
+      "src/components/OsmPane.tsx :: OsmPane <span.chip> {entry}",
+      "src/components/OsmPane.tsx :: OsmPane <span> {mode === \"layer\" && shape?.kind === \"fe",
+      "src/components/ui/ChoiceGroup.tsx :: ChoiceGroup <button> {choice.label}",
+      "src/components/ui/ChoiceGroup.tsx :: ChoiceGroup <span> {choice.title}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/OsmPane.module.css :: .importBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <button.importBtn> {busy ? \"Querying OpenStreetMap…\" : \"Imp"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/OsmPane.module.css :: .queryBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <button.queryBtn> \"Edit query\"",
+      "src/components/OsmPane.tsx :: OsmPane <button.queryBtn> \"↺ Regenerate from form\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/OsmPane.module.css :: .runBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <button.runBtn> {running ? \"Running…\" : \"Run Query\"}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/OverturePane.module.css :: .importBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <button.importBtn> {busy ? \"Importing…\" : \"Import as table\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/OverturePane.module.css :: .queryBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <button.queryBtn> \"View query\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/OverturePane.module.css :: .runBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <button.runBtn> {running ? \"Running…\" : \"Run Query\"}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/QueryDrawer.module.css :: .bar button:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <button> \"Cancel\"",
+      "src/components/OsmPane.tsx :: OsmPane <button> \"Use query\"",
+      "src/components/OverturePane.tsx :: OverturePane <button> \"Close\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/ResultGrid.module.css :: .nullCell",
+    "kind": "no-value",
+    "elements": [
+      "src/components/ResultGrid.tsx :: ResultGrid <span.nullCell> \"∅\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/settings/PictureChoice.module.css :: .card:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/settings/PictureChoice.tsx :: PictureChoice <ChoiceGroup.card.pictures> {choice.label}"
+    ],
+    "inside": [
+      "src/components/settings/PictureChoice.tsx :: PictureChoice <span.box> {choice.picture}",
+      "src/components/settings/PictureChoice.tsx :: PictureChoice <span.name> {choice.label}",
+      "src/components/ui/ChoiceGroup.tsx :: ChoiceGroup <button> {choice.label}",
+      "src/components/ui/ChoiceGroup.tsx :: ChoiceGroup <span> {choice.title}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/SourceNav.module.css :: .source:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/SourceNav.tsx :: SourceNavButton <button.source>"
+    ],
+    "inside": [
+      "src/components/SourceNav.tsx :: SourceNavButton <small> {spec.desc}",
+      "src/components/SourceNav.tsx :: SourceNavButton <span.logo> {spec.logo}",
+      "src/components/SourceNav.tsx :: SourceNavButton <strong> {spec.title}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/sql/SqlConsole.module.css :: .menuItem:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <button.menuItem>",
+      "src/components/sql/SnippetsMenu.tsx :: SnippetsMenu <button.menuItem>"
+    ],
+    "inside": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <b> {label}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {note}",
+      "src/components/sql/SnippetsMenu.tsx :: SnippetsMenu <b> {s.name}",
+      "src/components/sql/SnippetsMenu.tsx :: SnippetsMenu <span> {describeSnippet(s, context)}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/sql/SqlConsole.module.css :: .resultsCard[data-busy] .resBody",
+    "kind": "transient",
+    "elements": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.resBody>"
+    ],
+    "inside": [
+      "src/components/map/FeaturePreviewMap.tsx :: FeaturePreviewMap <p> {webglFailure}",
+      "src/components/map/FeaturePreviewMap.tsx :: FeaturePreviewMap <strong> \"WebGL is unavailable\"",
+      "src/components/sql/ResultMap.tsx :: ResultMap <div.resEmptyBig> \"Nothing to draw\"",
+      "src/components/sql/ResultMap.tsx :: ResultMap <div> \"is empty in every previewed row.\" {geom",
+      "src/components/sql/ResultMap.tsx :: ResultMap <div> {String(v)}",
+      "src/components/sql/ResultMap.tsx :: ResultMap <span.mapTipKey> {k}",
+      "src/components/sql/ResultMap.tsx :: ResultMap <span> \"features\" {formatCount(drawn)} {rowCoun",
+      "src/components/sql/ResultMap.tsx :: ResultMap <span> {geometryColumn}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <Button> {copied ? \"Copied\" : \"Copy\"}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <div.gridFoot> {footer}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <div.resEmptyBig> {emptyText}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <pre.peekValue> {peek.value}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <span.thType> {c.type}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <td.rn> {i + 1}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <td> {f.text.length > 120 ? f.text.slice(0, 1",
+      "src/components/sql/ResultTable.tsx :: ResultTable <th> {c.name}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <ErrorNote> {shown.message}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.mapNotice> \"Reading features…\"",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.mapNotice> {features.state.value.reason}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.resEmptyBig> \"Nothing to show yet\"",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div> \"Click a table on the left to preview it",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div> \"Reading the table…\"",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span.errorCode> {shown.code}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {featureCountReadout(features.state.valu",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {features.state.value.geometryType}",
+      "src/components/ui/Button.tsx :: Button <button.btn> {children}",
+      "src/components/ui/ErrorNote.tsx :: ErrorNote <Button> {retryLabel}",
+      "src/components/ui/ErrorNote.tsx :: ErrorNote <div.actions> {children}",
+      "src/components/ui/ErrorNote.tsx :: ErrorNote <div.detailText> {detail}",
+      "src/components/ui/ErrorNote.tsx :: ErrorNote <p.message> {message}",
+      "src/components/ui/ErrorNote.tsx :: ErrorNote <summary> {detailLabel}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/sql/SqlConsole.module.css :: .tabs button:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: GroupingSwitch <button> {g === \"person\" ? \"By person\" : \"By proj",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <button> \"Map\"",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <button> \"Table\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/TableDetailScreen.module.css :: .aux:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <ExportMenu.aux.trigger> {trigger}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/TablePreviewGrid.module.css :: .nullCell",
+    "kind": "no-value",
+    "elements": [
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <span.nullCell> \"∅\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/TableRunState.module.css :: .rerun:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/TableRunState.tsx :: TableRunState <button.rerun> {running ? \"re-running…\" : \"Re-run\"}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/ui/Button.module.css :: .btn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/auth/ArrivalScreen.tsx :: ArrivalScreen <Button.btn.submit> \"Sign out\"",
+      "src/components/auth/ArrivalScreen.tsx :: ArrivalScreen <Button.btn.submit> \"Stay signed in\"",
+      "src/components/auth/EntryScreen.tsx :: EntryScreen <Button.btn.submit> {setup ? \"Create account\" : redeem ? \"Se",
+      "src/components/auth/StartSignIn.tsx :: StartSignIn <Button.btn.submit> {label}",
+      "src/components/builder/add-layer/CatalogTablesView.tsx :: CatalogTablesView <Button.btn.primaryBtn> {busy ? \"Adding…\" : \"Add layer\"}",
+      "src/components/builder/publish/PublishPopover.tsx :: EmbedView <Button.btn.copyBtn> {copied ? \"Code copied\" : \"Copy code\"}",
+      "src/components/builder/publish/PublishPopover.tsx :: PublishPopover <Button.btn.copyBtn> {copied ? \"Link copied\" : \"Copy link\"}",
+      "src/components/builder/publish/PublishPopover.tsx :: PublishPopover <Button.btn.publishBtn> {copied ? \"Link copied\" : \"Publish map\"}",
+      "src/components/builder/publish/PublishPopover.tsx :: PublishPopover <Button.btn.unpublish> \"Unpublish\"",
+      "src/components/builder/publish/PublishPopover.tsx :: SharedFields <Button.btn.resetBtn> \"Reset to automatic\"",
+      "src/components/projects/RecentList.tsx :: FilingRow <Button.add.btn> {moves ? \"Move\" : \"Add\"}",
+      "src/components/set-geometry/ProposalStrip.tsx :: ProposalStrip <Button.btn.door> \"Set geometry\"",
+      "src/components/sharing/ShareDialog.tsx :: ShareDialog <Button.addBtn.btn> \"Add\"",
+      "src/components/templates/TemplateView.tsx :: CopyAction <Button.btn.copyAction> \"Make a copy\"",
+      "src/components/ui/Button.tsx :: Button <button.btn> {children}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <Button.btn.removeBtn> \"Remove node\"",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <Button.btn.runAction> \"Cancel\"",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <Button.btn.runAction> \"Run all\""
+    ],
+    "inside": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.goLabel> {foot.label}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/ui/CornerPicker.module.css :: .corner:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/ui/CornerPicker.tsx :: CornerPicker <ChoiceGroup.corner.frame> {choice.label}"
+    ],
+    "inside": [
+      "src/components/ui/ChoiceGroup.tsx :: ChoiceGroup <button> {choice.label}",
+      "src/components/ui/ChoiceGroup.tsx :: ChoiceGroup <span> {choice.title}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/ui/Switch.module.css :: .switch:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/ui/Switch.tsx :: Switch <input.switch>"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/UrlImportPane.module.css :: .importBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/UrlImportPane.tsx :: UrlImportPane <button.importBtn> {busy ? \"Importing…\" : \"Import as table\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/widgets/SortableCards.tsx :: style > opacity",
+    "kind": "transient",
+    "elements": [
+      "src/components/widgets/SortableCards.tsx :: SortableItem <div.dropped> {children({ ref: setActivatorNodeRef, at"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/widgets/Widgets.module.css :: .rail[data-values-state=\"updating\"] .big, .rail[data-values-state=\"updating\"] .sub, .rail[data-values-state=\"updating\"] .cbar i, .rail[data-values-state=\"updating\"] .cnum, .rail[data-values-state=\"updating\"] .hbars i",
+    "kind": "transient",
+    "elements": [
+      "src/components/widgets/WidgetRail.tsx :: CategoryCard <div.sub> \"No categories to show.\"",
+      "src/components/widgets/WidgetRail.tsx :: CategoryCard <span.cnum> {formatCount(row.n)}",
+      "src/components/widgets/WidgetRail.tsx :: CategoryCard <span.cnum> {formatCount(value.other)}",
+      "src/components/widgets/WidgetRail.tsx :: FormulaCard <div.big> {formatWidgetNumber(value?.value ?? null",
+      "src/components/widgets/WidgetRail.tsx :: FormulaCard <div.sub> \"filtered from\" {formatWidgetNumber(valu",
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <div.sub> \"No spread.\""
+    ],
+    "inside": [
+      "src/components/widgets/WidgetRail.tsx :: FormulaCard <small> {widget.unit}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/workflow-canvas/InputPicker.module.css :: .row[data-refused] .glyph, .row[data-refused] .name, .row[data-refused] .fact",
+    "kind": "disabled",
+    "elements": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> {o.node ? <span className={styles.nodeTa",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> {o.label}"
+    ],
+    "inside": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.nodeTag> {o.fact === \"not named\" ? \"not named\" : "
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .scopeBtn:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <button.scopeBtn> \"All nodes\"",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <button.scopeBtn> \"This node\""
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .tab:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <button.tab> {t.label}"
+    ],
+    "inside": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span.count> {all.length}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .inert:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <fieldset.inert>",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <fieldset.inert> #2",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <fieldset.inert> #3"
+    ],
+    "inside": [
+      "src/components/builder/UnsavedFields.tsx :: UnsavedMark <span.mark> {children}",
+      "src/components/builder/drawer/parameter-controls.tsx :: CarriedValues <button.addRow> \"Add a value\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: CarriedValues <button.dropRow> \"Remove\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: CarriedValues <input.text> placeholder \"call it…\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: CarriedValues <option> \"Choose a column…\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: CarriedValues <option> {aggregate}",
+      "src/components/builder/drawer/parameter-controls.tsx :: CarriedValues <option> {column.name}",
+      "src/components/builder/drawer/parameter-controls.tsx :: CarriedValues <select.text>",
+      "src/components/builder/drawer/parameter-controls.tsx :: CarriedValues <select.text> #2",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberControl <input.number>",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberControl <input.slider>",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberControl <p.problem> {floored ? `A ${parameter.name.replace(/",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberListControl <div.numberList> {Array.from({ length: slots }, (_, index",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberListControl <input.number> placeholder \"—\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberListControl <p.problem> {problem}",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <input.text>",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <input>",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <input> #2",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <label.label> {parameter.name.replace(/_/g, \" \")}",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <option> \"Choose a column…\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <option> {column.name}",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <option> {option}",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <p.help> \"Choose an input first.\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <p.help> {helpLine(parameter.description)}",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <select.text>",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <select.text> #2",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <span.unit> \"(m)\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <span.unit> \"(min)\"",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <span> {column.name}",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <span> {option}",
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <textarea.textarea>",
+      "src/components/ui/Switch.tsx :: Switch <input.switch>",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <input> placeholder \"Search sources…\"",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <li.none> \"No source matches “\" \"”.\" {query.trim()",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <p.currentWhy> \"Not accepted:\" {chosen.reason}",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <p.eyebrow> {g.title}",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> {chosen.node ? <span className={styles.n",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> {o.node ? <span className={styles.nodeTa",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> \"not set\"",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> \"not set\" #2",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> {chosen.label}",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> {o.label}",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.nodeTag> \"node\"",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.nodeTag> {o.fact === \"not named\" ? \"not named\" : ",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.why> {o.reason}",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span> {disabledReason}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <b> \"rows\" {gate.preview.rowCount.toLocaleSt",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <h4.secLabel> \"Inputs\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <h4.secLabel> \"Parameters\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <h4.secLabel> \"Reads\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <h4.secLabel> {produced ? \"Would make on the next run\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <input.nameInput>",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <label.secLabel> \"Dataset name\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <label.secLabel> {input.label}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Checking what this will produce…\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Columns of\" \"come after its node runs.\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Geometry:\" \".\" {expected === \"none\" ? \"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Nothing to set.\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Nothing yet.\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Registered as\" \".\" {registeredName(type",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Taken from the query. Change the query ",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"The dataset keeps its name after the fi",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"The preview comes after\" \"is produced.\"",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> {input.description}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> {missing.length ? `Choose ${missing.join",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> {w}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.previewLine> {\" · \"} {gate.preview.geometry === \"none",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {gate.message}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {nameIssue}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {refusals.name}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {refusals[input.name]}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {refusals[parameter.name]}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.chip> {r}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.cnt> {step.reads.length}"
+    ]
+  },
+  {
+    "layer": "opacity",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: button.toolRow:disabled",
+    "kind": "disabled",
+    "elements": [
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <button.toolRow>"
+    ],
+    "inside": [
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.toolBlurb> {op.blurb}",
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.toolName> {op.label}",
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.toolWhy> {op.availability?.reason}"
+    ]
+  }
+]

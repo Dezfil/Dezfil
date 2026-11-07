@@ -8,7 +8,7 @@ import { MembersLine } from "./MembersLine";
  * The members line under a project's name on its owner's home: the faces
  * of up to three of its people beside the sentence, each their picture by
  * its version or their first and last initials, a deactivated person's
- * dimmed.
+ * initials muted and their picture faded.
  */
 
 const shared = vi.hoisted(() => ({ people: [] as ProjectPersonWire[] }));
@@ -29,11 +29,14 @@ describe("the members line's faces", () => {
     expect(html).toContain("Shared with Bo and Dee");
   });
 
-  it("dims a deactivated member's picture as their initials are dimmed", () => {
+  it("draws a deactivated member's initials in the muted ink, never faded, and fades their picture alone", () => {
     shared.people = [person("ada", "Ada Okafor", "owner"), person("cy", "Cy Marsh", "viewer", { deactivated: true, pictureVersion: "c1" })];
     const html = renderToStaticMarkup(<MembersLine projectId="berlin" onOpen={() => {}} />);
     expect(html).toMatch(/<span data-off="true" class="[^"]*face[^"]*"[^>]*data-face="letters">CM<img[^>]*src="\/api\/accounts\/cy\/picture\?v=c1"/);
-    const dim = cssRules("src/components/sharing/MembersLine.module.css").filter((rule) => rule.selector === '.face[data-off][data-face="picture"]');
-    expect(dim.map((rule) => /opacity:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["0.5"]);
+    const rules = cssRules("src/components/sharing/MembersLine.module.css");
+    const ink = rules.filter((rule) => rule.selector === ".face[data-off]");
+    expect(ink.map((rule) => /(?<![-\w])color:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["var(--fg-muted)"]);
+    const faded = rules.filter((rule) => rule.selector.startsWith(".face[data-off]") && /opacity:/.test(rule.body));
+    expect(faded.map((rule) => [rule.selector, /opacity:\s*([^;]+);/.exec(rule.body)?.[1]])).toEqual([['.face[data-off][data-face="picture"] img', "0.5"]]);
   });
 });

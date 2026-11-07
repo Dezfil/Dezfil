@@ -332,7 +332,7 @@
 .loading,
 .noMatch {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* ---- add-filter picker ---- */

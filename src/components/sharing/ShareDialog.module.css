@@ -346,14 +346,21 @@
   border-bottom: 0;
 }
 
-/* A deactivated member: dimmed and marked, the role they held kept. */
+/* A deactivated member: muted and marked, the role they held kept. Their
+   initials take the muted ink on a neutral circle and are never faded;
+   their picture alone fades. */
 .row[data-off] .identity b,
 .row[data-off] .identity small,
 .row[data-off] .sqlName {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .row[data-off] .avatar {
+  background: var(--bg-hover);
+  color: var(--fg-muted);
+}
+
+.row[data-off] .avatar[data-face="picture"] img {
   opacity: 0.5;
 }
 

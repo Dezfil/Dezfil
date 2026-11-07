@@ -58,7 +58,7 @@
 .hint {
   font-size: 12px;
   line-height: 1.55;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   margin: 0;
 }
 
@@ -425,7 +425,7 @@
 
 .elapsed {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
   flex: none;
 }
@@ -481,7 +481,7 @@
 }
 
 .inspectionInput dt {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-family: var(--font-mono);
 }
 
@@ -505,7 +505,7 @@
   margin: 0;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* The map check's note: the 44 px
@@ -582,7 +582,7 @@
 }
 
 .checkWords [data-provisional] {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .checkImageDialog {

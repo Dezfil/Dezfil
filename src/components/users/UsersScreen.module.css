@@ -24,8 +24,11 @@
 .email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px; font-size: var(--text-body); color: var(--fg-muted); }
 .role, .seen { font-size: var(--text-label); color: var(--fg-muted); }
 .seen { font-variant-numeric: tabular-nums; }
-.row[data-off] .person b, .row[data-off] .email { color: var(--fg-faint); }
-.row[data-off] .avatar { opacity: 0.5; }
+/* A deactivated or departing person reads muted, never faded; their
+   initials sit on a neutral circle, and their picture alone fades. */
+.row[data-off] .person b, .row[data-off] .email { color: var(--fg-muted); }
+.row[data-off] .avatar { background: var(--bg-hover); color: var(--fg-muted); }
+.row[data-off] .avatar[data-face="picture"] img { opacity: 0.5; }
 .chevron { display: grid; place-items: center; justify-self: end; width: 30px; height: 30px; color: var(--fg-muted); }
 .chevron svg { width: 14px; height: 14px; transform: rotate(-90deg); transition: transform var(--dur-micro) ease; }
 .row[data-open] .chevron svg { transform: rotate(0); }

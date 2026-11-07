@@ -89,13 +89,13 @@
 .name[data-unset] {
   font-family: var(--font-ui);
   font-size: var(--text-label);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-style: italic;
 }
 
 .fact {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -204,7 +204,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
 }
 
 .row {
@@ -241,7 +241,7 @@
 .why {
   grid-column: 2 / -1;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   line-height: 1.35;
   white-space: normal;
 }
@@ -249,13 +249,13 @@
 .unset .name {
   font-family: var(--font-ui);
   font-style: italic;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .none {
   padding: 14px 8px;
   font-size: var(--text-label);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-style: italic;
   list-style: none;
 }

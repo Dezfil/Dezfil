@@ -39,7 +39,6 @@
   font-size: 9.5px;
   letter-spacing: 0.08em;
   color: var(--accent);
-  opacity: 0.85;
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -105,7 +104,7 @@
 }
 
 .grid tr[data-bad] td {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .grid tr[data-bad] td[data-bad] {

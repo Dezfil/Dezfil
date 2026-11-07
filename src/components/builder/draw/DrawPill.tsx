@@ -76,7 +76,7 @@ export function DrawPill({
         <button
           type="button"
           className={styles.pillDelete}
-          style={{ color: "var(--fg-faint)" }}
+          style={{ color: "var(--fg)", borderColor: "var(--fg-faint)" }}
           onClick={() => setDrawSelection(null)}
         >
           Done

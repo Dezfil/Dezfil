@@ -265,7 +265,7 @@ export type HomeShelf =
       /** The person reaches nothing yet: the fresh words and eight. */
       reachesNothing: boolean;
       heading: string;
-      /** The faint line under the fresh heading; null otherwise. */
+      /** The count beside the fresh heading, a secondary fact in the muted ink; null otherwise. */
       countLine: string | null;
       link: string;
       /** The list's length, the lead included. */

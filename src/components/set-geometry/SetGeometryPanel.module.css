@@ -156,7 +156,7 @@
 
 .formatExample {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   white-space: nowrap;
 }
 
@@ -260,6 +260,6 @@
 
 .keep {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   flex: 1;
 }

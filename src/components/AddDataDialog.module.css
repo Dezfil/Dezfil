@@ -57,7 +57,7 @@
 .scopeNote {
   margin: 0;
   font-size: 12px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   line-height: 1.5;
   /* A 120-character unbroken project name wraps inside the dialog
      rather than running under its clipped edge. */

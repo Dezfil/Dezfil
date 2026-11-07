@@ -114,7 +114,7 @@
 .count {
   font-size: var(--text-meta);
   font-weight: 500;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .chevron {
@@ -211,7 +211,7 @@
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
 }
 
 .facts dd {
@@ -262,7 +262,7 @@
 .steps code {
   font-family: var(--font-mono);
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   overflow-wrap: anywhere;
 }
 

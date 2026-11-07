@@ -149,7 +149,7 @@
 }
 
 .tipKey {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .tipVal {

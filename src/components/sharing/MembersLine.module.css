@@ -42,13 +42,14 @@
   margin-left: -6px;
 }
 
+/* A deactivated person: their initials in the muted ink, never faded. */
 .face[data-off] {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   background: var(--bg-hover);
 }
 
-/* A deactivated person's picture is dimmed as the Share dialog dims it. */
-.face[data-off][data-face="picture"] {
+/* Their picture alone fades, as the Share dialog fades it. */
+.face[data-off][data-face="picture"] img {
   opacity: 0.5;
 }
 
@@ -60,7 +61,7 @@
 
 .members[data-none] em {
   font-style: normal;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .members[data-none] b {

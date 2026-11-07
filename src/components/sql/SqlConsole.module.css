@@ -42,7 +42,7 @@
 /* The count beside a tab's word, as the reference shows it */
 .tabCount {
   font-size: 10px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   background: var(--bg-raised);
   border-radius: var(--radius-pill);
   padding: 0 6px;
@@ -318,7 +318,7 @@
 .browserEmpty,
 .historyEmpty {
   padding: 18px 12px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
   text-align: center;
 }
@@ -416,7 +416,7 @@
 }
 .rowMeta {
   font-size: 10.5px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   padding-right: 4px;
@@ -668,7 +668,7 @@
   height: 100%;
   display: grid;
   place-items: center;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
   text-align: center;
   padding: 24px;
@@ -730,7 +730,7 @@
 .thType {
   display: block;
   font-size: 9.5px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   letter-spacing: 0.04em;
   font-weight: 400;
 }
@@ -757,7 +757,7 @@
   font-variant-numeric: tabular-nums;
 }
 .grid td[data-kind="geometry"] {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 .grid td[data-kind="null"] {
   color: var(--fg-faint);
@@ -866,7 +866,7 @@
   white-space: nowrap;
 }
 .mapTipKey {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* ---- history cards --------------------------------------------- */
@@ -941,7 +941,7 @@
 .cardWhen {
   margin-left: auto;
   font-size: 10.5px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
   flex: none;
 }
@@ -1058,7 +1058,7 @@
 }
 .menuItem span {
   font-size: 10.5px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* The two pane tabs each get half of the strip, 120px at the pane's 260px

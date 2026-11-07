@@ -105,7 +105,6 @@
 
 .key {
   color: var(--fg-muted);
-  opacity: 0.65;
   font-size: 11px;
   font-weight: 500;
 }

@@ -11,7 +11,7 @@
   border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius);
   background: transparent;
-  color: var(--fg-faint);
+  color: var(--fg);
   font-size: var(--text-label);
   cursor: pointer;
   transition: var(--dur-micro);
@@ -42,9 +42,15 @@
   color: var(--fg-muted);
 }
 
+/* The door's "+" keeps the decoration ink while its label reads in full
+   ink; it joins the door's accent sweep, and stays faint while inert. */
 .doorPlus {
   font-size: var(--text-heading);
   line-height: 1;
+  color: var(--fg-faint);
+}
+
+.door:hover:not(:disabled) .doorPlus {
   color: inherit;
 }
 

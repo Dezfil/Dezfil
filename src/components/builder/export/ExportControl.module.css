@@ -115,7 +115,7 @@
 
 .menu .doorText small {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* The chevron says the row expands rather than acts — and which way. */
@@ -197,7 +197,7 @@
 
 .menu .layerMeta {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   white-space: nowrap;
 }
 
@@ -309,7 +309,7 @@
 
 .menu a small,
 .menu button small {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: 11px;
 }
 

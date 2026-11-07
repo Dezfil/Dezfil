@@ -52,7 +52,7 @@
 .note {
   font-size: 11.5px;
   line-height: 1.5;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* Map layers — basemap content groups with eye toggles. */
@@ -91,7 +91,7 @@
 }
 
 .groupRow[data-off="true"] .groupLabel {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .groupEye {
@@ -124,15 +124,15 @@
 .thumbCredit {
   font-size: 11px;
   line-height: 1.4;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* A group the loaded custom style does not yield. */
 .groupRow[data-absent] .groupLabel {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .groupAbsent {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }

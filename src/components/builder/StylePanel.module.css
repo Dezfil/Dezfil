@@ -273,7 +273,7 @@
 
 .editHint {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   padding-top: 2px;
 }
 

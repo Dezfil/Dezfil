@@ -448,7 +448,6 @@
   z-index: 4;
   font-size: 11px;
   color: var(--fg-muted);
-  opacity: 0.8;
   pointer-events: auto;
   transition: bottom var(--dur-panel) var(--ease-panel);
 }

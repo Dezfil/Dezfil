@@ -40,7 +40,7 @@
   padding: 0 6px;
   border-radius: var(--radius-pill);
   background: var(--bg-raised);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-meta);
   font-weight: 500;
 }
@@ -89,7 +89,7 @@
   justify-content: center;
   text-align: center;
   font-size: var(--text-label);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .row {

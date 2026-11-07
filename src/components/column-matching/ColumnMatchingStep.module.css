@@ -67,5 +67,5 @@
 .keep {
   flex: 1;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
