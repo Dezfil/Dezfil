@@ -2,13 +2,15 @@
  * The source collector: what the app's source says about the elements it
  * draws and the styles that reach them, read without running anything.
  *
- * It reads every stylesheet under src/ into rules by selector, and every
- * component file into the elements it draws:
+ * It reads every stylesheet under src/ into rules by selector (a rule
+ * nested in another with its selectors composed), and every component file
+ * into the elements it draws:
  *
  *   - the classes each element can wear, from its own stylesheets (module
- *     classes), from plain class strings (global classes), and from a class
- *     handed to a component that puts it on an element, followed through
- *     components that pass it on;
+ *     classes), from plain class strings (global classes), from the
+ *     objects a JSX spread can be, and from a class handed to a component
+ *     that puts it on an element, followed through components that pass it
+ *     on, by name or in the props they spread;
  *   - the attributes it is drawn with, its inline style, the text written
  *     in it and the expressions it shows;
  *   - where it sits: its JSX parent, and for a component's outermost
@@ -30,20 +32,22 @@
  *   - stylesheet text a component writes in a <style> element, read as
  *     global rules of its file.
  *
- * A class expression, a style or a style's value, stylesheet text, or
- * markup that may carry styles of its own that it cannot read is recorded
- * in `unresolved` with its place, never dropped in silence.
+ * A class expression, a style or a style's value, stylesheet text,
+ * markup that may carry styles of its own, or a JSX spread that may carry
+ * a class or a style, that it cannot read is recorded in `unresolved` with
+ * its place, never dropped in silence.
  *
  * On top of that it answers: which elements a selector can stand for,
  * an element's parents and children in the drawn tree, whether it shows
- * text, and what it shows.
+ * text (the text a ::before or ::after rule's `content` writes in it
+ * included), and what it shows.
  *
  * Not seen: elements a library draws for itself (an editor's gutter, a
- * map's controls), text a stylesheet's `content` writes, a class a
- * component receives under a name it never puts on an element, props
- * passed through more than six components, a style an element is given
- * from another file's object (named as unread instead), and which branch
- * of a condition holds at run time: every branch is taken to be possible.
+ * map's controls), a class a component receives under a name it never
+ * puts on an element, props passed through more than six components, a
+ * style an element is given from another file's object (named as unread
+ * instead), and which branch of a condition holds at run time: every
+ * branch is taken to be possible.
  *
  * The parsing of stylesheets and of component imports is shared with the
  * class-pair sweep (scripts/check-class-pairs.mjs).
@@ -95,45 +99,136 @@ function declarationsOf(body) {
   return out;
 }
 
+const GROUPING = /^@(media|container|supports|layer|scope)\b/i;
+/** The most selectors one nested rule is composed into. */
+const NEST_CAP = 64;
+
+/**
+ * A nested rule's selectors, composed with the selectors of the rule it is
+ * nested in, as CSS nesting reads them: `&` stands for the parent, a
+ * selector without one sits under it (`.hint` is `& .hint`, `> .hint` is
+ * `& > .hint`). Each `&` takes each parent selector. Where `&` continues a
+ * compound (`.on&`) and the parent has combinators, the parent is written
+ * as `:is()`, which the matching reads loosely: an over-reading, never a
+ * miss.
+ */
+export function composeNested(parents, prelude) {
+  const out = [];
+  for (const raw of splitTop(prelude, /,/)) {
+    const sel = raw.replace(/\s+/g, " ").trim();
+    const rel = sel.includes("&") ? sel : "& " + sel;
+    let alts = [""];
+    let cur = "";
+    let quote = "";
+    let bracket = 0;
+    for (let i = 0; i < rel.length; i += 1) {
+      const ch = rel[i];
+      if (quote) {
+        if (ch === quote) quote = "";
+      } else if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === "[") bracket += 1;
+      else if (ch === "]") bracket -= 1;
+      if (ch !== "&" || quote || bracket) {
+        cur += ch;
+        continue;
+      }
+      const before = (alts[0] + cur).slice(-1);
+      const starts = !before || /[\s>+~(,]/.test(before);
+      const each = parents.map((p) => (starts || !/[\s>+~]/.test(p) ? p : `:is(${p})`));
+      alts = alts.flatMap((a) => each.map((p) => a + cur + p)).slice(0, NEST_CAP);
+      cur = "";
+    }
+    out.push(...alts.map((a) => (a + cur).replace(/\s+/g, " ").trim()));
+  }
+  return [...new Set(out)].slice(0, NEST_CAP);
+}
+
 /** Every style rule of a stylesheet: its selectors, the at-rules around it,
  * its declarations and its line. Grouping at-rules are read through;
- * keyframes, font faces and the like hold no element rules. With
- * `{ lines: true }` each declaration carries the line it starts on. */
+ * keyframes, font faces and the like hold no element rules. A rule nested
+ * in another is a rule of its own, its selectors composed with its
+ * parent's, and a grouping at-rule nested in a rule gives the parent's
+ * selectors the declarations it holds; the parent keeps the declarations
+ * written around them. With `{ lines: true }` each declaration carries the
+ * line it starts on. */
 export function parseRules(css, options = {}) {
   const src = blank(css);
   const rules = [];
   const lineAt = (i) => src.slice(0, i).split("\n").length;
-  const walk = (start, end, context) => {
+  /** The index just past the brace that closes the one at `i`. */
+  const closeOf = (i, end) => {
+    let depth = 1;
+    let quote = "";
+    let j = i + 1;
+    for (; j < end && depth > 0; j += 1) {
+      const ch = src[j];
+      if (quote) {
+        if (ch === quote && src[j - 1] !== "\\") quote = "";
+      } else if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === "{") depth += 1;
+      else if (ch === "}") depth -= 1;
+    }
+    return j;
+  };
+  const declsOf = (ranges) => ranges.flatMap(([a, b]) => (options.lines ? declarationsAt(src, a, b, lineAt) : declarationsOf(src.slice(a, b))));
+  /** The blocks written in [start, end): each with its prelude, where the
+   * prelude starts, its body, and the text between blocks. */
+  const blocksIn = (start, end) => {
+    const blocks = [];
+    const between = [];
     let head = start;
+    let from = start;
+    let quote = "";
     for (let i = start; i < end; i += 1) {
       const ch = src[i];
-      if (ch === ";" ) {
+      if (quote) {
+        if (ch === quote && src[i - 1] !== "\\") quote = "";
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        quote = ch;
+        continue;
+      }
+      if (ch === ";") {
         head = i + 1;
         continue;
       }
       if (ch !== "{") continue;
-      let depth = 1;
-      let j = i + 1;
-      for (; j < end && depth > 0; j += 1) {
-        if (src[j] === "{") depth += 1;
-        else if (src[j] === "}") depth -= 1;
-      }
-      const prelude = src.slice(head, i).trim();
-      const at = head + (src.slice(head, i).length - src.slice(head, i).trimStart().length);
-      if (prelude.startsWith("@")) {
-        if (/^@(media|container|supports|layer|scope)\b/i.test(prelude)) {
-          walk(i + 1, j - 1, [...context, prelude.replace(/\s+/g, " ")]);
-        }
-      } else if (prelude) {
-        rules.push({
-          selectors: splitTop(prelude, /,/).map((s) => s.replace(/\s+/g, " ")),
-          context: context.join(" "),
-          decls: options.lines ? declarationsAt(src, i + 1, j - 1, lineAt) : declarationsOf(src.slice(i + 1, j - 1)),
-          line: lineAt(at),
-        });
-      }
+      const j = closeOf(i, end);
+      const text = src.slice(head, i);
+      between.push([from, head]);
+      blocks.push({ prelude: text.trim(), at: head + (text.length - text.trimStart().length), body: [i + 1, j - 1] });
       i = j - 1;
       head = j;
+      from = j;
+    }
+    between.push([from, end]);
+    return { blocks, between };
+  };
+  /** A style rule's body: its own declarations, then what is nested in it. */
+  const rule = (selectors, context, at, [start, end]) => {
+    const { blocks, between } = blocksIn(start, end);
+    const own = { selectors, context: context.join(" "), decls: declsOf(between), line: lineAt(at) };
+    rules.push(own);
+    nested(blocks, selectors, context);
+  };
+  const nested = (blocks, selectors, context) => {
+    for (const b of blocks) {
+      if (b.prelude.startsWith("@")) {
+        if (!GROUPING.test(b.prelude)) continue;
+        const inner = [...context, b.prelude.replace(/\s+/g, " ")];
+        const { blocks: deeper, between } = blocksIn(...b.body);
+        const decls = declsOf(between);
+        if (decls.length) rules.push({ selectors, context: inner.join(" "), decls, line: lineAt(b.at) });
+        nested(deeper, selectors, inner);
+      } else if (b.prelude) rule(composeNested(selectors, b.prelude), context, b.at, b.body);
+    }
+  };
+  const walk = (start, end, context) => {
+    for (const b of blocksIn(start, end).blocks) {
+      if (b.prelude.startsWith("@")) {
+        if (GROUPING.test(b.prelude)) walk(...b.body, [...context, b.prelude.replace(/\s+/g, " ")]);
+      } else if (b.prelude) rule(splitTop(b.prelude, /,/).map((s) => s.replace(/\s+/g, " ")), context, b.at, b.body);
     }
   };
   walk(0, src.length, []);
@@ -574,6 +669,48 @@ function unwrap(node) {
   let n = node;
   while (n && (ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression?.(n) || ts.isNonNullExpression(n) || ts.isJsxExpression(n) || ts.isTypeAssertionExpression?.(n))) n = n.expression;
   return n;
+}
+
+/** The expressions a function returns, outside the functions nested in
+ * it; null for a return with no value. */
+function returnsOf(fn) {
+  if (!fn.body) return [];
+  if (!ts.isBlock(fn.body)) return [fn.body];
+  const out = [];
+  const visit = (n) => {
+    if (ts.isFunctionLike(n)) return;
+    if (ts.isReturnStatement(n)) out.push(n.expression ?? null);
+    ts.forEachChild(n, visit);
+  };
+  ts.forEachChild(fn.body, visit);
+  return out;
+}
+
+/** The member names the objects an expression can be may hold, read from
+ * object literals through conditions and fallbacks; null when a branch is
+ * anything else or holds a spread or a name that cannot be read. */
+function keysOf(node, depth = 0) {
+  const n = unwrap(node);
+  if (!n || n.kind === ts.SyntaxKind.NullKeyword || n.kind === ts.SyntaxKind.FalseKeyword || (ts.isIdentifier(n) && n.text === "undefined")) return new Set();
+  if (depth > 8) return null;
+  if (ts.isConditionalExpression(n)) {
+    const [a, b] = [keysOf(n.whenTrue, depth + 1), keysOf(n.whenFalse, depth + 1)];
+    return a && b ? new Set([...a, ...b]) : null;
+  }
+  if (ts.isBinaryExpression(n) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(n.operatorToken.kind)) {
+    const right = keysOf(n.right, depth + 1);
+    if (n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return right;
+    const left = keysOf(n.left, depth + 1);
+    return left && right ? new Set([...left, ...right]) : null;
+  }
+  if (!ts.isObjectLiteralExpression(n)) return null;
+  const out = new Set();
+  for (const p of n.properties) {
+    const key = ts.isSpreadAssignment(p) ? null : memberKey(p.name);
+    if (key === null) return null;
+    out.add(key);
+  }
+  return out;
 }
 
 /** Whether an initializer belongs to a `const`, so the value it gives is the
@@ -1398,9 +1535,9 @@ function readSource(file, text, env) {
    * the members of constant objects, a default a prop falls back to, and
    * `useMemo`. `none` marks a branch that gives no object; `opaque` one it
    * cannot read. A style a component is handed as a prop is read where the
-   * callers write it, so it is neither.
+   * callers write it, so it is neither; `prop` marks a branch that is one.
    */
-  const objectsOf = (raw, ctx, keys = [], depth = 0, out = { objects: [], none: false, opaque: false }) => {
+  const objectsOf = (raw, ctx, keys = [], depth = 0, out = { objects: [], none: false, opaque: false, prop: false }) => {
     const n = unwrap(raw);
     if (!n) {
       out.none = true;
@@ -1467,6 +1604,7 @@ function readSource(file, text, env) {
       if (held.param) {
         if (held.binding.fallback) objectsOf(held.binding.fallback, ctx, keys, depth + 1, out);
         if (!isProp(held, ctx)) out.opaque = true;
+        else out.prop = true;
         return out;
       }
       for (const e of held.exprs) {
@@ -1643,13 +1781,92 @@ function readSource(file, text, env) {
     return { inks: inksOf(node, ctx), opaque };
   };
 
+  /** The objects a JSX spread can be: through what objectsOf reads, and
+   * what a function of this file returns when the spread calls one. */
+  const spreadObjects = (expr, ctx) => {
+    const n = unwrap(expr);
+    if (n && ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+      const name = n.expression.text;
+      const f = ctx.constOf(name) ?? helpers.get(name);
+      const fn = f && !Array.isArray(f) ? functionOf(f) : null;
+      if (fn) {
+        const out = { objects: [], none: false, opaque: false, prop: false };
+        for (const r of returnsOf(fn)) objectsOf(r, r ? ctxFor(r) : ctx, [], 0, out);
+        return out;
+      }
+      // A function another file exports: what it returns is read for its
+      // member names, and gives nothing here when it holds no class or style.
+      const local = bindingOf(name, n);
+      const imported = !local || local.kind === "import" ? imports.get(name) : null;
+      const keys = imported && !imported.file.startsWith("external:") ? env.returnedKeys?.(imported.file, imported.name) : null;
+      if (keys && ![...keys].some((k) => k === "style" || CLASS_PROP.test(k))) return { objects: [], none: true, opaque: false, prop: false };
+    }
+    return objectsOf(expr, ctx);
+  };
+
+  /** Whether a JSX spread hands on the props the component is given: all
+   * of them, or the rest of them. */
+  const forwardedProps = (expr, ctx) => {
+    const n = unwrap(expr);
+    if (!n || !ts.isIdentifier(n) || !ctx.bindings || paramOfInner(n, n.text, ctx)) return null;
+    if (n.text === ctx.bindings.whole) return "whole";
+    if (n.text === ctx.bindings.rest) return "rest";
+    return null;
+  };
+
+  /** Whether a computed member name that cannot be read can still name a
+   * class. On an element only `className` does, so a template whose fixed
+   * start does not begin it cannot; a component's class props end in any
+   * name. */
+  const mayBeClassKey = (name, onElement) => {
+    const e = name && ts.isComputedPropertyName(name) ? unwrap(name.expression) : null;
+    if (!onElement || !e || !ts.isTemplateExpression(e) || !e.head.text) return true;
+    return "className".startsWith(e.head.text);
+  };
+
+  /** The class sets the class members hold once a spread's objects are
+   * written over `before` (a map of member to class sets), branch by
+   * branch: a branch that gives no object or leaves a member out keeps
+   * what it held. On an element the member is `className`; on a component
+   * call, every class prop. A member, a name or a nested spread it cannot
+   * read is handed to `miss`. */
+  const spreadClassMembers = (found, onElement, before, miss, depth = 0) => {
+    const isClass = onElement ? (n) => n === "className" : (n) => CLASS_PROP.test(n);
+    const branches = found.none ? [new Map(before)] : [];
+    for (const o of found.objects) {
+      let cur = new Map(before);
+      for (const p of o.properties) {
+        if (ts.isSpreadAssignment(p)) {
+          const inner = objectsOf(p.expression, ctxFor(p));
+          if (inner.opaque || inner.prop || depth > 4) miss(p.expression);
+          else cur = spreadClassMembers(inner, onElement, cur, miss, depth + 1);
+          continue;
+        }
+        const names = memberNames(p);
+        if (names === null) {
+          if (mayBeClassKey(p.name, onElement)) miss(p);
+          continue;
+        }
+        for (const name of names.filter(isClass)) {
+          const v = memberValue(p);
+          if (!v) miss(p);
+          cur.set(name, v ? alts(v, { ...ctxFor(v), globals: true, miss }) : EMPTY);
+        }
+      }
+      branches.push(cur);
+    }
+    const out = new Map();
+    for (const name of new Set(branches.flatMap((b) => [...b.keys()]))) out.set(name, union(...branches.map((b) => b.get(name) ?? EMPTY)));
+    return out;
+  };
+
   /** The style a JSX spread puts on an element, branch by branch: the
    * style member of each object it can be, or null where a branch has
-   * none. Null when the spread cannot be read. */
-  const spreadStyles = (expr, ctx) => {
-    const found = objectsOf(expr, ctx);
+   * none. Props the component is handed may bring a style or none, so a
+   * spread of them gives both. Null when the spread cannot be read. */
+  const spreadStyles = (found) => {
     if (found.opaque) return null;
-    const out = found.none ? [null] : [];
+    const out = found.none || found.prop || !found.objects.length ? [null] : [];
     for (const o of found.objects) {
       let style = null;
       for (const p of o.properties) {
@@ -1716,7 +1933,7 @@ function readSource(file, text, env) {
         file, line: lineOf(opening), component: ctx.component, helper: ctx.helper, tag, dom,
         alts: null, attrs: new Map(), spread: false, style: null, props: new Map(), parents: parent === null ? [] : [parent],
         children: [], texts: [], exprs: [], slot: false, slotProps: [], propJsx: new Map(), propHelpers: new Map(), propForward: new Map(),
-        helperCalls: [], refs: [], constName: null, fnName: null, html: false,
+        helperCalls: [], refs: [], constName: null, fnName: null, html: false, unreadSpreads: [],
         index: base + elements.length,
       };
       const missed = [];
@@ -1724,16 +1941,42 @@ function readSource(file, text, env) {
       // the order its attributes write it: a spread that brings a style
       // replaces the one before it.
       let inks = null;
-      for (const a of opening.attributes.properties) {
+      for (const [at, a] of opening.attributes.properties.entries()) {
         if (ts.isJsxSpreadAttribute(a)) {
           element.spread = true;
-          if (!dom && ts.isIdentifier(a.expression) && ctx.bindings && (a.expression.text === ctx.bindings.rest || a.expression.text === ctx.bindings.whole)) {
-            element.forwardsRest = true;
+          const found = spreadObjects(a.expression, ctx);
+          const forwards = forwardedProps(a.expression, ctx);
+          if (forwards) {
+            // The class a caller hands in: worn here, or handed on.
+            if (!dom) element.forwardsRest = true;
+            else if (forwards === "whole" || !ctx.bindings.bound.has("className")) element.alts = union(element.alts ?? EMPTY, [["p\tclassName"]]);
+          } else if (found.opaque || found.prop) {
+            // It may carry a class or a style: named as unread, unless the
+            // attributes after it set both again; on a call, once its
+            // component is known to put a class it is handed on an element.
+            const later = new Set(opening.attributes.properties.slice(at + 1).filter(ts.isJsxAttribute).map((x) => x.name.getText(source)));
+            const site = { line: lineOf(a), text: a.expression.getText(source).replace(/\s+/g, " ").slice(0, 100), later };
+            if (dom && !(later.has("className") && later.has("style"))) unresolved.push({ file, line: site.line, text: site.text, kind: "spread", component: ctx.component, element });
+            else if (!dom) element.unreadSpreads.push(site);
+          } else if (dom) {
+            const after = spreadClassMembers(found, true, new Map(element.alts ? [["className", element.alts]] : []), (n) => missed.push(n));
+            if (after.has("className")) element.alts = after.get("className");
+          } else {
+            const before = new Map([...element.props].filter(([n]) => CLASS_PROP.test(n)));
+            for (const [name, list] of spreadClassMembers(found, false, before, (n) => missed.push(n))) {
+              if (list.some((alt) => alt.length)) element.props.set(name, list);
+            }
+            // A style handed to a component: its objects are tied to the call.
+            for (const o of found.objects) {
+              for (const p of o.properties) if (!ts.isSpreadAssignment(p) && memberKey(p.name) === "style" && memberValue(p)) readStyle(memberValue(p), ctx, element, { quiet: true });
+            }
           }
-          const branches = dom ? spreadStyles(a.expression, ctx) : null;
+          const branches = dom ? spreadStyles(found) : null;
           if (branches) {
             const before = inks ?? [null];
             const next = branches.flatMap((style) => (style === null ? before : readStyle(style, ctx, element).inks));
+            // Props the component is handed may bring a style without a colour.
+            if (found.prop) next.push(null);
             inks = [...new Map(next.map((x) => [JSON.stringify(x), x])).values()];
           }
           continue;
@@ -2087,7 +2330,12 @@ function readSource(file, text, env) {
           byHandText(node, node.right, left);
         } else if (isElementStyle(left.expression)) {
           if (names === null) unreadAt(node);
-          else for (const name of names) name === "cssText" ? byHandText(node, node.right, left.expression) : byHand(node, name, node.right, left.expression);
+          else {
+            for (const name of names) {
+              if (name === "cssText") byHandText(node, node.right, left.expression);
+              else byHand(node, name, node.right, left.expression);
+            }
+          }
         }
       }
     }
@@ -2168,6 +2416,7 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
     if (text === undefined) return null;
     const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const consts = new Map();
+    const fns = new Map();
     const imported = new Map();
     // What the file exports under each name: its own constant, or one it
     // passes on from another file.
@@ -2175,6 +2424,10 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
     const passed = new Map();
     const stars = [];
     for (const statement of source.statements) {
+      if (ts.isFunctionDeclaration(statement) && statement.name && statement.body) {
+        fns.set(statement.name.text, statement);
+        if (statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) local.set(statement.name.text, statement.name.text);
+      }
       if (ts.isVariableStatement(statement)) {
         const exported = statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
         for (const d of statement.declarationList.declarations) {
@@ -2218,12 +2471,42 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
         }
         return scope.lookup(name, null, depth);
       },
+      /** The function another file imports from this one under a name. */
+      fn: (name, depth = 0) => {
+        const own = (n) => fns.get(n) ?? (consts.has(n) ? functionOf(consts.get(n)) : null);
+        if (local.has(name)) {
+          const found = own(local.get(name));
+          if (found) return found;
+          const from = imported.get(local.get(name));
+          return from && depth < 8 ? moduleScope(from.file)?.fn(from.name, depth + 1) ?? null : null;
+        }
+        const via = passed.get(name);
+        if (via) return depth < 8 ? moduleScope(via.file)?.fn(via.name, depth + 1) ?? null : null;
+        for (const star of stars) {
+          const found = depth < 8 ? moduleScope(star)?.fn(name, depth + 1) : null;
+          if (found) return found;
+        }
+        return own(name);
+      },
     };
     moduleScopes.set(file, scope);
     return scope;
   };
   const exportedAs = (file, name, depth = 0) => moduleScope(file)?.exported(name, depth) ?? null;
   const exported = (file, name) => exportedAs(file, name);
+  /** The member names the objects a function another file exports returns
+   * may hold, or null when that cannot be read. */
+  const returnedKeys = (file, name) => {
+    const fn = moduleScope(file)?.fn(name);
+    if (!fn) return null;
+    const keys = new Set();
+    for (const r of returnsOf(fn)) {
+      const k = keysOf(r);
+      if (!k) return null;
+      for (const x of k) keys.add(x);
+    }
+    return keys;
+  };
 
   /** One stylesheet's rules, custom properties and composed classes.
    * Stylesheet text a component writes in markup is read as a global
@@ -2259,7 +2542,7 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
       continue;
     }
     if (!file.endsWith(".tsx") && !CODE_STYLE_HINT.test(text)) continue;
-    const info = readSource(file, text, { root, exists, base: elements.length, exported });
+    const info = readSource(file, text, { root, exists, base: elements.length, exported, returnedKeys });
     elements.push(...info.elements);
     files.set(file, info);
     codeStyles.push(...info.codeStyles);
@@ -2436,6 +2719,32 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
     for (const [landing, list] of byLanding) {
       const target = elements[landing];
       el.landings.push({ alts: union(list), landing, tag: target?.dom ? target.tag : null });
+    }
+  }
+
+  /* A spread on a component call that cannot be read may hand it a class:
+   * named as unread where the component puts a class it is handed on an
+   * element, under a name no attribute after the spread sets again (a
+   * component from a package, or one not known, is taken to). */
+  const takesClass = new Map();
+  const handedClasses = (callee) => {
+    if (!callee || callee.external) return null;
+    const key = callee.file + "\t" + callee.name;
+    if (takesClass.has(key)) return takesClass.get(key);
+    const names = new Set(["className"]);
+    for (const el of byComponent.get(key) ?? []) {
+      for (const alt of [...(el.alts ?? []), ...[...el.props.values()].flat()]) for (const t of alt) if (t.startsWith("p\t") && CLASS_PROP.test(t.slice(2))) names.add(t.slice(2));
+    }
+    const found = [...names].filter((name) => landingsOf(callee, name).length > 0);
+    takesClass.set(key, found);
+    return found;
+  };
+  for (const el of elements) {
+    if (el.dom || !el.unreadSpreads.length) continue;
+    const handed = handedClasses(el.callee);
+    for (const site of el.unreadSpreads) {
+      if (handed && handed.every((name) => site.later.has(name))) continue;
+      unresolved.push({ file: el.file, line: site.line, text: site.text, kind: "spread", component: el.component, element: el });
     }
   }
 
@@ -2704,9 +3013,60 @@ export function selectorMatches(model, sel, el) {
   return elementsMatching(model, sel).includes(el);
 }
 
+/** A CSS string's text with its escapes read. */
+const cssString = (s) => s.replace(/\\([0-9a-fA-F]{1,6})\s?|\\([\s\S])/g, (_m, hex, ch) => (hex ? String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10ffff)) : ch === "\n" ? "" : ch));
+
+/** The text a `content` value writes before its alternative text: its
+ * strings with their escapes read; an attribute's, a counter's or a custom
+ * property's value stands as "{attr}", "{counter}" or "{var}". "" when it
+ * writes none. */
+export function contentText(value) {
+  const shown = splitTop(value, /\//)[0] ?? "";
+  let out = "";
+  for (const token of splitTop(shown, /\s/)) {
+    const quoted = /^(["'])([\s\S]*)\1$/.exec(token);
+    if (quoted) out += cssString(quoted[2]);
+    else if (/^attr\(/i.test(token)) out += "{attr}";
+    else if (/^counters?\(/i.test(token)) out += "{counter}";
+    else if (/^var\(/i.test(token)) out += "{var}";
+  }
+  return out;
+}
+
+/** Whether generated text is decoration: one to three characters with no
+ * letter or digit (an ornament glyph or a separator), or an icon font's
+ * glyph from the private use area. */
+export const isDecoration = (text) => {
+  const t = text.trim();
+  return /^[^\p{L}\p{N}]{1,3}$/u.test(t) || /^[\p{Co}\s]+$/u.test(t);
+};
+
+/** The text the ::before and ::after rules that can stand for an element
+ * write in it: `{ pseudo, text, decoration }` for each that writes some,
+ * whatever state the rule asks for (svg draws none). */
+export function generatedText(model, el) {
+  if (!model.generated) {
+    model.generated = new Map();
+    for (const sel of model.selectors) {
+      const pseudo = sel.subject?.pseudoElement;
+      if (pseudo !== "before" && pseudo !== "after") continue;
+      const content = sel.decls.filter((d) => d.prop === "content").at(-1);
+      const text = content ? contentText(content.value) : "";
+      if (!text.trim()) continue;
+      for (const m of elementsMatching(model, sel)) {
+        if (m.dom && (SVG_ART.has(m.tag.toLowerCase()) || SVG_TEXT.has(m.tag.toLowerCase()))) continue;
+        if (!model.generated.has(m.index)) model.generated.set(m.index, []);
+        model.generated.get(m.index).push({ pseudo, text: text.trim(), decoration: isDecoration(text), sel });
+      }
+    }
+  }
+  return model.generated.get(el.index) ?? [];
+}
+
 /** Whether an element shows text of its own: words or numbers written in
- * it, an expression that can be them, a field's value, or the text its
- * callers hand in through its children. */
+ * it, an expression that can be them, a field's value, the text its
+ * callers hand in through its children, or text a ::before or ::after
+ * rule writes in it that is no decoration. */
 export function bearsText(model, el) {
   if (el.dom) {
     const tag = el.tag.toLowerCase();
@@ -2715,6 +3075,7 @@ export function bearsText(model, el) {
     if (FIELDS.has(tag) || el.html) return true;
   }
   if (el.texts.length || el.exprs.length) return true;
+  if (generatedText(model, el).some((g) => !g.decoration)) return true;
   if (el.slot && el.component) {
     return rootCallers(model, el).some((call) => call.texts.length > 0 || call.exprs.length > 0);
   }

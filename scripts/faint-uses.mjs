@@ -22,18 +22,23 @@
  *     own, so it takes the faint ink from it. A class, a rule or an inline
  *     colour that holds only some of the time sets one only when every
  *     branch does;
- *   - opacity: every opacity under one (or an opacity() filter, or a
- *     see-through text colour) that applies at rest to an element with text
- *     in it, or to an element the source does not name, whatever that text's
- *     colour. A colour is see-through by its alpha, read through the colour
- *     functions it nests and the custom properties it names, in a
- *     stylesheet or set in code. Fully transparent is hiding, not fading,
- *     and is left out.
+ *   - opacity: every opacity under one (or a filter whose opacity()
+ *     functions multiply to less, or a see-through text colour) that
+ *     applies at rest to an element with text in it, or to an element the
+ *     source does not name, whatever that text's colour. A colour is
+ *     see-through by its alpha, and a filter list by the functions it
+ *     holds, each read through the colour functions it nests and the
+ *     custom properties it names, in a stylesheet or set in code. Fully
+ *     transparent is hiding, not fading, and is left out.
+ *
+ * Text a ::before or ::after rule writes is text of the element it is
+ * written in, for all four layers and for the kinds, unless it is
+ * decoration (an ornament glyph, an icon font's glyph, nothing at all).
  *
  * Each use carries what the check needs to judge a listed use by its kind:
  * the selectors, the value, the elements with what they show.
  */
-import { atRest, bearsText, cmp, collect, descend, elementIds, elementsMatching, selectorParts, shows, specificity, splitTop, statesOf } from "./source-collector.mjs";
+import { atRest, bearsText, cmp, collect, descend, elementIds, elementsMatching, generatedText, selectorParts, shows, specificity, splitTop, statesOf } from "./source-collector.mjs";
 
 /** The faint ink's spellings: the token, its palette capture and the Liquid
  * steps, and the raw hexes the token holds (light, dark, and by day). */
@@ -294,7 +299,36 @@ function reader(resolve = () => []) {
     }
     return [1];
   };
-  return { alphas, numbers };
+  /**
+   * Every opacity a filter list leaves what it draws with: the product of
+   * its opacity() functions, each list it can be, read through the custom
+   * properties it names (a property given nowhere is a token from outside
+   * the tree and fades nothing). One it cannot work out is NaN.
+   */
+  const filters = (value, seen = new Set()) => {
+    let out = [1];
+    for (const token of splitTop(value.trim(), /\s/)) {
+      let xs = [1];
+      const ref = varOf(token);
+      if (ref) {
+        if (seen.has(ref.prop)) xs = [NaN];
+        else {
+          xs = resolve(ref.prop).flatMap((g) => filters(g, new Set([...seen, ref.prop])));
+          if (ref.fallback !== null) xs.push(...filters(ref.fallback, seen));
+          if (!xs.length) xs = [1];
+        }
+      } else {
+        const call = callOf(token.trim());
+        if (call?.name === "opacity" && call.inner.trim()) {
+          xs = numbers(call.inner, {}, seen).map((x) => (Number.isFinite(x) ? Math.min(Math.max(x, 0), 1) : NaN));
+          if (!xs.length) xs = [1];
+        }
+      }
+      out = unique(out.flatMap((a) => xs.map((x) => a * x)));
+    }
+    return out;
+  };
+  return { alphas, numbers, filters };
 }
 
 /** The opacity a colour paints with, from nothing to all: the faintest it
@@ -304,20 +338,19 @@ export function alphaOf(value) {
 }
 
 /**
- * How much a declaration fades what it draws, or null: an opacity, an
- * opacity() filter or a see-through colour that can be between none and
- * all, read through the custom properties it names (`resolve` gives a
- * property's values). The faintest wins; one it cannot work out is NaN, a
- * fade all the same. Fully transparent is hiding, not fading.
+ * How much a declaration fades what it draws, or null: an opacity, a
+ * filter list whose opacity() functions multiply, or a see-through colour
+ * that can be between none and all, read through the custom properties it
+ * names (`resolve` gives a property's values). The faintest wins; one it
+ * cannot work out is NaN, a fade all the same. Fully transparent is
+ * hiding, not fading.
  */
 export function fadeOf(prop, value, resolve) {
   const read = reader(resolve);
   let xs = null;
   if (prop === "opacity") xs = read.numbers(value);
-  else if (prop === "filter") {
-    const m = /opacity\(\s*([^)]*(?:\([^)]*\))?[^)]*)\s*\)/.exec(value);
-    xs = m ? read.numbers(m[1]) : null;
-  } else if (TEXT_COLOUR.has(prop) || prop === "fill") xs = read.alphas(value);
+  else if (prop === "filter") xs = read.filters(value);
+  else if (TEXT_COLOUR.has(prop) || prop === "fill") xs = read.alphas(value);
   if (!xs) return null;
   const fading = xs.filter(between);
   if (fading.length) return Math.min(...fading);
@@ -350,7 +383,21 @@ export function faintUses(model) {
     if (!uses.has(key)) uses.set(key, { layer, id, ...base, selectors: [], decls: [], elements: new Map(), inherits: new Map(), inside: new Map() });
     return uses.get(key);
   };
-  const entry = (el) => ({ id: ids.get(el.index), el, text: bearsText(model, el), shows: shows(model, el) });
+  /** An element a use reaches, with whether it shows text and what. The
+   * text a ::before or ::after rule writes in it is its text too, unless
+   * it is decoration; a rule on one of those reaches only what that
+   * pseudo-element writes, a glyph included, so its kind can say which. */
+  const entry = (el, pseudo = null) => {
+    const generated = generatedText(model, el);
+    if (pseudo === "before" || pseudo === "after") {
+      const own = generated.filter((g) => g.pseudo === pseudo).map((g) => g.text);
+      return { id: ids.get(el.index), el, text: own.length > 0, shows: shows(model, el), own: false, generated: own };
+    }
+    const words = generated.filter((g) => !g.decoration).map((g) => g.text);
+    const written = shows(model, el);
+    const more = words.map((t) => "content " + JSON.stringify(t)).join(" ");
+    return { id: ids.get(el.index), el, text: bearsText(model, el), shows: written && more ? written + " " + more : written || more, own: true, generated: words };
+  };
 
   const customs = customValues(model);
   const resolve = (prop) => customs.get(prop) ?? [];
@@ -588,7 +635,7 @@ export function faintUses(model) {
         if (pseudo) u.pseudo.add(pseudo);
         u.rule = sel;
         for (const el of fill ? filled : elementsMatching(model, sel)) {
-          const e = entry(el);
+          const e = entry(el, pseudo);
           if (pseudo === "placeholder") e.shows = typeof el.attrs.get("placeholder") === "string" ? "placeholder " + JSON.stringify(el.attrs.get("placeholder")) : "a placeholder";
           else if (pseudo === "before" || pseudo === "after") e.shows = "content " + (sel.decls.find((x) => x.prop === "content")?.value ?? "(none)");
           u.elements.set(e.id, e);
@@ -602,7 +649,7 @@ export function faintUses(model) {
           ? filled
           : elementsMatching(model, sel).filter((el) => {
               if (pseudo === "placeholder") return typeof el.attrs.get("placeholder") === "string" || model.tagsOf(el).some((t) => t === "input" || t === "textarea");
-              if (pseudo === "before" || pseudo === "after") return /["'][^"']*\p{L}/u.test(sel.decls.find((x) => x.prop === "content")?.value ?? "");
+              if (pseudo === "before" || pseudo === "after") return generatedText(model, el).some((g) => g.pseudo === pseudo && !g.decoration);
               if (pseudo) return false;
               return textInside(el);
             });
@@ -613,7 +660,7 @@ export function faintUses(model) {
         if (pseudo) u.pseudo.add(pseudo);
         u.rule = sel;
         for (const el of reached) {
-          const e = entry(el);
+          const e = entry(el, pseudo);
           u.elements.set(e.id, e);
           for (const inner of fill ? svgTextBelow(el) : textBelow(el)) u.inside.set(ids.get(inner.index), entry(inner));
         }
@@ -694,11 +741,13 @@ const literal = (expr) => {
   const m = /^\s*(["'`])([^"'`$]*)\1\s*$/.exec(expr);
   return m ? m[2] : null;
 };
-/** What an element shows as written text: its text and its literal
- * expressions; null when it shows an expression that is not a literal. */
-const written = (el) => {
-  const out = [...el.texts];
-  for (const x of el.exprs) {
+/** What an entry shows as written text: its element's text and literal
+ * expressions (unless the use reaches only a pseudo-element's), and the
+ * text a ::before or ::after rule writes; null when it shows an
+ * expression that is not a literal. */
+const written = (e) => {
+  const out = [...(e.own === false ? [] : e.el.texts), ...(e.generated ?? [])];
+  for (const x of e.own === false ? [] : e.el.exprs) {
     const l = literal(x);
     if (l === null) return null;
     out.push(l);
@@ -713,11 +762,13 @@ const NO_VALUE = /^[—–∅-]$/u;
 /** A sentence: three words or more, a clause closed by a full stop, a
  * question or an exclamation mark. A placeholder prompts; it does not explain. */
 const isSentence = (t) => t.split(/\s+/).filter(Boolean).length >= 3 && /[\p{L}\p{N})][.!?](?=\s|$)/u.test(t);
-/** What an element shows: its written text with its literal expressions,
- * and whether it also shows an expression that is not written out. */
-const readText = (el) => {
-  const words = [...el.texts, ...el.exprs.map(literal).filter((l) => l !== null)].map((t) => t.trim()).filter(Boolean);
-  return { words, open: el.exprs.some((x) => literal(x) === null) };
+/** What an entry shows: its written text with its literal expressions
+ * and the text a ::before or ::after rule writes, and whether it also
+ * shows an expression that is not written out. */
+const readText = (e) => {
+  const exprs = e.own === false ? [] : e.el.exprs;
+  const words = [...(e.own === false ? [] : e.el.texts), ...(e.generated ?? []), ...exprs.map(literal).filter((l) => l !== null)].map((t) => t.trim()).filter(Boolean);
+  return { words, open: exprs.some((x) => literal(x) === null) };
 };
 
 /** The states a selector asks for that make a control disabled. */
@@ -763,7 +814,7 @@ export const KINDS = {
     if (pseudo) return null;
     for (const e of textEntries(use)) {
       if (ctx?.overField(e.el)) continue;
-      const { words, open } = readText(e.el);
+      const { words, open } = readText(e);
       if (open || !words.length) return `${e.id} shows text the check cannot read, and is no hidden overlay on a field: ${e.shows}`;
       if (words.some(isSentence)) return `${e.id} shows a sentence: ${e.shows}`;
     }
@@ -774,7 +825,7 @@ export const KINDS = {
   ornament(use) {
     if (!textEntries(use).length) return "it reaches no glyph";
     for (const e of textEntries(use)) {
-      const w = written(e.el);
+      const w = written(e);
       if (w === null) return `${e.id} shows an expression, not a glyph`;
       if (w.some((t) => !GLYPH.test(t))) return `${e.id} shows words: ${e.shows}`;
     }
@@ -787,7 +838,7 @@ export const KINDS = {
     if (!entries.length) return "it reaches no no-value mark";
     const nullState = use.selectors.length > 0 && use.selectors.every(saysNull);
     for (const e of entries) {
-      const { words, open } = readText(e.el);
+      const { words, open } = readText(e);
       if (words.some((t) => !NO_VALUE.test(t))) return `${e.id} shows more than the no-value mark: ${e.shows}`;
       if (open && !nullState) return `${e.id} shows an expression, and no selector asks for a null state: ${e.shows}`;
       if (!open && !words.length) return `${e.id} shows text the check cannot read: ${e.shows}`;
@@ -801,7 +852,7 @@ export const KINDS = {
     const named = use.origin === "css" ? use.selectors.every((s) => NUMBERING.test(s)) : (use.keys ?? []).some((k) => NUMBERING.test(k));
     if (!named) return "the style is not a numbering one";
     for (const e of textEntries(use)) {
-      if (e.el.texts.some((t) => /\p{L}/u.test(t))) return `${e.id} shows words: ${e.shows}`;
+      if (written(e)?.some((t) => /\p{L}/u.test(t)) ?? e.el.texts.some((t) => /\p{L}/u.test(t))) return `${e.id} shows words: ${e.shows}`;
     }
     return null;
   },
