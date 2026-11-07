@@ -1210,3 +1210,153 @@ describe("the faint boundary reads a custom property's registered initial value"
     expect(judged({ css, extra: HINT_CLASS_P })).toEqual([]);
   });
 });
+
+/* ---- the page itself ---- */
+
+const PAGE_HINT = `\n      <p>Only the owner can publish.</p>`;
+const PAGE_HINT_ID = `${TSX} :: Panel <p> "Only the owner can publish."`;
+/** The text inside the fades a seeded tree adds to the base one. */
+const insideAdded = (seed: Seed): string[] =>
+  [...usesOf(tree(seed)).uses.values()].filter((u) => u.layer === "opacity" && !(`${u.layer} :: ${u.id}` in KIND_OF)).flatMap((u) => [...u.inside.keys()]);
+/** A root layout that draws the document element and the body around the page. */
+const LAYOUT = (html: string, body: string, top = "") => ({
+  "src/fixture/layout.tsx": `${top}export default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en"${html}>\n      <body${body}>{children}</body>\n    </html>\n  );\n}\n`,
+});
+const byHandOnPage = (body: string) => ({ top: `\nfunction dimPage() {\n  ${body}\n}` });
+/** Rows for every use of a tree, the added ones listed as an icon's colour,
+ * as a list written before any text took the ink would hold them. */
+const listedAsIcon = (seed: Seed): Row[] => {
+  const uses = usesOf(tree(seed));
+  const kinds = Object.fromEntries([...uses.uses.keys()].map((k) => [k, k in KIND_OF ? KIND_OF[k as keyof typeof KIND_OF] : "non-text"]));
+  return rowsFor(uses, kinds).map((r) => ({ ...r, inherits: [], ...(r.elements?.length ? {} : { unseen: "the page" }) }));
+};
+
+describe("the faint boundary reads a fade or a faint ink set on the page itself", () => {
+  /* A rule on html, body or :root holds over every element, so a fade
+   * there sits over all the text on the page. */
+  const IN_SHEET: [string, Seed][] = [
+    ["an opacity on the body in a global stylesheet", { files: { "src/fixture/globals.css": "body { opacity: .5; }" } }],
+    ["an opacity on the document element in a global stylesheet", { files: { "src/fixture/globals.css": "html { opacity: 50%; }" } }],
+    ["a filter opacity on :root", { files: { "src/fixture/globals.css": ":root { filter: opacity(.5); }" } }],
+    ["a prefixed filter opacity on the body under the document element", { files: { "src/fixture/globals.css": "html > body { -webkit-filter: blur(0)opacity(.5); }" } }],
+    ["an opacity on the body under a theme the page wears", { files: { "src/fixture/globals.css": ':root[data-theme="dark"] body { opacity: .5; }' } }],
+    ["an opacity on the body under a media query", { files: { "src/fixture/globals.css": "@media (min-width: 1px) { body { opacity: .5; } }" } }],
+    ["an opacity on the body held in a custom property", { files: { "src/fixture/globals.css": ":root { --page-dim: .5; }\nbody { opacity: var(--page-dim); }" } }],
+    ["a see-through text colour on the body", { files: { "src/fixture/globals.css": "body { color: rgb(0 0 0 / 0.5); }" } }],
+    ["an opacity on :global(body) in a module", { css: ":global(body) { opacity: .5; }" }],
+    ["a filter opacity on :global(html) in a module", { css: ":global(html) { filter: grayscale(1) opacity(.5); }" }],
+  ];
+  it.each(IN_SHEET)("fails on %s", (_name, seed) => {
+    const full = { ...seed, extra: PAGE_HINT };
+    expect(checks(judged(full))).toEqual(["opacity"]);
+    expect(insideAdded(full)).toContain(PAGE_HINT_ID);
+  });
+
+  /* The same set in code: inline on the document element or the body a
+   * layout draws, through a class the layout puts there, or by hand. */
+  const IN_CODE: [string, Seed][] = [
+    ["an opacity inline on the document element in a layout", { files: LAYOUT(" style={{ opacity: 0.5 }}", "") }],
+    ["a filter opacity inline on the body in a layout", { files: LAYOUT("", ` style={{ filter: "opacity(.5)" }}`) }],
+    ["an opacity in a style object the body wears", { files: LAYOUT("", " style={PAGE_STYLE}", "const PAGE_STYLE = { opacity: 0.6 };\n") }],
+    ["an opacity in a class the layout puts on the body", { files: { ...LAYOUT("", " className={page.root}", `import page from "./layout.module.css";\n`), "src/fixture/layout.module.css": ".root { opacity: .5; }" } }],
+    ["an opacity set on the body by hand", byHandOnPage(`document.body.style.opacity = "0.5";`)],
+    ["a filter opacity set on the document element through setProperty", byHandOnPage(`document.documentElement.style.setProperty("filter", "opacity(.5)");`)],
+    ["an opacity in the body's cssText", byHandOnPage(`document.body.style.cssText = "opacity: .5";`)],
+    ["an opacity set by hand through a name for the document element", byHandOnPage(`const root = document.documentElement;\n  root.style.opacity = "0.5";`)],
+  ];
+  it.each(IN_CODE)("fails on %s", (_name, seed) => {
+    const full = { ...seed, extra: PAGE_HINT };
+    expect(checks(judged(full))).toEqual(["opacity"]);
+    expect(insideAdded(full)).toContain(PAGE_HINT_ID);
+  });
+
+  /* A faint ink on the page is inherited by all the text that sets none of
+   * its own, so it cannot pass as an icon's colour. */
+  const INKS: [string, Seed][] = [
+    ["a faint ink on the body in a global stylesheet", { files: { "src/fixture/globals.css": "body { color: var(--fg-faint); }" } }],
+    ["a faint ink on :global(:root) in a module", { css: ":global(:root) { color: var(--fg-faint); }" }],
+    ["a faint ink inline on the body in a layout", { files: LAYOUT("", ` style={{ color: "var(--fg-faint)" }}`) }],
+    ["a faint ink set on the body by hand", byHandOnPage(`document.body.style.color = "var(--fg-faint)";`)],
+  ];
+  it.each(INKS)("fails on %s, listed as an icon's colour", (_name, seed) => {
+    const full = { ...seed, extra: PAGE_HINT };
+    const f = judge(usesOf(tree(full)), { allowed: listedAsIcon(full) });
+    expect(checks(f)).toEqual(["inheritance", "kind"]);
+    expect(f.filter((x) => x.check === "inheritance").map((x) => x.message).join("\n")).toContain(`${PAGE_HINT_ID} inherits it`);
+  });
+
+  it("passes a page colour that is not faint and a page opacity of one, in a stylesheet and in code", () => {
+    const seed = {
+      css: ":global(body) { opacity: 100%; }",
+      files: {
+        "src/fixture/globals.css": ":root { color: var(--fg); filter: grayscale(0) opacity(1); }\nhtml { opacity: 1; }\nbody { color: var(--fg-muted); }",
+        ...LAYOUT(` style={{ colorScheme: "light" }}`, ` style={{ color: "var(--fg)", opacity: 1 }}`),
+      },
+      top: `\nfunction dimPage() {\n  document.body.style.opacity = "1";\n  document.documentElement.style.filter = "opacity(100%)";\n}`,
+      extra: PAGE_HINT,
+    };
+    expect(judged(seed)).toEqual([]);
+    expect(unreadOf(seed)).toEqual([]);
+  });
+});
+
+/* ---- elements made by a call ---- */
+
+describe("the faint boundary reads the elements React's createElement makes", () => {
+  const FADE = ".hint { opacity: .5; }";
+  const NAMED = `\nimport { createElement } from "react";`;
+  const MADE: [string, Seed][] = [
+    ["a class given to React.createElement", { top: `\nimport React from "react";`, css: FADE, extra: `\n      {React.createElement("p", { className: styles.hint }, "Only the owner can publish.")}` }],
+    ["a class given after a spread it cannot read", { top: NAMED, head: `\n  const rest = propsFor(busy);`, css: FADE, extra: `\n      {createElement("p", { ...rest, className: styles.hint }, "Only the owner can publish.")}` }],
+    ["a class given to createElement under another name", { top: `\nimport { createElement as h } from "react";`, css: FADE, extra: `\n      {h("p", { className: styles.hint }, "Only the owner can publish.")}` }],
+    ["a class given to createElement in a .ts file", { css: FADE, files: { "src/fixture/hint.ts": `import { createElement } from "react";\nimport styles from "./panel.module.css";\nexport function Hint() {\n  return createElement("p", { className: styles.hint }, "Only the owner can publish.");\n}\n` } }],
+    ["a class on an element whose text a nested createElement draws", { top: NAMED, css: FADE, extra: `\n      {createElement("div", { className: styles.hint }, createElement("b", null, "Only the owner can publish."))}` }],
+    ["a class with the text handed in as the children prop", { top: NAMED, css: FADE, extra: `\n      {createElement("p", { className: styles.hint, children: "Only the owner can publish." })}` }],
+    ["a style given to createElement", { top: NAMED, extra: `\n      {createElement("p", { style: { opacity: 0.5 } }, "Only the owner can publish.")}` }],
+    ["a tag held in a constant", { top: `${NAMED}\nconst TAG = "p";`, css: FADE, extra: `\n      {createElement(TAG, { className: styles.hint }, "Only the owner can publish.")}` }],
+  ];
+  it.each(MADE)("fails on a hint faded through %s", (_name, seed) => {
+    const f = judged(seed);
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain('"Only the owner can publish."');
+  });
+
+  it("fails on a hint that wears a listed icon class through a component createElement calls", () => {
+    const takesClass = `\nfunction Hint({ className, children }: { className?: string; children: React.ReactNode }) {\n  return <p className={className}>{children}</p>;\n}`;
+    const f = judged({ top: NAMED + takesClass, extra: `\n      {createElement(Hint, { className: styles.tool }, "Readable hint")}` });
+    expect(checks(f)).toEqual(["element", "kind"]);
+    expect(f.find((x) => x.check === "element")?.message).toContain('"Readable hint" wears it');
+  });
+
+  it("fails on text a createElement call draws inside a listed faint container", () => {
+    const seed = { top: NAMED, body: inTool(`{createElement("span", null, "Export")}`) };
+    const f = judged(seed, { allowed: asIconRows(seed) });
+    expect(checks(f)).toEqual(["inheritance", "kind"]);
+    expect(f.find((x) => x.check === "inheritance")?.message).toContain('<span> "Export" inherits it');
+  });
+
+  const UNREAD_MADE: [string, Seed, string][] = [
+    ["a spread it cannot read before a class", { top: NAMED, head: `\n  const rest = propsFor(busy);`, extra: `\n      {createElement("p", { ...rest, className: styles.name }, "Readable hint")}` }, "spread :: rest"],
+    ["props it cannot read", { top: NAMED, head: `\n  const props = propsFor(busy);`, extra: `\n      {createElement("p", props, "Readable hint")}` }, "spread :: props"],
+    ["a tag it cannot read", { top: NAMED, extra: `\n      {createElement(busy ? "p" : "span", { className: styles.name }, "Readable hint")}` }, `element :: createElement(busy ? "p" : "span", { className: styles.name }, "Readable hint")`],
+    ["a member it cannot name", { top: NAMED, head: `\n  const key = keyFor(busy);`, extra: `\n      {createElement("p", { [key]: styles.hint }, "Readable hint")}` }, "class :: [key]: styles.hint"],
+    ["the props cloneElement gives an element", { top: `\nimport { cloneElement } from "react";`, head: `\n  const hint = <p>Readable hint</p>;`, extra: `\n      {cloneElement(hint, { className: styles.hint })}` }, "element :: cloneElement(hint, { className: styles.hint })"],
+  ];
+  it.each(UNREAD_MADE)("names %s as unread", (_name, seed, site) => {
+    expect(unreadOf(seed)).toContain(site);
+  });
+
+  it("passes elements createElement makes that keep text readable, and the document's own createElement", () => {
+    const seed = {
+      top: `\nimport React, { createElement } from "react";\nfunction mount(doc: Document) {\n  const el = doc.createElement("div");\n  el.textContent = "Loading";\n  return el;\n}`,
+      extra: [
+        `{createElement("p", { className: styles.name }, "Readable hint")}`,
+        `{React.createElement("p", { title: "Roads", style: { color: "var(--fg)", opacity: 1 } }, "Readable hint")}`,
+        `{createElement("p", { ...{ title: "Roads" }, className: styles.name }, "Readable hint")}`,
+        `{createElement("p", null, "Readable hint")}`,
+      ].map((x) => `\n      ${x}`).join(""),
+    };
+    expect(judged(seed)).toEqual([]);
+    expect(unreadOf(seed)).toEqual([]);
+  });
+});

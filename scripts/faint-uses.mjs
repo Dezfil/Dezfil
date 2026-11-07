@@ -36,6 +36,14 @@
  * four layers and for the kinds, unless it is decoration (an ornament
  * glyph, an icon font's glyph, nothing at all).
  *
+ * What is set on the page itself (a rule on html, body or :root, a style
+ * or a class on the html or body element a layout draws, a style set by
+ * hand on the body or the document element) holds over every element: a
+ * fade there sits over all the text on the page, and a faint ink there is
+ * inherited by all the text that sets no ink of its own. An ink the body
+ * sets over one set on html is not read: text is taken to inherit the
+ * page's ink either way.
+ *
  * Each use carries what the check needs to judge a listed use by its kind:
  * the selectors, the value, the elements with what they show.
  */
@@ -53,6 +61,13 @@ const SVG_TEXT = /^(text|tspan|textpath)$/i;
 const NO_COLOUR = /^(inherit|currentcolor|unset|initial|revert|revert-layer)$/i;
 /** Fields keep the browser's own ink unless a rule says otherwise. */
 const FIELD_TAGS = new Set(["input", "textarea", "select"]);
+/** The page's own elements. */
+const PAGE_TAGS = /^(html|body)$/i;
+/** The page, where a rule or a style set by hand names it and the tree
+ * draws no html or body element to stand for it. */
+const PAGE = Object.freeze({ page: true });
+/** How deep a walk over the whole page goes, from its outermost elements. */
+const PAGE_DEPTH = 96;
 
 /** A selector with its :not() parts left out, so what remains is what it asks for. */
 const positive = (selector) => selector.replace(/:not\((?:[^()]|\([^()]*\))*\)/g, "");
@@ -585,10 +600,32 @@ export function faintUses(model) {
   const isBox = (el) => el.dom || el.landings.length > 0;
   const textual = (el) => (isBox(el) ? bearsText(model, el) : el.texts.length || el.exprs.length);
 
-  /** Text-bearing elements inside one that set no colour of their own. A
-   * call that puts classes on several elements is read at those elements,
-   * the text it hands in where its component shows it. */
+  /** The page itself: html and body as the tree draws them, or PAGE. */
+  const isPage = (el) => el === PAGE || (el.dom && PAGE_TAGS.test(el.tag));
+  /** The rule's stand-ins on the page: the html or body elements the tree
+   * draws for its subject (:root is html), or PAGE when it draws none. */
+  const pageElements = (subject) => {
+    const tag = subject.tag === "body" ? "body" : "html";
+    const drawn = (model.byTag.get(tag) ?? []).filter((el) => el.dom);
+    return drawn.length ? drawn : [PAGE];
+  };
+  /** The outermost elements of the page: those no element and no component
+   * call in the tree draws. */
+  let tops = null;
+  const pageTops = () => (tops ??= model.elements.filter((el) => !el.parents.length && !(el.component && model.callers.get(el.file + "\t" + el.component)?.length)));
+  /** Every element with text in it, all of which sit on the page. */
+  let pageTexts = null;
+  const pageText = () => (pageTexts ??= model.elements.filter(textual));
+
+  let pageInherits = null;
+  /** Text-bearing elements inside one that set no colour of their own (on
+   * the page, all the page's). A call that puts classes on several elements
+   * is read at those elements, the text it hands in where its component
+   * shows it. */
   const inherited = (root) => {
+    const page = isPage(root);
+    if (page && pageInherits) return pageInherits;
+    const depth = page ? PAGE_DEPTH : undefined;
     const out = [];
     const queue = [];
     const queued = new Set();
@@ -596,26 +633,34 @@ export function faintUses(model) {
       if (spreadsOut(el) && el.callee && !el.callee.external) {
         for (const r of model.rootsOf(el.callee.file, el.callee.name)) {
           const key = r.index + ":" + el.index;
-          if (!queued.has(key) && queue.length < 64) {
+          if (!queued.has(key) && queue.length < (page ? 4096 : 64)) {
             queued.add(key);
             queue.push({ el: r, stack: [...stack, el] });
           }
         }
         return false;
       }
-      if (isBox(el) && ownColour(el, stack)) return false;
+      // On the page, its own elements take the ink being traced.
+      if (isBox(el) && !(page && isPage(el)) && ownColour(el, stack)) return false;
       if (textual(el)) out.push(el);
       return true;
     };
-    descend(model, [root], visit);
+    // The page's ink reaches down from its outermost elements.
+    if (page) {
+      for (const top of pageTops()) if (visit(top, 1, []) !== false) descend(model, [{ el: top, stack: [] }], visit, depth);
+    } else descend(model, [root], visit);
     for (let i = 0; i < queue.length; i += 1) {
       const { el, stack } = queue[i];
-      if (visit(el, 1, stack) !== false) descend(model, [{ el, stack }], visit);
+      if (visit(el, 1, stack) !== false) descend(model, [{ el, stack }], visit, depth);
     }
-    return [...new Set(out)];
+    const found = [...new Set(out)];
+    if (page) pageInherits = found;
+    return found;
   };
-  /** The text-bearing elements inside one, whatever their ink. */
+  /** The text-bearing elements inside one, whatever their ink: on the
+   * page, every one. */
   const textBelow = (root) => {
+    if (isPage(root)) return pageText();
     const out = [];
     descend(model, [root], (el) => {
       if (textual(el)) out.push(el);
@@ -626,6 +671,7 @@ export function faintUses(model) {
   /** Whether an element or anything drawn inside it shows text. */
   const textMemo = new Map();
   const textInside = (root) => {
+    if (isPage(root)) return pageText().length > 0;
     if (textMemo.has(root.index)) return textMemo.get(root.index);
     let found = bearsText(model, root);
     if (!found) {
@@ -640,9 +686,10 @@ export function faintUses(model) {
   };
   /** Svg text: an element whose fill is the colour its text is drawn in,
    * and the svg text drawn inside one, which takes the fill it is given. */
-  const isSvgText = (el) => model.tagsOf(el).some((t) => SVG_TEXT.test(t));
+  const isSvgText = (el) => el !== PAGE && model.tagsOf(el).some((t) => SVG_TEXT.test(t));
   const svgTextMemo = new Map();
   const svgTextBelow = (root) => {
+    if (isPage(root)) return pageText().filter((el) => isSvgText(el) && bearsText(model, el));
     if (svgTextMemo.has(root.index)) return svgTextMemo.get(root.index);
     const out = [];
     descend(model, [root], (el) => {
@@ -654,12 +701,14 @@ export function faintUses(model) {
   };
   const fillsText = (el) => (isSvgText(el) && bearsText(model, el)) || svgTextBelow(el).length > 0;
 
-  /* Stylesheets. */
+  /* Stylesheets. A rule on the page itself stands for its html or body
+   * elements, or for the page where the tree draws none. */
   for (const sel of model.selectors) {
     const pseudo = sel.subject.pseudoElement;
+    const matched = !pseudo && sel.subject.document ? pageElements(sel.subject) : elementsMatching(model, sel);
     for (const d of sel.decls) {
       const fill = d.prop === "fill";
-      const filled = fill ? elementsMatching(model, sel).filter(fillsText) : [];
+      const filled = fill ? matched.filter(fillsText) : [];
       const ink = TEXT_COLOUR.has(d.prop) || (fill && (SVG_TEXT.test(sel.subject.tag ?? "") || filled.length > 0));
       if (ink && isFaint(d.value, aliases)) {
         const u = record("ink", ruleId(sel), { file: sel.file, line: d.line, origin: "css", value: d.value, pseudo: new Set() });
@@ -667,11 +716,13 @@ export function faintUses(model) {
         if (!u.decls.includes(d)) u.decls.push(d);
         if (pseudo) u.pseudo.add(pseudo);
         u.rule = sel;
-        for (const el of fill ? filled : elementsMatching(model, sel)) {
-          const e = entry(el, pseudo);
-          if (pseudo === "placeholder") e.shows = typeof el.attrs.get("placeholder") === "string" ? "placeholder " + JSON.stringify(el.attrs.get("placeholder")) : "a placeholder";
-          else if (WRITES.has(pseudo)) e.shows = "content " + (sel.decls.find((x) => x.prop === "content")?.value ?? (e.generated.map((t) => JSON.stringify(t)).join(" ") || "(none)"));
-          u.elements.set(e.id, e);
+        for (const el of fill ? filled : matched) {
+          if (el !== PAGE) {
+            const e = entry(el, pseudo);
+            if (pseudo === "placeholder") e.shows = typeof el.attrs.get("placeholder") === "string" ? "placeholder " + JSON.stringify(el.attrs.get("placeholder")) : "a placeholder";
+            else if (WRITES.has(pseudo)) e.shows = "content " + (sel.decls.find((x) => x.prop === "content")?.value ?? (e.generated.map((t) => JSON.stringify(t)).join(" ") || "(none)"));
+            u.elements.set(e.id, e);
+          }
           if (fill) for (const inner of svgTextBelow(el)) u.inherits.set(ids.get(inner.index), entry(inner));
           else if (!pseudo) for (const inner of inherited(el)) u.inherits.set(ids.get(inner.index), entry(inner));
         }
@@ -680,7 +731,7 @@ export function faintUses(model) {
       if (fade !== null && atRest(sel.selector)) {
         const reached = fill
           ? filled
-          : elementsMatching(model, sel).filter((el) => {
+          : matched.filter((el) => {
               if (pseudo === "placeholder") return typeof el.attrs.get("placeholder") === "string" || model.tagsOf(el).some((t) => t === "input" || t === "textarea");
               if (WRITES.has(pseudo)) return generatedText(model, el).some((g) => g.pseudo === pseudo && !g.decoration);
               if (pseudo) return false;
@@ -693,8 +744,10 @@ export function faintUses(model) {
         if (pseudo) u.pseudo.add(pseudo);
         u.rule = sel;
         for (const el of reached) {
-          const e = entry(el, pseudo);
-          u.elements.set(e.id, e);
+          if (el !== PAGE) {
+            const e = entry(el, pseudo);
+            u.elements.set(e.id, e);
+          }
           for (const inner of fill ? svgTextBelow(el) : textBelow(el)) u.inside.set(ids.get(inner.index), entry(inner));
         }
       }
@@ -704,13 +757,15 @@ export function faintUses(model) {
   /* Styles set in code: the value as written and every value it can take
    * through the constants it names. A style object held in a constant
    * reaches every element that wears it, unless the element's own style
-   * sets the colour over it in every branch. */
+   * sets the colour over it in every branch. One set by hand on the page's
+   * own element reaches the page. */
   for (const cs of model.codeStyles) {
     const el = cs.element;
     const colour = cs.prop === "color" || cs.prop === "WebkitTextFillColor";
     const reaches = (owner) =>
       owner === el || !colour || !owner.style || owner.style.inks.some((b) => b !== null && (typeof b !== "string" || isFaint(unquote(b), aliases) || [cs.value, ...(cs.values ?? [])].includes(b)));
-    const owners = (cs.owners?.length ? cs.owners : el ? [el] : []).filter(reaches);
+    const reached = (cs.owners?.length ? cs.owners : el ? [el] : []).filter(reaches);
+    const owners = cs.page && !reached.length ? [PAGE] : reached;
     const where = el ? `${ids.get(el.index).replace(/^.*? :: /, "")} ${cs.keys.join(" > ")}` : cs.keys.join(" > ");
     const id = `${cs.file} :: ${where}`;
     const values = cs.values ?? [];
@@ -722,8 +777,10 @@ export function faintUses(model) {
     if (ink && [cs.value, ...values].some((v) => isFaint(v, aliases))) {
       const u = record("ink", id, { file: cs.file, line: cs.line, origin: "code", value, keys: cs.keys, when: cs.when, pseudo: new Set() });
       for (const owner of owners) {
-        const e = entry(owner);
-        u.elements.set(e.id, e);
+        if (owner !== PAGE) {
+          const e = entry(owner);
+          u.elements.set(e.id, e);
+        }
         for (const inner of fill ? svgTextBelow(owner) : inherited(owner)) u.inherits.set(ids.get(inner.index), entry(inner));
       }
     }
@@ -740,8 +797,10 @@ export function faintUses(model) {
     if (fade !== null && (!owners.length || owners.some(fill ? fillsText : textInside))) {
       const u = record("opacity", id, { file: cs.file, line: cs.line, origin: "code", value: `${cs.prop}: ${value}`, keys: cs.keys, when: cs.when, byHand: !!cs.dom, pseudo: new Set() });
       for (const owner of owners) {
-        const e = entry(owner);
-        u.elements.set(e.id, e);
+        if (owner !== PAGE) {
+          const e = entry(owner);
+          u.elements.set(e.id, e);
+        }
         for (const inner of fill ? svgTextBelow(owner) : textBelow(owner)) u.inside.set(ids.get(inner.index), entry(inner));
       }
     }

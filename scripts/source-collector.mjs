@@ -5,7 +5,9 @@
  * It reads every stylesheet under src/ into rules by selector (a rule
  * nested in another with its selectors composed) and the custom properties
  * it gives (an @property rule's initial value included), and every
- * component file into the elements it draws:
+ * component file into the elements it draws, written as JSX or made by
+ * React's createElement (its tag, its props read as attributes and spreads,
+ * the arguments after them as its children):
  *
  *   - the classes each element can wear, from its own stylesheets (module
  *     classes), from plain class strings (global classes), from the
@@ -29,14 +31,16 @@
  *     the colour each of its branches leaves the element with;
  *   - the styles set on an element by hand (`el.style.color = x`,
  *     `setProperty`, `cssText`, a style attribute, an object assigned into
- *     an element's style), which reach an element the source does not name;
+ *     an element's style), which reach an element the source does not name,
+ *     unless it is the page's own (the body or the document element);
  *   - stylesheet text a component writes in a <style> element, read as
  *     global rules of its file.
  *
  * A class expression, a style or a style's value, stylesheet text,
- * markup that may carry styles of its own, or a JSX spread that may carry
- * a class or a style, that it cannot read is recorded in `unresolved` with
- * its place, never dropped in silence.
+ * markup that may carry styles of its own, a JSX spread that may carry a
+ * class or a style, or an element a call makes whose tag it cannot read
+ * (or whose props cloneElement replaces), that it cannot read is recorded
+ * in `unresolved` with its place, never dropped in silence.
  *
  * On top of that it answers: which elements a selector can stand for,
  * an element's parents and children in the drawn tree, whether it shows
@@ -599,6 +603,10 @@ const CLASS_PROP = /^(className|class)$|ClassName$/;
  * custom property, whatever the value (a constant from another file
  * included), or it styles an element by hand. */
 const CODE_STYLE_HINT = /fg-faint|#93a19c|#5d6880|#7f8d89|code-comment|\b(color|opacity|fill|WebkitTextFillColor)\b|\b(?:webkit-?)?filter["']?\s*[:=]|["'`]--[-\w]+["'`]|\.style\b|cssText|setProperty|setAttribute/i;
+/** React's element makers, by the names React exports them under. A file
+ * that may call one is read for the elements it makes, markup or not. */
+const MAKERS = new Set(["createElement", "cloneElement"]);
+const makesElements = (text) => /\b(?:createElement|cloneElement)\b/.test(text) && /\bfrom\s*["']react["']|\bReact\s*\.\s*(?:createElement|cloneElement)\b/.test(text);
 /** Names an expression shows that hold a drawing, not text. */
 const ICONISH = /icon|glyph|svg|chevron|caret|arrow$|tile$/i;
 const SVG_TEXT = new Set(["text", "tspan", "textpath"]);
@@ -635,7 +643,7 @@ function textOf(node, ctx) {
     if (prop) return { kind: ICONISH.test(node.text) ? null : "text", slotProp: prop };
     if (ICONISH.test(node.text)) return { kind: null };
     const init = ctx.constOf(node.text);
-    if (init && [init].flat().some(containsJsx)) {
+    if (init && [init].flat().some((i) => containsJsx(i, ctx.maker))) {
       if ([init].flat().some((i) => functionOf(i))) return { kind: "text" };
       return { kind: null, ref: node.text };
     }
@@ -650,11 +658,13 @@ function textOf(node, ctx) {
     return { kind: "text" };
   }
   if (ts.isCallExpression(node)) {
+    // An element React's createElement makes is read as an element.
+    if (ctx.maker?.(node)) return { kind: null };
     const callee = node.expression;
     if (ts.isPropertyAccessExpression(callee) && /^(map|flatMap)$/.test(callee.name.text)) {
       const fn = node.arguments[0];
       if (fn && ts.isIdentifier(fn) && ctx.helperNamed(fn.text)) return { kind: null, helper: fn.text };
-      return { kind: fn && containsJsx(fn) ? null : "text" };
+      return { kind: fn && containsJsx(fn, ctx.maker) ? null : "text" };
     }
     if (ts.isIdentifier(callee) && ctx.helperNamed(callee.text)) return { kind: null, helper: callee.text };
     if (ts.isIdentifier(callee) && ICONISH.test(callee.text)) return { kind: null };
@@ -668,11 +678,13 @@ const merge = (a, b) => ({
   ref: a.ref ?? b.ref,
   slotProp: a.slotProp ?? b.slotProp,
 });
-function containsJsx(node) {
+/** Whether an expression holds markup: JSX, or a call `maker` says makes
+ * an element (React's createElement or cloneElement). */
+function containsJsx(node, maker = null) {
   let found = false;
   const visit = (n) => {
     if (found) return;
-    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n)) found = true;
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n) || (maker && ts.isCallExpression(n) && maker(n))) found = true;
     else ts.forEachChild(n, visit);
   };
   visit(node);
@@ -684,7 +696,8 @@ function containsJsx(node) {
 function attributeValue(attr) {
   if (!attr.initializer) return true;
   if (ts.isStringLiteral(attr.initializer)) return attr.initializer.text;
-  const e = ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : null;
+  // A prop createElement is handed holds its value as it is written.
+  const e = ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : attr.raw ? attr.initializer : null;
   if (e && (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e))) return e.text;
   return null;
 }
@@ -1024,6 +1037,10 @@ function readSource(file, text, env) {
   const exportsAs = new Map();
   const moduleConsts = new Map();
   const helpers = new Map();
+  /** The names this file calls React's element makers by: imported by name
+   * (under any name), or as members of React imported whole. */
+  const makers = new Map();
+  const reactSpaces = new Set();
 
   for (const statement of source.statements) {
     if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
@@ -1031,6 +1048,12 @@ function readSource(file, text, env) {
       const target = resolveImport(env.root, file, spec, env.exists);
       const clause = statement.importClause;
       if (!clause) continue;
+      if (spec === "react") {
+        if (clause.name) reactSpaces.add(clause.name.text);
+        const named = clause.namedBindings;
+        if (named && ts.isNamespaceImport(named)) reactSpaces.add(named.name.text);
+        if (named && ts.isNamedImports(named)) for (const el of named.elements) if (MAKERS.has((el.propertyName ?? el.name).text)) makers.set(el.name.text, (el.propertyName ?? el.name).text);
+      }
       if (target?.endsWith(".module.css")) {
         if (clause.name) sheets.set(clause.name.text, target);
         if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) sheets.set(clause.namedBindings.name.text, target);
@@ -1140,6 +1163,18 @@ function readSource(file, text, env) {
     for (let n = node; n; n = n.parent) if (owner.has(n)) return { node: n, ...owner.get(n) };
     return null;
   };
+  /** Which of React's element makers a call is ("createElement" or
+   * "cloneElement"), or null: by a name it is imported under, or as a member
+   * of React imported whole or of the React global. */
+  const makerOf = (call) => {
+    const callee = unwrap(call.expression);
+    if (callee && ts.isIdentifier(callee)) return makers.get(callee.text) ?? null;
+    if (callee && ts.isPropertyAccessExpression(callee) && MAKERS.has(callee.name.text) && ts.isIdentifier(callee.expression)) {
+      const space = callee.expression.text;
+      if (reactSpaces.has(space) || (space === "React" && !bindingOf(space, call))) return callee.name.text;
+    }
+    return null;
+  };
   /** What an expression at this node can refer to: the component or
    * function it sits in, its props, and the constants in scope. */
   const ctxFor = (node) => {
@@ -1153,8 +1188,9 @@ function readSource(file, text, env) {
       constOf: (name) => (consts.has(name) ? consts.get(name) : moduleConsts.get(name)),
       helperNamed: (name) => {
         const f = consts.has(name) ? consts.get(name) : helpers.get(name);
-        return !!f && !Array.isArray(f) && !!functionOf(f) && containsJsx(f);
+        return !!f && !Array.isArray(f) && !!functionOf(f) && containsJsx(f, makerOf);
       },
+      maker: makerOf,
     };
   };
 
@@ -1950,7 +1986,9 @@ function readSource(file, text, env) {
       }
       for (const m of members) parts.push({ node: m, read: valuesOf(m, valueScope) });
     }
-    if (tag === "style" && ts.isJsxElement(node)) {
+    if (tag === "style" && opening.made) {
+      for (const child of opening.made.children) parts.push({ node: child, read: valuesOf(child, valueScope) });
+    } else if (tag === "style" && ts.isJsxElement(node)) {
       for (const child of node.children) {
         if (ts.isJsxText(child) && child.text.trim()) parts.push({ node: child, read: { values: ['"' + child.text + '"'], open: [], none: false } });
         else if (ts.isJsxExpression(child) && child.expression) parts.push({ node: child.expression, read: valuesOf(child.expression, valueScope) });
@@ -1970,6 +2008,8 @@ function readSource(file, text, env) {
     }
   };
 
+  /** The props object each element React's createElement makes is handed. */
+  const madeBy = new Map();
   /** Walk one top-level statement for elements, carrying the element they
    * sit in. */
   const scan = (statement) => {
@@ -2103,16 +2143,100 @@ function readSource(file, text, env) {
         if (t) parent.texts.push(t);
         return;
       }
-      if (ts.isJsxExpression(child) && child.expression) {
-        const what = textOf(child.expression, ctx);
-        if (what.kind === "text") parent.exprs.push(child.expression.getText(source).replace(/\s+/g, " ").slice(0, 60));
-        if (what.kind === "slot") parent.slot = true;
-        if (what.slotProp && !parent.slotProps.includes(what.slotProp)) parent.slotProps.push(what.slotProp);
-        if (what.helper) parent.helperCalls.push(what.helper);
-        if (what.ref) parent.refs.push(what.ref);
+      if (ts.isJsxExpression(child) && child.expression) shownBy(child.expression, parent, ctx);
+    };
+    /** What an expression shown in an element adds to it: text, the
+     * children slot, a prop's markup, a helper's or a constant's markup. */
+    const shownBy = (expression, parent, ctx) => {
+      const what = textOf(expression, ctx);
+      if (what.kind === "text") parent.exprs.push(expression.getText(source).replace(/\s+/g, " ").slice(0, 60));
+      if (what.kind === "slot") parent.slot = true;
+      if (what.slotProp && !parent.slotProps.includes(what.slotProp)) parent.slotProps.push(what.slotProp);
+      if (what.helper) parent.helperCalls.push(what.helper);
+      if (what.ref) parent.refs.push(what.ref);
+    };
+    /** The tag React's createElement is given: a string (or a constant that
+     * holds one string), which makes an element of the page whatever its
+     * case, or a component by name; null when it cannot be read. */
+    const tagOf = (arg) => {
+      const n = unwrap(arg);
+      if (!n) return null;
+      const read = valuesOf(n, valueScope);
+      const strings = [...new Set(read.values.map(unquoted))];
+      if (!read.open.length && !read.none && read.values.length && read.values.every((v) => /^["'`]/.test(v)) && strings.length === 1 && /^[a-z][-a-z0-9]*$/i.test(strings[0])) return strings[0].toLowerCase();
+      if (ts.isIdentifier(n) && isComponentName(n.text)) return n.text;
+      if (ts.isPropertyAccessExpression(n) && isComponentName(n.name.text) && /^[$\w.]+$/.test(n.getText(source))) return n.getText(source);
+      return null;
+    };
+    /**
+     * An element React's createElement makes, read as the markup it stands
+     * for: its props as attributes, member by member and spread by spread in
+     * the order they are written (props that are not an object written out
+     * are a spread of them), and the arguments after them, with a `children`
+     * prop, as its children. A tag it cannot read, or a member whose name it
+     * cannot read and that may name a class or a style, is named as unread.
+     */
+    const make = (node, parent) => {
+      const ctx = ctxFor(node);
+      const unread = (n, kind) => unresolved.push({ file, line: lineOf(n), kind, component: ctx.component, text: n.getText(source).replace(/\s+/g, " ").slice(0, 100), element: null });
+      const [tagArg, propsArg, ...rest] = node.arguments;
+      const tag = tagOf(tagArg);
+      if (tag === null) {
+        unread(node, "element");
+        for (const a of node.arguments) visit(a, parent);
+        return;
+      }
+      const dom = /^[a-z]/.test(tag) && !tag.includes(".");
+      const attributes = [];
+      const children = [...rest];
+      const props = unwrap(propsArg);
+      const at = (n) => (s) => n.getStart(s);
+      if (props && ts.isObjectLiteralExpression(props)) {
+        for (const m of props.properties) {
+          if (ts.isSpreadAssignment(m)) {
+            attributes.push({ kind: ts.SyntaxKind.JsxSpreadAttribute, expression: m.expression, getStart: at(m) });
+            continue;
+          }
+          const key = memberKey(m.name);
+          const value = memberValue(m);
+          if (key === null) {
+            const head = ts.isComputedPropertyName(m.name) && ts.isTemplateExpression(unwrap(m.name.expression)) ? unwrap(m.name.expression).head.text : "";
+            if (!head || !dom || "className".startsWith(head) || "style".startsWith(head)) unread(m, "class");
+            continue;
+          }
+          if (value === null) {
+            if (CLASS_PROP.test(key) || key === "style") unread(m, key === "style" ? "style" : "class");
+            continue;
+          }
+          if (key === "children") children.push(value);
+          else attributes.push({ kind: ts.SyntaxKind.JsxAttribute, name: { getText: () => key }, initializer: value, raw: true, getStart: at(m) });
+        }
+      } else if (props && props.kind !== ts.SyntaxKind.NullKeyword && !(ts.isIdentifier(props) && props.text === "undefined")) {
+        attributes.push({ kind: ts.SyntaxKind.JsxSpreadAttribute, expression: propsArg, getStart: at(propsArg) });
+      }
+      const opening = { tagName: { getText: () => tag }, attributes: { properties: attributes }, parent: node, getStart: at(node), made: { children } };
+      const el = add(node, opening, parent);
+      if (props && ts.isObjectLiteralExpression(props)) madeBy.set(props, el);
+      visitAttributes(opening, el.index);
+      for (const child of children) {
+        const c = unwrap(ts.isSpreadElement(child) ? child.expression : child);
+        if (c && (ts.isStringLiteral(c) || ts.isNoSubstitutionTemplateLiteral(c))) {
+          const t = c.text.replace(/\s+/g, " ").trim();
+          if (t) el.texts.push(t);
+        } else if (c) shownBy(c, el, ctx);
+        visit(child, el.index);
       }
     };
     const visit = (node, parent) => {
+      if (ts.isCallExpression(node)) {
+        const maker = makerOf(node);
+        if (maker === "createElement" && node.arguments.length) {
+          make(node, parent);
+          return;
+        }
+        // cloneElement puts the props it is handed on an element it does not name.
+        if (maker === "cloneElement" && node.arguments.length > 1) unresolved.push({ file, line: lineOf(node), kind: "element", component: ctxFor(node).component, text: node.getText(source).replace(/\s+/g, " ").slice(0, 100), element: null });
+      }
       if (ts.isJsxElement(node)) {
         const el = add(node, node.openingElement, parent);
         visitAttributes(node.openingElement, el.index);
@@ -2143,13 +2267,13 @@ function readSource(file, text, env) {
     const visitAttributes = (opening, index) => {
       const host = local(index);
       for (const a of opening.attributes.properties) {
-        if (!ts.isJsxAttribute(a) || !a.initializer || !ts.isJsxExpression(a.initializer)) continue;
+        if (!ts.isJsxAttribute(a) || !a.initializer || !(a.raw || ts.isJsxExpression(a.initializer))) continue;
         const name = a.name.getText(source);
         const before = elements.length;
         visit(a.initializer, index);
         const made = elements.slice(before).filter((e) => e.parents.includes(index)).map((e) => e.index);
         if (made.length) host.propJsx.set(name, made);
-        let e = a.initializer.expression;
+        let e = a.raw ? a.initializer : a.initializer.expression;
         while (e && (ts.isParenthesizedExpression(e) || ts.isConditionalExpression(e) || ts.isBinaryExpression(e))) {
           e = ts.isParenthesizedExpression(e) ? e.expression : ts.isConditionalExpression(e) ? e.whenTrue : e.right;
         }
@@ -2161,15 +2285,23 @@ function readSource(file, text, env) {
     };
     visit(statement, null);
   };
-  if (isTsx) for (const statement of source.statements) scan(statement);
+  if (isTsx || makesElements(text)) for (const statement of source.statements) scan(statement);
 
   /* Styles set in code: every colour or opacity a TypeScript object or a
    * JSX attribute gives, with the chain of keys that leads to it. */
   const keyPath = (node) => {
     const keys = [];
     let jsx = null;
+    let made = null;
     for (let n = node; n; n = n.parent) {
-      if (ts.isPropertyAssignment(n) || ts.isShorthandPropertyAssignment(n)) keys.unshift(n.name.getText(source));
+      if (ts.isPropertyAssignment(n) || ts.isShorthandPropertyAssignment(n)) {
+        keys.unshift(n.name.getText(source));
+        // A member of the props createElement is handed: an attribute of the element it makes.
+        if (madeBy.has(n.parent)) {
+          made = madeBy.get(n.parent);
+          break;
+        }
+      }
       if (ts.isJsxAttribute(n)) {
         keys.unshift(n.name.getText(source));
         jsx = n.parent.parent;
@@ -2184,7 +2316,7 @@ function readSource(file, text, env) {
         break;
       }
     }
-    return { keys, jsx };
+    return { keys, jsx, made };
   };
   const WATCHED = /^(color|WebkitTextFillColor|opacity|fill|filter|WebkitFilter|webkitFilter|-webkit-filter)$/;
   const watched = (name) => WATCHED.test(name) || name.startsWith("--");
@@ -2196,16 +2328,16 @@ function readSource(file, text, env) {
    * with the elements whose style holds it, and when it styles an element
    * and its value cannot be read, named as unread. `dom` marks a style set
    * on an element by hand, which reaches an element the source does not
-   * name. */
-  const record = (node, name, given, keys, element, owners, styled, when, jsxAttr, dom = false) => {
-    put(node, name, given.getText(source), valuesOf(given, valueScope), keys, element, owners, styled, when, jsxAttr, dom);
+   * name, and `page` one set by hand on the page's own element. */
+  const record = (node, name, given, keys, element, owners, styled, when, jsxAttr, dom = false, page = false) => {
+    put(node, name, given.getText(source), valuesOf(given, valueScope), keys, element, owners, styled, when, jsxAttr, dom, page);
   };
-  const put = (node, name, value, read, keys, element, owners, styled, when, jsxAttr, dom) => {
+  const put = (node, name, value, read, keys, element, owners, styled, when, jsxAttr, dom, page = false) => {
     if (name.startsWith("--")) {
       codeCustoms.push({ file, line: lineOf(node), prop: name, values: read.values.map(unquoted), open: read.open, element, owners: [...owners], when });
       return;
     }
-    codeStyles.push({ file, line: lineOf(node), prop: name, value, values: read.values, none: read.none, keys, element, owners: [...owners], when, jsxAttr, dom });
+    codeStyles.push({ file, line: lineOf(node), prop: name, value, values: read.values, none: read.none, keys, element, owners: [...owners], when, jsxAttr, dom, page });
     // A text colour or an opacity that styles an element (an inline
     // style, a style object an element wears, the attribute itself, a
     // style set by hand) and whose value cannot be read is recorded, never
@@ -2240,6 +2372,25 @@ function readSource(file, text, env) {
     const [only] = held.exprs;
     return only.expr !== null && !only.keys.length && isElementStyle(only.expr, depth + 1);
   };
+  /** Whether a style set by hand is the page's own: the body's or the
+   * document element's, written out (`document.body.style`) or through a
+   * constant that holds one. What is set there holds over every element. */
+  const pageOf = (expr, depth = 0) => {
+    let n = unwrap(expr);
+    if (n && ts.isPropertyAccessExpression(n) && n.name.text === "style") n = unwrap(n.expression);
+    if (!n || depth > 4) return false;
+    if (ts.isPropertyAccessExpression(n)) {
+      if (n.name.text === "documentElement") return true;
+      const base = unwrap(n.expression);
+      const of = base && ts.isIdentifier(base) ? base.text : base && ts.isPropertyAccessExpression(base) ? base.name.text : "";
+      return n.name.text === "body" && /^(document|doc|ownerDocument)$/.test(of);
+    }
+    if (!ts.isIdentifier(n)) return false;
+    const held = heldBy(n.text, n);
+    if (!held || held.binding.kind !== "const" || held.exprs.length !== 1) return false;
+    const [only] = held.exprs;
+    return only.expr !== null && !only.keys.length && pageOf(only.expr, depth + 1);
+  };
   /** Where a style is set by hand: the function it is set in. */
   const placeOf = (node) => {
     for (let n = node.parent; n; n = n.parent) {
@@ -2262,7 +2413,7 @@ function readSource(file, text, env) {
     const prop = byHandName(name);
     if (!prop) return;
     const keys = [placeOf(node), receiver.getText(source).replace(/\s+/g, " "), prop].filter(Boolean);
-    record(node, prop, given, keys, null, new Set(), new Set(), conditionOf(node), false, true);
+    record(node, prop, given, keys, null, new Set(), new Set(), conditionOf(node), false, true, pageOf(receiver));
   };
   /** Declarations written as text (`cssText`, a style attribute), read
    * through the constants they name, each colour, opacity, filter or
@@ -2285,7 +2436,7 @@ function readSource(file, text, env) {
     }
     for (const [prop, values] of byProp) {
       const keys = [placeOf(node), receiver.getText(source).replace(/\s+/g, " "), prop].filter(Boolean);
-      put(node, prop, values.join(" | "), { values, none: false, open: [] }, keys, null, new Set(), new Set(), conditionOf(node), false, true);
+      put(node, prop, values.join(" | "), { values, none: false, open: [] }, keys, null, new Set(), new Set(), conditionOf(node), false, true, pageOf(receiver));
     }
   };
   /** Whether an expression is text in every branch. */
@@ -2324,8 +2475,8 @@ function readSource(file, text, env) {
       if (names === null || names.some(watched)) {
         // `{ color }` holds the constant of that name.
         const given = shorthand ? node.name : node.initializer;
-        const { keys, jsx } = keyPath(node);
-        const element = jsx ? elements.find((e) => e.line === lineOf(jsx) && e.tag === jsx.tagName.getText(source)) ?? null : null;
+        const { keys, jsx, made } = keyPath(node);
+        const element = jsx ? elements.find((e) => e.line === lineOf(jsx) && e.tag === jsx.tagName.getText(source)) ?? null : made;
         // The elements whose style holds it, and the condition it is set under.
         const owners = new Set(element ? [element] : []);
         const styled = new Set();
@@ -2340,7 +2491,7 @@ function readSource(file, text, env) {
           if (when === null && ts.isConditionalExpression(n)) when = n.condition.getText(source);
           if (when === null && ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) when = n.left.getText(source);
         }
-        const jsxAttr = ts.isJsxAttribute(node);
+        const jsxAttr = ts.isJsxAttribute(node) || (made !== null && madeBy.get(node.parent) === made);
         if (names === null) {
           // A style member whose name cannot be read may be a colour.
           if (dom || styled.size > 0 || (element !== null && keys[0] === "style")) {
@@ -2595,7 +2746,7 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
       readSheet(file, text, file.endsWith(".module.css"));
       continue;
     }
-    if (!file.endsWith(".tsx") && !CODE_STYLE_HINT.test(text)) continue;
+    if (!file.endsWith(".tsx") && !CODE_STYLE_HINT.test(text) && !makesElements(text)) continue;
     const info = readSource(file, text, { root, exists, base: elements.length, exported, returnedKeys });
     elements.push(...info.elements);
     files.set(file, info);
