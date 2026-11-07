@@ -1,7 +1,9 @@
-/* Dashboard cards — the stage's rail and its cards,
+/* Dashboard cards: the stage's rail and its cards,
  * shared by the builder and the published viewer. Titles read in primary
- * ink with the legend's typography; faint gray is reserved for genuinely
- * inactive things (an excluded category, an out-of-brush bar). */
+ * ink with the legend's typography. Text follows the ink rule: something
+ * switched off but still there (an excluded category) reads muted, and
+ * faint is for decoration only, never for text a reader needs. An
+ * out-of-brush bar is a shape, not text, and keeps its quieter opacity. */
 
 .rail {
   position: absolute;
@@ -233,7 +235,7 @@
   color: var(--accent-bright);
 }
 
-/* ---- category rows: active = ink + green, excluded = faint ---- */
+/* ---- category rows: active = ink + green, excluded = muted ---- */
 
 .crow {
   display: grid;
@@ -243,7 +245,7 @@
   width: 100%;
   padding: 3px 7px;
   border-radius: var(--radius);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   text-align: left;
   transition: 0.13s;
   border: 0;

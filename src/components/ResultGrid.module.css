@@ -36,7 +36,7 @@
 .empty {
   padding: 22px;
   text-align: center;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: 13px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -130,7 +130,6 @@
   font-size: 9.5px;
   letter-spacing: 0.08em;
   color: var(--accent);
-  opacity: 0.85;
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;

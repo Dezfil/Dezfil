@@ -43,7 +43,7 @@
 }
 
 .menu a small {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: 11px;
 }
 

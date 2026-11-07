@@ -44,7 +44,7 @@
   font-weight: 600;
 }
 
-/* A section's mark, its faint count and its link to the whole list. */
+/* A section's mark, its muted count and its link to the whole list. */
 .secGlyph {
   display: inline-grid;
   place-items: center;
@@ -62,7 +62,7 @@
 }
 
 .cnt {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
 }

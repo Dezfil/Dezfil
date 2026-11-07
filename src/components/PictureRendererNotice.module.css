@@ -1,16 +1,19 @@
 /* The line a page of map cards shows administrators while map pictures
    have no renderer: set as the pictures' credit line is, at the page's
-   foot, the meta step in faint ink; its one link quiet until hovered. */
+   foot, the meta step in muted ink. Its one link is not a credit, so it
+   reads as a link: accent at rest, the link hover when hovered. The hover
+   asks for the link's address so it outranks the credit line's own link
+   hover, which matches the same link through the composed class. */
 .notice {
   composes: page from "./PictureCredit.module.css";
 }
 
 .notice a {
-  color: inherit;
+  color: var(--accent);
   text-decoration: none;
 }
 
-.notice a:hover {
-  color: var(--fg-muted);
+.notice a[href]:hover {
+  color: var(--accent-bright);
   text-decoration: underline;
 }

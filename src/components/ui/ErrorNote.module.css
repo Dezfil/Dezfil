@@ -60,7 +60,6 @@
   cursor: pointer;
   font-size: var(--text-meta);
   font-weight: 500;
-  opacity: 0.85;
   list-style: none;
 }
 

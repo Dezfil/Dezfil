@@ -1467,7 +1467,7 @@ return fetch(`/api/layers/${layerId}`, { headers: { "X-Edit-Revision": shown.edi
     // formula narrows and keeps its unfiltered value beside it, and the
     // record readout reflects every active constraint — all with zero
     // writes (selections are session state, never persisted). No chips
-    // anywhere; the faint row is the state.
+    // anywhere; the muted row is the state.
     let widgetWrites = 0;
     const writeCounter = (req: {
       method(): string;

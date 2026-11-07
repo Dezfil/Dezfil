@@ -179,7 +179,7 @@
   font-weight: 600;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
   margin-bottom: 3px;
 }
 
@@ -193,7 +193,7 @@
 }
 
 .legendRow[data-off] {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .legendRow i {

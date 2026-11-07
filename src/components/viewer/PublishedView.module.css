@@ -184,7 +184,7 @@
   align-items: center;
   gap: 6px;
   font-size: 10.5px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   background: color-mix(in srgb, var(--bg) 55%, transparent);
   backdrop-filter: var(--blur-overlay);
   padding: 3px 9px;
@@ -192,11 +192,11 @@
 }
 
 .attribution a {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .attribution a:hover {
-  color: var(--fg-muted);
+  color: var(--fg);
 }
 
 .dot {

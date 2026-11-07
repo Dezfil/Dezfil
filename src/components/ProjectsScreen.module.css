@@ -59,7 +59,7 @@
 
 /* A project with nothing says so where its counts would be. */
 .nothing {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-style: italic;
 }
 

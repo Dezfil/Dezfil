@@ -9,12 +9,12 @@
   padding: 0;
   font: inherit;
   font-variant-numeric: tabular-nums;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   cursor: pointer;
 }
 
 .readout:hover {
-  color: var(--fg-muted);
+  color: var(--fg);
 }
 
 .flash {
