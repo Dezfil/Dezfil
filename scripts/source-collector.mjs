@@ -16,11 +16,14 @@
  *     or drawn by a function of the same file joins the element that shows
  *     it, and the children a component is handed join the element that
  *     shows them;
- *   - the styles set in code: every colour and opacity a TypeScript object
- *     or a JSX attribute gives (inline styles, editor themes), with the
- *     values each can take, read through the constants it names (in its
- *     function, its file, or one another file exports), and for an inline
- *     style the colour each of its branches leaves the element with.
+ *   - the styles set in code: every colour, opacity and custom property a
+ *     TypeScript object or a JSX attribute gives (inline styles, editor
+ *     themes) or a later write puts into a style object, with the values
+ *     each can take, read through the names it uses where it uses them
+ *     (the constants of the scopes around it, through the keys a
+ *     destructuring takes, or one another file exports), and for an
+ *     inline style, whether written, spread in or handed to a component,
+ *     the colour each of its branches leaves the element with.
  *
  * A class expression, a style or a style's value it cannot read is
  * recorded in `unresolved` with its place, never dropped in silence.
@@ -32,8 +35,9 @@
  * Not seen: elements a library draws for itself (an editor's gutter, a
  * map's controls), text a stylesheet's `content` writes, a class a
  * component receives under a name it never puts on an element, props
- * passed through more than six components, and which branch of a
- * condition holds at run time: every branch is taken to be possible.
+ * passed through more than six components, a style an element is given
+ * from another file's object (named as unread instead), and which branch
+ * of a condition holds at run time: every branch is taken to be possible.
  *
  * The parsing of stylesheets and of component imports is shared with the
  * class-pair sweep (scripts/check-class-pairs.mjs).
@@ -463,8 +467,9 @@ export function statesOf(selector) {
 
 const CLASS_PROP = /^(className|class)$|ClassName$/;
 /** A TypeScript file without markup is read only when it can set a style:
- * a faint spelling, a colour given as a string, or an opacity under one. */
-const CODE_STYLE_HINT = /fg-faint|#93a19c|#5d6880|#7f8d89|code-comment|\bcolor\s*:\s*["'`]|\bopacity\s*:\s*0?\.\d/i;
+ * it names a faint spelling, a colour, an opacity, a fill or a custom
+ * property, whatever the value (a constant from another file included). */
+const CODE_STYLE_HINT = /fg-faint|#93a19c|#5d6880|#7f8d89|code-comment|\b(color|opacity|fill|WebkitTextFillColor)\b|["'`]--[-\w]+["'`]/i;
 /** Names an expression shows that hold a drawing, not text. */
 const ICONISH = /icon|glyph|svg|chevron|caret|arrow$|tile$/i;
 const SVG_TEXT = new Set(["text", "tspan", "textpath"]);
@@ -572,6 +577,98 @@ const isConstInit = (init) => !!init?.parent && ts.isVariableDeclaration(init.pa
 const VALUE_CAP = 32;
 const VALUE_DEPTH = 12;
 
+/** A literal's text with its quotes taken off. */
+const unquoted = (v) => String(v).trim().replace(/^(["'`])([\s\S]*)\1$/, "$2").trim();
+
+/** A branch of an inline style that leaves the colour as it was. */
+const ABSENT = Object.freeze({ absent: true });
+
+const NAMED_COLOURS = new Set(("aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue " +
+  "chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki " +
+  "darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise " +
+  "darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod " +
+  "gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral " +
+  "lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey " +
+  "lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen " +
+  "mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive " +
+  "olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple " +
+  "rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow " +
+  "springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen transparent currentcolor " +
+  "inherit initial unset revert revert-layer canvas canvastext linktext visitedtext activetext buttonface buttontext buttonborder field fieldtext " +
+  "highlight highlighttext selecteditem selecteditemtext mark marktext graytext accentcolor accentcolortext").split(" "));
+
+/** Whether a value can stand as a colour: a hex, a colour function or a
+ * var(), a named colour or a keyword. Anything else (empty, `none`, a
+ * number) is dropped by the browser, and the colour is left unset. */
+export function isColourValue(value) {
+  const v = String(value).trim().toLowerCase();
+  if (!v) return false;
+  if (/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.test(v)) return true;
+  if (/^[a-z][-a-z0-9]*\(.*\)$/s.test(v)) return true;
+  return NAMED_COLOURS.has(v);
+}
+
+/** The name a member of an object literal is written under, or null when
+ * it is computed from something other than a literal. */
+function memberKey(name) {
+  if (!name) return null;
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name) || ts.isPrivateIdentifier?.(name)) return name.text;
+  if (ts.isComputedPropertyName(name)) {
+    const e = unwrap(name.expression);
+    if (e && (ts.isStringLiteral(e) || ts.isNumericLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e))) return e.text;
+  }
+  return null;
+}
+
+/** The expression a member of an object literal holds when it is read:
+ * its value, the constant a shorthand names, a getter's one returned
+ * expression; null for a method, a setter, or a getter that does more. */
+function memberValue(p) {
+  if (ts.isPropertyAssignment(p)) return p.initializer;
+  if (ts.isShorthandPropertyAssignment(p)) return p.name;
+  if (ts.isGetAccessorDeclaration(p) && p.body) {
+    const returns = p.body.statements.filter(ts.isReturnStatement);
+    return returns.length === 1 && p.body.statements.length === 1 ? returns[0].expression ?? null : null;
+  }
+  return null;
+}
+
+/** Every name a declaration's name or binding pattern introduces, with the
+ * keys that lead to it from the value it takes apart and the default it
+ * falls back to. */
+function boundNames(name, path = [], fallback = null, out = []) {
+  if (ts.isIdentifier(name)) out.push({ name: name.text, path, fallback });
+  else if (ts.isObjectBindingPattern(name)) {
+    for (const el of name.elements) {
+      const key = el.dotDotDotToken ? "*" : el.propertyName ? memberKey(el.propertyName) ?? "*" : ts.isIdentifier(el.name) ? el.name.text : "*";
+      boundNames(el.name, [...path, key], el.initializer ?? null, out);
+    }
+  } else if (ts.isArrayBindingPattern(name)) {
+    name.elements.forEach((el, i) => {
+      if (!ts.isOmittedExpression(el)) boundNames(el.name, [...path, el.dotDotDotToken ? "*" : String(i)], el.initializer ?? null, out);
+    });
+  }
+  return out;
+}
+
+/** The lists of class sets one array of lists can produce together. Past
+ * the cap the branches are merged into the set that holds every class and
+ * the set that holds only the classes every branch shares, so a reading
+ * that asks what an element may lack still sees the bare branch. */
+function productKeep(lists) {
+  let out = EMPTY;
+  for (const list of lists) {
+    const next = [];
+    for (const a of out) for (const b of list) next.push([...new Set([...a, ...b])]);
+    out = union(next);
+    if (out.length > CAP) {
+      const all = [...new Set(out.flat())];
+      out = union([all, all.filter((t) => out.every((alt) => alt.includes(t)))]);
+    }
+  }
+  return out;
+}
+
 /**
  * The values an expression set in code can take, read through the
  * constants it names, the properties and items of constant objects and
@@ -592,6 +689,36 @@ const VALUE_DEPTH = 12;
 function valuesOf(node, scope, from = 0) {
   const out = { values: [], none: false, open: [] };
   const text = (n) => n.getText().replace(/\s+/g, " ");
+  /** The keys an element access can read: its literal, or each literal its
+   * key can be; "*" for every member when the key cannot be read, which
+   * may also name a member the object does not hold. */
+  const keysOf = (arg, sc, depth) => {
+    const a = unwrap(arg);
+    if (a && (ts.isStringLiteral(a) || ts.isNumericLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a))) return { keys: [a.text], sure: true };
+    const read = valuesOf(a, sc, depth + 1);
+    if (read.open.length || !read.values.length) return { keys: ["*"], sure: false };
+    return { keys: [...new Set(read.values.map(unquoted))], sure: !read.none };
+  };
+  /** An array literal's items with its spreads laid out, or null when a
+   * spread is not a constant array. */
+  const itemsOf = (arr, sc, depth) => {
+    const items = [];
+    for (const el of arr.elements) {
+      if (!ts.isSpreadElement(el)) {
+        items.push(el);
+        continue;
+      }
+      let inner = unwrap(el.expression);
+      if (inner && ts.isIdentifier(inner)) {
+        const found = sc.lookup(inner.text, inner);
+        inner = found?.length === 1 && !(found[0].keys ?? []).length ? unwrap(found[0].init) : null;
+      }
+      const nested = inner && ts.isArrayLiteralExpression(inner) && depth < VALUE_DEPTH ? itemsOf(inner, sc, depth + 1) : null;
+      if (!nested) return null;
+      items.push(...nested);
+    }
+    return items;
+  };
   const visit = (raw, sc, keys, depth) => {
     const n = unwrap(raw);
     if (!n || depth > VALUE_DEPTH || out.values.length > VALUE_CAP) {
@@ -626,7 +753,7 @@ function valuesOf(node, scope, from = 0) {
     if (ts.isIdentifier(n)) {
       const found = sc.lookup(n.text, n);
       if (!found?.length) out.open.push(text(n));
-      else for (const f of found) visit(f.init, f.scope, keys, depth + 1);
+      else for (const f of found) visit(f.init, f.scope, [...(f.keys ?? []), ...keys], depth + 1);
       return;
     }
     if (ts.isPropertyAccessExpression(n)) {
@@ -634,9 +761,10 @@ function valuesOf(node, scope, from = 0) {
       return;
     }
     if (ts.isElementAccessExpression(n)) {
-      const arg = unwrap(n.argumentExpression);
-      const key = arg && (ts.isStringLiteral(arg) || ts.isNumericLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) ? arg.text : "*";
-      visit(n.expression, sc, [key, ...keys], depth + 1);
+      const { keys: read, sure } = keysOf(n.argumentExpression, sc, depth);
+      // A key that cannot be read may name a member the object lacks.
+      if (!sure) out.none = true;
+      for (const key of read) visit(n.expression, sc, [key, ...keys], depth + 1);
       return;
     }
     if (keys.length) {
@@ -649,16 +777,31 @@ function valuesOf(node, scope, from = 0) {
             visit(p.expression, sc, keys, depth + 1);
             continue;
           }
-          if (!ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) continue;
-          if (key !== "*" && p.name.getText().replace(/^["']|["']$/g, "") !== key) continue;
+          const name = memberKey(p.name);
+          // A name computed from a constant is read as the constant's value.
+          const names = name !== null ? { keys: [name], sure: true } : p.name && ts.isComputedPropertyName(p.name) ? keysOf(p.name.expression, sc, depth) : null;
+          if (!names || !(key === "*" || names.keys.includes(key) || names.keys.includes("*"))) continue;
+          const value = memberValue(p);
+          if (value === null) {
+            if (ts.isGetAccessorDeclaration(p)) out.open.push(text(p));
+            continue;
+          }
           hit = true;
-          visit(ts.isPropertyAssignment(p) ? p.initializer : p.name, sc, rest, depth + 1);
+          if (!names.sure || (key !== "*" && !names.keys.includes(key))) out.none = true;
+          visit(value, sc, rest, depth + 1);
         }
         if (!hit) out.none = true;
         return;
       }
       if (ts.isArrayLiteralExpression(n) && (key === "*" || /^\d+$/.test(key))) {
-        const items = key === "*" ? [...n.elements] : [n.elements[Number(key)]].filter(Boolean);
+        const laid = itemsOf(n, sc, depth);
+        if (laid === null) {
+          // A spread it cannot lay out: every item may stand at the index.
+          if (key !== "*") out.none = true;
+          for (const el of n.elements) visit(ts.isSpreadElement(el) ? el.expression : el, sc, ts.isSpreadElement(el) ? ["*", ...rest] : rest, depth + 1);
+          return;
+        }
+        const items = key === "*" ? laid : [laid[Number(key)]].filter(Boolean);
         if (!items.length) out.none = true;
         for (const item of items) visit(item, sc, rest, depth + 1);
         return;
@@ -770,6 +913,7 @@ function readSource(file, text, env) {
 
   const elements = [];
   const codeStyles = [];
+  const codeCustoms = [];
   const unresolved = [];
   const owner = new Map();
   /** Each style object literal, with the elements whose style it is. */
@@ -859,21 +1003,164 @@ function readSource(file, text, env) {
     }
     return null;
   };
+  /* ---- names, read where they are used ---- */
+
+  /** The names one scope declares, each with how: a `const`, `let` or
+   * `var` with its declaration and the keys a destructuring takes, a
+   * parameter, a loop or catch variable, a function, a class, an import. */
+  const scopeNames = new Map();
+  const declaredIn = (scope) => {
+    if (scopeNames.has(scope)) return scopeNames.get(scope);
+    const names = new Map();
+    const put = (decl, kind) => {
+      for (const b of boundNames(decl.name, [], kind === "param" ? decl.initializer ?? null : null)) if (!names.has(b.name)) names.set(b.name, { ...b, kind, decl });
+    };
+    const list = (declarations, kind) => {
+      const how = kind ?? (declarations.flags & ts.NodeFlags.Const ? "const" : declarations.flags & (ts.NodeFlags.Let | (ts.NodeFlags.Using ?? 0)) ? "let" : "var");
+      for (const d of declarations.declarations) put(d, how);
+    };
+    const statements = (stmts) => {
+      for (const st of stmts) {
+        if (ts.isVariableStatement(st)) list(st.declarationList);
+        else if ((ts.isFunctionDeclaration(st) || ts.isClassDeclaration(st) || ts.isEnumDeclaration(st)) && st.name && !names.has(st.name.text)) names.set(st.name.text, { name: st.name.text, path: [], fallback: null, kind: "other", decl: st });
+        else if (ts.isImportDeclaration(st) && st.importClause) {
+          const clause = st.importClause;
+          const add = (id) => names.set(id.text, { name: id.text, path: [], fallback: null, kind: "import", decl: st });
+          if (clause.name) add(clause.name);
+          if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) add(clause.namedBindings.name);
+          if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) for (const el of clause.namedBindings.elements) add(el.name);
+        }
+      }
+    };
+    if (ts.isSourceFile(scope) || ts.isBlock(scope) || ts.isModuleBlock(scope)) statements(scope.statements);
+    else if (ts.isCaseBlock(scope)) for (const c of scope.clauses) statements(c.statements);
+    else if (ts.isForStatement(scope) || ts.isForOfStatement(scope) || ts.isForInStatement(scope)) {
+      if (scope.initializer && ts.isVariableDeclarationList(scope.initializer)) list(scope.initializer, "loop");
+    } else if (ts.isCatchClause(scope)) {
+      if (scope.variableDeclaration) put(scope.variableDeclaration, "loop");
+    } else if (ts.isFunctionLike(scope)) {
+      for (const p of scope.parameters ?? []) put(p, "param");
+      // A `var` anywhere in the body belongs to the function.
+      const hoist = (n) => {
+        if (n !== scope.body && ts.isFunctionLike(n)) return;
+        if (ts.isVariableDeclarationList(n) && !(n.flags & (ts.NodeFlags.Const | ts.NodeFlags.Let))) list(n, "var");
+        ts.forEachChild(n, hoist);
+      };
+      if (scope.body) hoist(scope.body);
+    }
+    scopeNames.set(scope, names);
+    return names;
+  };
+  const isScope = (n) => ts.isSourceFile(n) || ts.isBlock(n) || ts.isModuleBlock(n) || ts.isCaseBlock(n) || ts.isForStatement(n) || ts.isForOfStatement(n) || ts.isForInStatement(n) || ts.isCatchClause(n) || ts.isFunctionLike(n);
+  /** What a name is where it is read: the nearest declaration of it in the
+   * scopes around the place, or null for a name this file never declares. */
+  const bindingOf = (name, at) => {
+    for (let n = at; n; n = n.parent) {
+      if (!isScope(n)) continue;
+      const found = declaredIn(n).get(name);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  /** Every write in the file, by the name it writes to: a new value for a
+   * variable, a value for one of its members, an object assigned into it,
+   * an array method that changes it in place. */
+  let writeIndex = null;
+  const writesOf = (name) => {
+    if (!writeIndex) {
+      writeIndex = new Map();
+      const note = (id, w) => {
+        if (!writeIndex.has(id)) writeIndex.set(id, []);
+        writeIndex.get(id).push(w);
+      };
+      const base = (e) => {
+        const keys = [];
+        let n = unwrap(e);
+        while (n && (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n))) {
+          const arg = ts.isElementAccessExpression(n) ? unwrap(n.argumentExpression) : null;
+          keys.unshift(ts.isPropertyAccessExpression(n) ? n.name.text : arg && (ts.isStringLiteral(arg) || ts.isNumericLiteral(arg)) ? arg.text : "*");
+          n = unwrap(n.expression);
+        }
+        return n && ts.isIdentifier(n) ? { id: n, keys } : null;
+      };
+      const ASSIGN = new Set([ts.SyntaxKind.EqualsToken, ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken]);
+      const visit = (n) => {
+        if (ts.isBinaryExpression(n) && ASSIGN.has(n.operatorToken.kind)) {
+          const left = unwrap(n.left);
+          if (left && ts.isIdentifier(left)) note(left.text, { kind: "assign", node: left, value: n.right });
+          else {
+            const b = base(left);
+            if (b) note(b.id.text, { kind: "member", node: b.id, keys: b.keys, value: n.right });
+          }
+        }
+        if (ts.isDeleteExpression(n)) {
+          const b = base(n.expression);
+          if (b) note(b.id.text, { kind: "member", node: b.id, keys: b.keys, value: null });
+        }
+        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
+          const callee = n.expression;
+          if (ts.isIdentifier(callee.expression) && callee.expression.text === "Object" && callee.name.text === "assign" && n.arguments.length > 1) {
+            const target = unwrap(n.arguments[0]);
+            if (target && ts.isIdentifier(target)) note(target.text, { kind: "merge", node: target, args: n.arguments.slice(1) });
+          }
+          const target = unwrap(callee.expression);
+          if (target && ts.isIdentifier(target) && /^(pop|shift|splice|push|unshift|fill|copyWithin)$/.test(callee.name.text)) {
+            note(target.text, { kind: "mutate", node: target, method: callee.name.text, args: [...n.arguments] });
+          }
+        }
+        ts.forEachChild(n, visit);
+      };
+      visit(source);
+    }
+    return writeIndex.get(name) ?? [];
+  };
+  /** What a name holds where it is read: the expressions it can be (its
+   * value, through the keys a destructuring takes, its default, and for a
+   * `let` every value assigned to it later), the objects assigned into it,
+   * its member writes and in-place changes. `param` marks a parameter,
+   * `other` a function, class or import, and null a name the file never
+   * declares. */
+  const heldBy = (name, at) => {
+    const b = bindingOf(name, at);
+    if (!b) return null;
+    const writes = writesOf(name).filter((w) => bindingOf(name, w.node) === b);
+    const exprs = [];
+    if (b.kind === "const" || b.kind === "let" || b.kind === "var") {
+      if (b.decl.initializer) exprs.push({ expr: b.decl.initializer, keys: b.path });
+      else exprs.push({ expr: null, keys: [] });
+    }
+    if (b.fallback) exprs.push({ expr: b.fallback, keys: [] });
+    if (b.kind === "let" || b.kind === "var") for (const w of writes) if (w.kind === "assign") exprs.push({ expr: w.value, keys: [] });
+    return {
+      binding: b,
+      exprs,
+      merges: writes.filter((w) => w.kind === "merge"),
+      members: writes.filter((w) => w.kind === "member"),
+      mutates: writes.filter((w) => w.kind === "mutate"),
+      param: b.kind === "param" || b.kind === "loop",
+      other: b.kind === "other" || b.kind === "import",
+    };
+  };
+  /** Whether a parameter is one of the component's own props. */
+  const isProp = (held, ctx) => held.binding.kind === "param" && !!ctx.component && held.binding.decl.parent === ctx.ownerNode;
+
   /** What a name in a value set in code is, seen from where it is used: a
-   * constant of the function it sits in or of this file, or a constant
-   * another file exports. A parameter, a prop or a `let` is none of these. */
+   * constant of the scope it sits in or around it, read through the keys
+   * a destructuring takes, or a constant another file exports. A
+   * parameter, a prop, a loop variable or a `let` is none of these. */
   const valueScope = {
     lookup: (name, at) => {
-      if (paramOf(at, name)) return null;
-      const ctx = ctxFor(at);
-      if (ctx.bindings && (ctx.bindings.props.has(name) || name === ctx.bindings.whole || name === ctx.bindings.rest)) return null;
-      const init = ctx.constOf(name);
-      if (init !== undefined) {
-        const list = [init].flat();
-        return list.every(isConstInit) ? list.map((i) => ({ init: i, scope: valueScope })) : null;
+      const b = bindingOf(name, at);
+      if (!b) return null;
+      if (b.kind === "import") {
+        const imported = imports.get(name);
+        return imported && !imported.file.startsWith("external:") && env.exported ? env.exported(imported.file, imported.name) : null;
       }
-      const imported = imports.get(name);
-      return imported && !imported.file.startsWith("external:") && env.exported ? env.exported(imported.file, imported.name) : null;
+      if (b.kind !== "const" || !b.decl.initializer) return null;
+      const found = [{ init: b.decl.initializer, scope: valueScope, keys: b.path }];
+      if (b.fallback) found.push({ init: b.fallback, scope: valueScope, keys: [] });
+      return found;
     },
   };
 
@@ -977,13 +1264,13 @@ function readSource(file, text, env) {
     if (ts.isTemplateExpression(node)) {
       const lits = [node.head.text, ...node.templateSpans.map((s) => s.literal.text)].join(" ");
       const own = ctx.globals ? lits.split(/\s+/).filter(Boolean).map((c) => "g\t" + c) : [];
-      return product([[own], ...node.templateSpans.map((span) => alts(span.expression, ctx, seen))]);
+      return productKeep([[own], ...node.templateSpans.map((span) => alts(span.expression, ctx, seen))]);
     }
     if (node.kind === ts.SyntaxKind.NullKeyword || node.kind === ts.SyntaxKind.FalseKeyword || node.kind === ts.SyntaxKind.TrueKeyword) return EMPTY;
     if (ts.isIdentifier(node) && node.text === "undefined") return EMPTY;
     if (ts.isBinaryExpression(node)) {
       const op = node.operatorToken.kind;
-      if (op === ts.SyntaxKind.PlusToken) return product([alts(node.left, ctx, seen), alts(node.right, ctx, seen)]);
+      if (op === ts.SyntaxKind.PlusToken) return productKeep([alts(node.left, ctx, seen), alts(node.right, ctx, seen)]);
       if (op === ts.SyntaxKind.AmpersandAmpersandToken) return union(EMPTY, alts(node.right, ctx, seen));
       if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return union(alts(node.left, ctx, seen), alts(node.right, ctx, seen));
       return EMPTY;
@@ -1014,10 +1301,18 @@ function readSource(file, text, env) {
         ctx.miss(node);
         return EMPTY;
       }
-      // A lookup table of classes: every entry is a possible class.
+      // A lookup table of classes: the entries its key can name, and none
+      // where the key can name an entry the table lacks.
       const map = ctx.constOf(owner);
       if (map && !Array.isArray(map) && ts.isObjectLiteralExpression(map)) {
-        return union(...map.properties.filter(ts.isPropertyAssignment).map((p) => alts(p.initializer, ctx, seen)));
+        const entries = map.properties.filter(ts.isPropertyAssignment);
+        const a = unwrap(arg);
+        const read = a && (ts.isStringLiteral(a) || ts.isNumericLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) ? { values: [a.text], open: [], none: false } : valuesOf(a, valueScope);
+        if (read.open.length || !read.values.length) return union(EMPTY, ...entries.map((p) => alts(p.initializer, ctx, seen)));
+        const keys = new Set(read.values.map(unquoted));
+        const hits = entries.filter((p) => keys.has(memberKey(p.name)));
+        const missed = [...keys].some((k) => !entries.some((p) => memberKey(p.name) === k));
+        return union(...(missed || read.none ? [EMPTY] : []), ...hits.map((p) => alts(p.initializer, ctx, seen)));
       }
       ctx.miss(node);
       return EMPTY;
@@ -1029,7 +1324,17 @@ function readSource(file, text, env) {
       const init = ctx.constOf(name);
       if (init !== undefined && !seen.has(name)) {
         const next = new Set([...seen, name]);
-        return union(...[init].flat().map((i) => (functionOf(i) ? EMPTY : alts(i, ctx, next))));
+        let found = union(...[init].flat().map((i) => (functionOf(i) ? EMPTY : alts(i, ctx, next))));
+        // A `let` can hold every value assigned to it later; an array of
+        // classes changed in place can lose its classes or gain more.
+        const held = heldBy(name, node);
+        if (held && (held.binding.kind === "let" || held.binding.kind === "var")) {
+          found = union(found, ...held.exprs.map((e) => (e.expr === null ? EMPTY : alts(e.expr, ctx, next))));
+        }
+        for (const m of held?.mutates ?? []) {
+          found = /^(push|unshift)$/.test(m.method) ? productKeep([found, union(EMPTY, ...m.args.map((a) => alts(a, ctx, next)))]) : union(found, EMPTY);
+        }
+        return found;
       }
       const param = paramOf(node, name);
       if (param && !owner.get(param.fn)?.component && !seen.has("param:" + name)) {
@@ -1042,7 +1347,7 @@ function readSource(file, text, env) {
       return EMPTY;
     }
     if (ts.isArrayLiteralExpression(node)) {
-      return product(node.elements.map((el) => (ts.isSpreadElement(el) ? alts(el.expression, ctx, seen) : alts(el, ctx, seen))));
+      return productKeep(node.elements.map((el) => (ts.isSpreadElement(el) ? alts(el.expression, ctx, seen) : alts(el, ctx, seen))));
     }
     if (ts.isCallExpression(node)) {
       const callee = node.expression;
@@ -1054,9 +1359,9 @@ function readSource(file, text, env) {
         return alts(target, ctx, seen);
       }
       if (ts.isIdentifier(callee) && /^(clsx|classNames|cx|cn)$/.test(callee.text)) {
-        return product(node.arguments.map((arg) => {
+        return productKeep(node.arguments.map((arg) => {
           if (!ts.isObjectLiteralExpression(arg)) return alts(arg, ctx, seen);
-          return product(arg.properties.map((p) => (ts.isPropertyAssignment(p) && ts.isComputedPropertyName(p.name) ? union(EMPTY, alts(p.name.expression, ctx, seen)) : EMPTY)));
+          return productKeep(arg.properties.map((p) => (ts.isPropertyAssignment(p) && ts.isComputedPropertyName(p.name) ? union(EMPTY, alts(p.name.expression, ctx, seen)) : EMPTY)));
         }));
       }
       // A function of this file that builds a class from its arguments.
@@ -1079,121 +1384,272 @@ function readSource(file, text, env) {
     return EMPTY;
   };
 
-  /** The text colour each branch of an inline style leaves an element with:
-   * null where the branch sets none (the element's rules decide), else the
-   * colour as written, or { open } where the value cannot be read. A later
-   * key or spread that sets a colour replaces an earlier one; a style
-   * handed in as a prop, or one that cannot be read, sets none here. */
-  const inksOf = (raw, ctx, depth = 0) => {
+  /**
+   * The object literals a style expression can be: through conditions and
+   * fallbacks, the constants and variables it names (a `let` with every
+   * value assigned to it, an object assigned into with `Object.assign`),
+   * the members of constant objects, a default a prop falls back to, and
+   * `useMemo`. `none` marks a branch that gives no object; `opaque` one it
+   * cannot read. A style a component is handed as a prop is read where the
+   * callers write it, so it is neither.
+   */
+  const objectsOf = (raw, ctx, keys = [], depth = 0, out = { objects: [], none: false, opaque: false }) => {
     const n = unwrap(raw);
-    if (!n || depth > 6) return [null];
-    const distinct = (list) => {
-      const seen = new Map();
-      for (const x of list) seen.set(JSON.stringify(x), x);
-      return [...seen.values()].slice(0, VALUE_CAP);
-    };
+    if (!n) {
+      out.none = true;
+      return out;
+    }
+    if (depth > VALUE_DEPTH) {
+      out.opaque = true;
+      return out;
+    }
+    if (ts.isConditionalExpression(n)) {
+      objectsOf(n.whenTrue, ctx, keys, depth + 1, out);
+      return objectsOf(n.whenFalse, ctx, keys, depth + 1, out);
+    }
+    if (ts.isBinaryExpression(n)) {
+      const op = n.operatorToken.kind;
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) {
+        out.none = true;
+        return objectsOf(n.right, ctx, keys, depth + 1, out);
+      }
+      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) {
+        objectsOf(n.left, ctx, keys, depth + 1, out);
+        return objectsOf(n.right, ctx, keys, depth + 1, out);
+      }
+    }
+    if (n.kind === ts.SyntaxKind.NullKeyword || n.kind === ts.SyntaxKind.FalseKeyword || (ts.isIdentifier(n) && n.text === "undefined")) {
+      out.none = true;
+      return out;
+    }
     if (ts.isObjectLiteralExpression(n)) {
-      let branches = [null];
+      if (!keys.length) {
+        out.objects.push(n);
+        return out;
+      }
+      const [key, ...rest] = keys;
+      let hit = false;
       for (const p of n.properties) {
         if (ts.isSpreadAssignment(p)) {
-          const spread = inksOf(p.expression, ctx, depth + 1);
-          branches = distinct(branches.flatMap((b) => spread.map((s) => (s === null ? b : s))));
+          objectsOf(p.expression, ctx, keys, depth + 1, out);
           continue;
         }
-        if (!ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) continue;
-        const name = p.name.getText(source).replace(/^["']|["']$/g, "");
-        if (name !== "color" && name !== "WebkitTextFillColor") continue;
-        const v = valuesOf(ts.isPropertyAssignment(p) ? p.initializer : p.name, valueScope);
-        const next = [...v.values, ...(v.none ? [null] : []), ...v.open.map((t) => ({ open: t }))];
-        branches = next.length ? distinct(next) : [null];
+        const name = memberKey(p.name);
+        if (name !== null && key !== "*" && name !== key) continue;
+        const value = memberValue(p);
+        if (!value) continue;
+        hit ||= name !== null;
+        objectsOf(value, ctx, rest, depth + 1, out);
+      }
+      if (!hit) out.none = true;
+      return out;
+    }
+    if (ts.isArrayLiteralExpression(n) && keys.length) {
+      const [key, ...rest] = keys;
+      const items = key === "*" || n.elements.some(ts.isSpreadElement) ? [...n.elements] : [n.elements[Number(key)]].filter(Boolean);
+      if (!items.length) out.none = true;
+      for (const item of items) objectsOf(ts.isSpreadElement(item) ? item.expression : item, ctx, ts.isSpreadElement(item) ? ["*", ...rest] : rest, depth + 1, out);
+      return out;
+    }
+    if (ts.isIdentifier(n)) {
+      const held = heldBy(n.text, n);
+      if (!held || held.other) {
+        out.opaque = true;
+        return out;
+      }
+      if (held.param) {
+        if (held.binding.fallback) objectsOf(held.binding.fallback, ctx, keys, depth + 1, out);
+        if (!isProp(held, ctx)) out.opaque = true;
+        return out;
+      }
+      for (const e of held.exprs) {
+        if (e.expr === null) out.none = true;
+        else objectsOf(e.expr, ctx, [...e.keys, ...keys], depth + 1, out);
+      }
+      if (!keys.length) for (const m of held.merges) for (const a of m.args) objectsOf(a, ctx, [], depth + 1, out);
+      return out;
+    }
+    if (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n)) {
+      const arg = ts.isElementAccessExpression(n) ? unwrap(n.argumentExpression) : null;
+      const key = ts.isPropertyAccessExpression(n) ? n.name.text : arg && (ts.isStringLiteral(arg) || ts.isNumericLiteral(arg)) ? arg.text : "*";
+      return objectsOf(n.expression, ctx, [key, ...keys], depth + 1, out);
+    }
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "useMemo") {
+      const fn = functionOf(n.arguments[0]);
+      const ret = fn ? returnedOf(fn) : null;
+      if (ret) return objectsOf(ret, ctx, keys, depth + 1, out);
+    }
+    out.opaque = true;
+    return out;
+  };
+
+  /** A colour as an inline style sets it: the value, or null where the
+   * browser drops it (empty, or no colour at all), so the element's rules
+   * decide as if it set none. */
+  const inkOf = (literal) => {
+    const v = unquoted(literal);
+    return isColourValue(v) ? literal : null;
+  };
+  /** Distinct branches, past the cap keeping first those that set no
+   * colour of their own, so the cap never hides a branch that inherits. */
+  const distinct = (list) => {
+    const seen = new Map();
+    for (const x of list) seen.set(x === ABSENT ? "\0absent" : JSON.stringify(x), x);
+    const all = [...seen.values()];
+    if (all.length <= VALUE_CAP) return all;
+    const bare = (x) => x === ABSENT || x === null || (typeof x === "string" && /^(inherit|currentcolor|unset|initial|revert|revert-layer)$/i.test(unquoted(x)));
+    return [...all.filter(bare), ...all.filter((x) => !bare(x))].slice(0, VALUE_CAP);
+  };
+  /** The colours one member of a style object can set. */
+  const memberInks = (p) => {
+    const value = memberValue(p);
+    if (!value) return [{ open: p.getText(source).slice(0, 60) }];
+    const v = valuesOf(value, valueScope);
+    return [...v.values.map(inkOf), ...(v.none ? [null] : []), ...v.open.map((t) => ({ open: t }))];
+  };
+  /** The possible names of a member of a style object; null when it is
+   * computed from something that cannot be read. */
+  const memberNames = (p) => {
+    if (!p.name) return null;
+    const name = memberKey(p.name);
+    if (name !== null) return [name];
+    if (!ts.isComputedPropertyName(p.name)) return null;
+    const read = valuesOf(p.name.expression, valueScope);
+    return read.open.length || !read.values.length ? null : [...new Set(read.values.map(unquoted))];
+  };
+
+  /**
+   * The text colour each branch of an inline style leaves an element with:
+   * null where the branch sets none (the element's rules decide), else the
+   * colour as written, or { open } where the value cannot be read. A later
+   * key or spread that sets a colour replaces an earlier one, and one that
+   * sets it to nothing clears it. A style it cannot read, or one handed in
+   * as a prop, may set anything, and reads as none here: the rules decide.
+   */
+  const inksOf = (raw, ctx) => inkBranches(raw, ctx, [], 0).map((b) => (b === ABSENT ? null : b));
+  const inkBranches = (raw, ctx, keys, depth) => {
+    const n = unwrap(raw);
+    if (!n || depth > VALUE_DEPTH) return [null];
+    if (ts.isConditionalExpression(n)) return distinct([...inkBranches(n.whenTrue, ctx, keys, depth + 1), ...inkBranches(n.whenFalse, ctx, keys, depth + 1)]);
+    if (ts.isBinaryExpression(n)) {
+      const op = n.operatorToken.kind;
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) return distinct([ABSENT, ...inkBranches(n.right, ctx, keys, depth + 1)]);
+      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return distinct([...inkBranches(n.left, ctx, keys, depth + 1), ...inkBranches(n.right, ctx, keys, depth + 1)]);
+    }
+    if (n.kind === ts.SyntaxKind.NullKeyword || n.kind === ts.SyntaxKind.FalseKeyword || (ts.isIdentifier(n) && n.text === "undefined")) return [ABSENT];
+    if (ts.isObjectLiteralExpression(n) && keys.length) {
+      const [key, ...rest] = keys;
+      const found = [];
+      let hit = false;
+      for (const p of n.properties) {
+        if (ts.isSpreadAssignment(p)) {
+          found.push(...inkBranches(p.expression, ctx, keys, depth + 1));
+          continue;
+        }
+        const name = memberKey(p.name);
+        if (name !== null && key !== "*" && name !== key) continue;
+        const value = memberValue(p);
+        if (!value) continue;
+        hit ||= name !== null;
+        found.push(...inkBranches(value, ctx, rest, depth + 1));
+      }
+      return distinct(hit ? found : [...found, ABSENT]);
+    }
+    if (ts.isObjectLiteralExpression(n)) {
+      let branches = [ABSENT];
+      for (const p of n.properties) {
+        if (ts.isSpreadAssignment(p)) {
+          const spread = inkBranches(p.expression, ctx, [], depth + 1);
+          branches = distinct(branches.flatMap((b) => spread.map((s) => (s === ABSENT ? b : s))));
+          continue;
+        }
+        const names = memberNames(p);
+        if (names !== null && !names.some((x) => x === "color" || x === "WebkitTextFillColor")) continue;
+        const set = memberInks(p);
+        // A name it cannot read may or may not be the colour.
+        branches = distinct(names === null || names.length > 1 ? [...branches, ...set] : set.length ? set : [null]);
       }
       return branches;
     }
-    if (ts.isConditionalExpression(n)) return distinct([...inksOf(n.whenTrue, ctx, depth + 1), ...inksOf(n.whenFalse, ctx, depth + 1)]);
-    if (ts.isBinaryExpression(n)) {
-      const op = n.operatorToken.kind;
-      if (op === ts.SyntaxKind.AmpersandAmpersandToken) return distinct([null, ...inksOf(n.right, ctx, depth + 1)]);
-      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return distinct([...inksOf(n.left, ctx, depth + 1), ...inksOf(n.right, ctx, depth + 1)]);
+    if (ts.isIdentifier(n)) {
+      const held = heldBy(n.text, n);
+      if (!held || held.other) return [null];
+      if (held.param) return distinct([null, ...(held.binding.fallback ? inkBranches(held.binding.fallback, ctx, keys, depth + 1) : [])]);
+      let branches = distinct(held.exprs.flatMap((e) => (e.expr === null ? [ABSENT] : inkBranches(e.expr, ctx, [...e.keys, ...keys], depth + 1))));
+      if (!keys.length) {
+        // Objects assigned into it, and colours written into it, in some branch.
+        for (const m of held.merges) {
+          let merged = branches;
+          for (const a of m.args) {
+            const over = inkBranches(a, ctx, [], depth + 1);
+            merged = distinct(merged.flatMap((b) => over.map((s) => (s === ABSENT ? b : s))));
+          }
+          branches = distinct([...branches, ...merged]);
+        }
+        for (const w of held.members) {
+          if (w.keys.length !== 1 || !(w.keys[0] === "color" || w.keys[0] === "WebkitTextFillColor" || w.keys[0] === "*")) continue;
+          const v = w.value ? valuesOf(w.value, valueScope) : { values: [], none: true, open: [] };
+          branches = distinct([...branches, ...v.values.map(inkOf), ...(v.none ? [null] : []), ...v.open.map((t) => ({ open: t }))]);
+        }
+      }
+      return branches;
     }
-    if (ts.isIdentifier(n) && !(ctx.bindings?.props.has(n.text) || (ctx.bindings && n.text === ctx.bindings.whole))) {
-      const init = ctx.constOf(n.text);
-      if (init !== undefined && !Array.isArray(init) && isConstInit(init)) return inksOf(init, ctx, depth + 1);
+    if (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n)) {
+      const arg = ts.isElementAccessExpression(n) ? unwrap(n.argumentExpression) : null;
+      const key = ts.isPropertyAccessExpression(n) ? n.name.text : arg && (ts.isStringLiteral(arg) || ts.isNumericLiteral(arg)) ? arg.text : "*";
+      return inkBranches(n.expression, ctx, [key, ...keys], depth + 1);
+    }
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "useMemo") {
+      const fn = functionOf(n.arguments[0]);
+      const ret = fn ? returnedOf(fn) : null;
+      if (ret) return inkBranches(ret, ctx, keys, depth + 1);
     }
     return [null];
   };
 
-  /** An inline style's colour and opacity, read from its object literals
-   * (every branch of a condition, spreads included), and in `inks` the
-   * colour each branch leaves the element with. A style handed in as a
-   * prop is read where the callers write it; anything else it cannot read
-   * is recorded. */
-  const readStyle = (node, ctx, element) => {
-    const out = { color: null, colorText: null, opacity: null, opaque: false, props: [], inks: [null] };
-    const objects = [];
-    const gather = (n, depth = 0) => {
-      if (!n || depth > 6) return;
-      if (ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression?.(n) || ts.isJsxExpression(n)) return gather(n.expression, depth + 1);
-      if (ts.isObjectLiteralExpression(n)) return void objects.push(n);
-      if (ts.isConditionalExpression(n)) {
-        gather(n.whenTrue, depth + 1);
-        return gather(n.whenFalse, depth + 1);
-      }
-      if (ts.isBinaryExpression(n)) {
-        const op = n.operatorToken.kind;
-        if (op === ts.SyntaxKind.AmpersandAmpersandToken) return gather(n.right, depth + 1);
-        if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) {
-          gather(n.left, depth + 1);
-          return gather(n.right, depth + 1);
-        }
-      }
-      if (n.kind === ts.SyntaxKind.NullKeyword || (ts.isIdentifier(n) && n.text === "undefined")) return;
-      if (ts.isIdentifier(n)) {
-        if (ctx.bindings?.props.has(n.text) || (ctx.bindings && n.text === ctx.bindings.whole)) return;
-        const init = ctx.constOf(n.text);
-        if (init !== undefined && !Array.isArray(init)) return gather(init, depth + 1);
-      }
-      if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && ctx.bindings && n.expression.text === ctx.bindings.whole) return;
-      out.opaque = true;
-    };
-    gather(node);
-    const visitObj = (o) => {
-      for (const p of o.properties) {
-        if (ts.isSpreadAssignment(p)) {
-          const before = objects.length;
-          gather(p.expression);
-          objects.splice(before).forEach(visitObj);
-          continue;
-        }
-        if (!ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) continue;
-        const name = p.name.getText(source).replace(/^["']|["']$/g, "");
-        out.props.push(name);
-        if (name === "color" || name === "WebkitTextFillColor") {
-          out.color = true;
-          out.colorText = ts.isPropertyAssignment(p) ? p.initializer.getText(source) : name;
-        }
-        if (name === "opacity") out.opacity = ts.isPropertyAssignment(p) ? p.initializer.getText(source) : name;
-      }
-    };
-    const mine = objects.splice(0);
-    const all = [];
+  /** An inline style: the object literals it can be are tied to the
+   * element (with those its spreads bring in), `inks` holds the colour
+   * each branch leaves the element with, and a style it cannot read is
+   * recorded. */
+  const readStyle = (node, ctx, element, { quiet = false } = {}) => {
+    const found = objectsOf(node, ctx);
+    let opaque = found.opaque;
+    const all = new Set();
     const walkObj = (o) => {
-      all.push(o);
+      if (all.has(o)) return;
+      all.add(o);
       for (const p of o.properties) {
         if (!ts.isSpreadAssignment(p)) continue;
-        const before = objects.length;
-        gather(p.expression);
-        objects.splice(before).forEach(walkObj);
+        const inner = objectsOf(p.expression, ctx);
+        opaque ||= inner.opaque;
+        inner.objects.forEach(walkObj);
       }
     };
-    mine.forEach(walkObj);
+    found.objects.forEach(walkObj);
     for (const o of all) {
       if (!styleOwners.has(o)) styleOwners.set(o, []);
-      styleOwners.get(o).push(element);
+      if (!styleOwners.get(o).includes(element)) styleOwners.get(o).push(element);
     }
-    for (const o of mine) visitObj(o);
-    out.inks = inksOf(node, ctx);
-    if (out.opaque) {
+    if (opaque && !quiet) {
       unresolved.push({ file, line: lineOf(node), kind: "style", component: ctx.component, text: node.getText(source).replace(/\s+/g, " ").slice(0, 100), element });
+    }
+    return { inks: inksOf(node, ctx), opaque };
+  };
+
+  /** The style a JSX spread puts on an element, branch by branch: the
+   * style member of each object it can be, or null where a branch has
+   * none. Null when the spread cannot be read. */
+  const spreadStyles = (expr, ctx) => {
+    const found = objectsOf(expr, ctx);
+    if (found.opaque) return null;
+    const out = found.none ? [null] : [];
+    for (const o of found.objects) {
+      let style = null;
+      for (const p of o.properties) {
+        if (ts.isSpreadAssignment(p)) continue;
+        if (memberKey(p.name) === "style") style = memberValue(p);
+      }
+      out.push(style);
     }
     return out;
   };
@@ -1213,19 +1669,34 @@ function readSource(file, text, env) {
         index: base + elements.length,
       };
       const missed = [];
+      // The colour each branch of the element's style leaves it with, in
+      // the order its attributes write it: a spread that brings a style
+      // replaces the one before it.
+      let inks = null;
       for (const a of opening.attributes.properties) {
         if (ts.isJsxSpreadAttribute(a)) {
           element.spread = true;
           if (!dom && ts.isIdentifier(a.expression) && ctx.bindings && (a.expression.text === ctx.bindings.rest || a.expression.text === ctx.bindings.whole)) {
             element.forwardsRest = true;
           }
+          const branches = dom ? spreadStyles(a.expression, ctx) : null;
+          if (branches) {
+            const before = inks ?? [null];
+            const next = branches.flatMap((style) => (style === null ? before : readStyle(style, ctx, element).inks));
+            inks = [...new Map(next.map((x) => [JSON.stringify(x), x])).values()];
+          }
           continue;
         }
         const name = a.name.getText(source);
         if (dom && name === "style" && a.initializer) {
           element.style = readStyle(a.initializer, ctx, element);
+          inks = element.style.inks;
           continue;
         }
+        // A style handed to a component: its objects are tied to the call.
+        // A component's `style` prop need not be a style, so what cannot be
+        // read there is left to the component that puts it on an element.
+        if (!dom && name === "style" && a.initializer) readStyle(a.initializer, ctx, element, { quiet: true });
         if (name === "dangerouslySetInnerHTML") element.html = true;
         const classy = CLASS_PROP.test(name);
         if (dom && name === "className") {
@@ -1240,6 +1711,7 @@ function readSource(file, text, env) {
         if (/^(key|ref|children)$/.test(name) || /^on[A-Z]/.test(name)) continue;
         element.attrs.set(name, attributeValue(a));
       }
+      if (inks) element.style = { ...(element.style ?? { opaque: false }), inks };
       for (const n of missed) {
         unresolved.push({ file, line: lineOf(n), kind: "class", component: ctx.component, text: n.getText(source).replace(/\s+/g, " ").slice(0, 100), element });
       }
@@ -1369,14 +1841,36 @@ function readSource(file, text, env) {
     }
     return { keys, jsx };
   };
+  const WATCHED = /^(color|WebkitTextFillColor|opacity|fill)$/;
+  const ASSIGNS = new Set([ts.SyntaxKind.EqualsToken, ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken]);
+  /** One colour, opacity or custom property set in code: recorded with the
+   * elements whose style holds it, and when it styles an element and its
+   * value cannot be read, named as unread. */
+  const record = (node, name, given, keys, element, owners, styled, when, jsxAttr) => {
+    const value = given.getText(source);
+    const read = valuesOf(given, valueScope);
+    if (name.startsWith("--")) {
+      codeCustoms.push({ file, line: lineOf(node), prop: name, values: read.values.map(unquoted), open: read.open, element, owners: [...owners], when });
+      return;
+    }
+    codeStyles.push({ file, line: lineOf(node), prop: name, value, values: read.values, none: read.none, keys, element, owners: [...owners], when, jsxAttr });
+    // A text colour or an opacity that styles an element (an inline
+    // style, a style object an element wears, the attribute itself) and
+    // whose value cannot be read is recorded, never passed in silence.
+    const inks = name !== "fill" || [...owners].some((el) => SVG_TEXT.has(el.tag.toLowerCase()));
+    const styles = styled.size > 0 || (element !== null && (jsxAttr ? element.dom : keys[0] === "style"));
+    if (read.open.length && inks && styles) {
+      unresolved.push({ file, line: lineOf(node), kind: "style", component: ctxFor(node).component, text: `${name}: ${value}`.replace(/\s+/g, " ").slice(0, 100), element });
+    }
+  };
   const codeVisit = (node) => {
     const shorthand = ts.isShorthandPropertyAssignment(node);
     if (((ts.isPropertyAssignment(node) || ts.isJsxAttribute(node)) && node.initializer) || shorthand) {
-      const name = node.name.getText(source).replace(/^["']|["']$/g, "");
-      if (/^(color|WebkitTextFillColor|opacity|fill)$/.test(name)) {
+      // A name computed from a constant is read as the constant's value.
+      const names = ts.isJsxAttribute(node) ? [node.name.getText(source)] : memberNames(node);
+      if (names === null || names.some((n) => WATCHED.test(n) || n.startsWith("--"))) {
         // `{ color }` holds the constant of that name.
         const given = shorthand ? node.name : node.initializer;
-        const value = given.getText(source);
         const { keys, jsx } = keyPath(node);
         const element = jsx ? elements.find((e) => e.line === lineOf(jsx) && e.tag === jsx.tagName.getText(source)) ?? null : null;
         // The elements whose style holds it, and the condition it is set under.
@@ -1392,15 +1886,40 @@ function readSource(file, text, env) {
           if (when === null && ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) when = n.left.getText(source);
         }
         const jsxAttr = ts.isJsxAttribute(node);
-        const read = valuesOf(given, valueScope);
-        codeStyles.push({ file, line: lineOf(node), prop: name, value, values: read.values, none: read.none, keys, element, owners: [...owners], when, jsxAttr });
-        // A text colour or an opacity that styles an element (an inline
-        // style, a style object an element wears, the attribute itself) and
-        // whose value cannot be read is recorded, never passed in silence.
-        const inks = name !== "fill" || [...owners].some((el) => SVG_TEXT.has(el.tag.toLowerCase()));
-        const styles = styled.size > 0 || (element !== null && (jsxAttr ? element.dom : keys[0] === "style"));
-        if (read.open.length && inks && styles) {
-          unresolved.push({ file, line: lineOf(node), kind: "style", component: ctxFor(node).component, text: `${name}: ${value}`.replace(/\s+/g, " ").slice(0, 100), element });
+        if (names === null) {
+          // A style member whose name cannot be read may be a colour.
+          if (styled.size > 0 || (element !== null && keys[0] === "style")) {
+            unresolved.push({ file, line: lineOf(node), kind: "style", component: ctxFor(node).component, text: `${node.name.getText(source)}: ${given.getText(source)}`.replace(/\s+/g, " ").slice(0, 100), element });
+          }
+        } else {
+          for (const name of new Set(names)) if (WATCHED.test(name) || name.startsWith("--")) record(node, name, given, keys, element, owners, styled, when, jsxAttr);
+        }
+      }
+    }
+    // A colour written into a style object after it is made: `s.color = x`.
+    if (ts.isBinaryExpression(node) && ASSIGNS.has(node.operatorToken.kind)) {
+      const left = unwrap(node.left);
+      if (left && (ts.isPropertyAccessExpression(left) || ts.isElementAccessExpression(left))) {
+        let names = null;
+        if (ts.isPropertyAccessExpression(left)) names = [left.name.text];
+        else {
+          const read = valuesOf(left.argumentExpression, valueScope);
+          names = read.open.length || !read.values.length ? null : read.values.map(unquoted);
+        }
+        const target = names?.some((n) => WATCHED.test(n) || n.startsWith("--")) ? objectsOf(left.expression, ctxFor(node)) : null;
+        // Only into an object this file makes: a value written into
+        // something else (a layer, an element's own style) is not read.
+        if (target?.objects.length) {
+          const owners = new Set(target.objects.flatMap((o) => styleOwners.get(o) ?? []));
+          let when = null;
+          for (let n = node.parent; n && !ts.isFunctionLike(n) && !ts.isSourceFile(n); n = n.parent) {
+            if (ts.isIfStatement(n)) {
+              when = n.expression.getText(source);
+              break;
+            }
+          }
+          const keys = [left.expression.getText(source).replace(/\s+/g, " ")];
+          for (const name of new Set(names)) if (WATCHED.test(name) || name.startsWith("--")) record(node, name, node.right, [...keys, name], null, owners, owners, when, false);
         }
       }
     }
@@ -1415,7 +1934,7 @@ function readSource(file, text, env) {
     return alts(init, { ...ctxFor(init), globals: true, miss: () => {} });
   };
 
-  return { file, sheets, imports, reexports, components, exportsAs, helpers, elements, codeStyles, unresolved, exportAlts };
+  return { file, sheets, imports, reexports, components, exportsAs, helpers, elements, codeStyles, codeCustoms, unresolved, exportAlts };
 }
 
 /* ---- the model ---- */
@@ -1449,6 +1968,7 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
   const customs = [];
   const composes = new Map();
   const codeStyles = [];
+  const codeCustoms = [];
   const unresolved = [];
 
   /* The constants a file declares at its top, for a value set in code
@@ -1463,27 +1983,61 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
     const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const consts = new Map();
     const imported = new Map();
+    // What the file exports under each name: its own constant, or one it
+    // passes on from another file.
+    const local = new Map();
+    const passed = new Map();
+    const stars = [];
     for (const statement of source.statements) {
       if (ts.isVariableStatement(statement)) {
-        for (const d of statement.declarationList.declarations) if (ts.isIdentifier(d.name) && d.initializer && isConstInit(d.initializer)) consts.set(d.name.text, d.initializer);
+        const exported = statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+        for (const d of statement.declarationList.declarations) {
+          if (!ts.isIdentifier(d.name)) continue;
+          if (d.initializer && isConstInit(d.initializer)) consts.set(d.name.text, d.initializer);
+          if (exported) local.set(d.name.text, d.name.text);
+        }
       }
       const clause = ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier) ? statement.importClause : null;
       if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
         const target = resolveImport(root, file, statement.moduleSpecifier.text, exists);
         if (target) for (const el of clause.namedBindings.elements) imported.set(el.name.text, { file: target, name: (el.propertyName ?? el.name).text });
       }
+      if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+        const target = statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? resolveImport(root, file, statement.moduleSpecifier.text, exists) : null;
+        for (const el of statement.exportClause.elements) {
+          const from = (el.propertyName ?? el.name).text;
+          if (target) passed.set(el.name.text, { file: target, name: from });
+          else if (!statement.moduleSpecifier) local.set(el.name.text, from);
+        }
+      } else if (ts.isExportDeclaration(statement) && !statement.exportClause && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier)) {
+        const target = resolveImport(root, file, statement.moduleSpecifier.text, exists);
+        if (target) stars.push(target);
+      }
     }
     const scope = {
       lookup: (name, _at, depth = 0) => {
         if (consts.has(name)) return [{ init: consts.get(name), scope }];
         const from = imported.get(name);
-        return from && depth < 8 ? moduleScope(from.file)?.lookup(from.name, null, depth + 1) ?? null : null;
+        return from && depth < 8 ? exportedAs(from.file, from.name, depth + 1) : null;
+      },
+      /** A name another file imports from this one, read through the
+       * name it is exported under. */
+      exported: (name, depth = 0) => {
+        if (local.has(name)) return scope.lookup(local.get(name), null, depth);
+        const via = passed.get(name);
+        if (via) return depth < 8 ? exportedAs(via.file, via.name, depth + 1) : null;
+        for (const star of stars) {
+          const found = depth < 8 ? exportedAs(star, name, depth + 1) : null;
+          if (found) return found;
+        }
+        return scope.lookup(name, null, depth);
       },
     };
     moduleScopes.set(file, scope);
     return scope;
   };
-  const exported = (file, name) => moduleScope(file)?.lookup(name, null) ?? null;
+  const exportedAs = (file, name, depth = 0) => moduleScope(file)?.exported(name, depth) ?? null;
+  const exported = (file, name) => exportedAs(file, name);
 
   for (const [file, text] of [...sources].sort(([a], [b]) => a.localeCompare(b, "en"))) {
     if (file.endsWith(".css")) {
@@ -1513,6 +2067,7 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
     elements.push(...info.elements);
     files.set(file, info);
     codeStyles.push(...info.codeStyles);
+    codeCustoms.push(...info.codeCustoms);
     unresolved.push(...info.unresolved);
   }
 
@@ -1701,7 +2256,8 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
     return [...out];
   };
   for (const el of elements) {
-    el.wears = el.dom ? (el.alts ?? []).map(expand) : el.landings.flatMap((l) => l.alts.map(expand));
+    if (!el.dom) for (const l of el.landings) l.wears = l.alts.map(expand);
+    el.wears = el.dom ? (el.alts ?? []).map(expand) : el.landings.flatMap((l) => l.wears);
   }
 
   /* Indexes: elements by the classes they wear and by tag. */
@@ -1723,7 +2279,7 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
   }
 
   return {
-    root, sources, files, elements, selectors, customs, codeStyles, unresolved, callers, byToken, byTag, tagsOf,
+    root, sources, files, elements, selectors, customs, codeStyles, codeCustoms, unresolved, callers, byToken, byTag, tagsOf,
     rootsOf,
     stats: {
       stylesheets: [...sources.keys()].filter((f) => f.endsWith(".css")).length,
