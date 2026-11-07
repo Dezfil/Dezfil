@@ -57,8 +57,9 @@ const read = (name: string): Row[] => JSON.parse(readFileSync(path.join(HERE, na
 const ALLOWED = read("faint-boundary.allowed.json");
 
 /**
- * What the collector cannot read, by file, kind and source text: a class
- * or a style it cannot resolve to rules. Listed both ways and counted, so
+ * What the collector cannot read, by file, kind and source text: a class,
+ * a style (set inline, in an object or on an element by hand), stylesheet
+ * text or markup it cannot resolve to rules. Listed both ways and counted, so
  * a new unreadable site (another element wearing a style already named
  * included) fails until it is read or named here.
  */
@@ -79,6 +80,8 @@ const UNREAD = [
   "src/components/builder/style-panel/ContinuousBrush.tsx :: style :: {sliderFill(shown.center, clampLo, clampHi) as CSSProperties}",
   "src/components/builder/style-panel/rows.tsx :: style :: {sliderFill(shown, min, max)}",
   "src/components/builder/style-panel/size-rows.tsx :: style :: {sliderFill(positionFor(shown, min, max), 0, TRACK_STEPS)}",
+  // The panel lens's backdrop blur, set by hand under a custom property named per surface role at run time: no colour or opacity.
+  "src/components/look/panel-lens.ts :: style :: el.style.setProperty(name, value)",
 ];
 
 /** The sites a model cannot read, as `file :: kind :: text`. */
@@ -717,5 +720,157 @@ describe("the faint boundary reads the opacity a colour paints with through what
       ".hint { color: var(--unset-ink, var(--fg)); }",
     ];
     for (const css of opaque) expect(judged({ css, extra: HINT_BODY })).toEqual([]);
+  });
+});
+
+describe("the faint boundary reads styles written after the fact, by hand and as stylesheet text", () => {
+  const HINT = `\n      <p style={s}>Only the owner can publish.</p>`;
+  const MADE = `\n  const s: React.CSSProperties = {};`;
+  const WRITTEN: [string, Seed, string][] = [
+    ["a colour written into a named style object", { head: MADE + `\n  s.color = "var(--fg-faint)";`, extra: HINT }, "declaration"],
+    ["a colour written into a named style object under a literal key", { head: MADE + `\n  s["color"] = "var(--fg-faint)";`, extra: HINT }, "declaration"],
+    ["an opacity written into a named style object", { head: MADE + `\n  s.opacity = 0.6;`, extra: HINT }, "opacity"],
+    ["an opacity written into a named style object under a literal key", { head: MADE + `\n  s["opacity"] = "0.6";`, extra: HINT }, "opacity"],
+    ["a filter opacity written into a named style object", { head: MADE + `\n  s.filter = "opacity(0.6)";`, extra: HINT }, "opacity"],
+  ];
+  it.each(WRITTEN)("fails on %s", (_name, seed, check) => {
+    const f = judged(seed);
+    expect(checks(f)).toEqual([check]);
+    expect(f[0].message).toContain('<p> "Only the owner can publish."');
+  });
+
+  it("names a member it cannot name, written into a named style object an element wears, as unread", () => {
+    expect(unreadOf({ head: MADE + `\n  s[prop] = "var(--fg-faint)";`, extra: HINT })).toContain(`style :: s[prop] = "var(--fg-faint)"`);
+  });
+
+  /* Styles set on an element by hand: the element is not known, so a faint
+   * or fading value is a use that reaches no element the check can see, and
+   * fails until it is listed; a value or property it cannot read is unread. */
+  const paint = (body: string) => ({ top: `\nfunction paint(el: HTMLElement, busy: boolean) {\n  ${body}\n}` });
+  const BY_HAND: [string, string, string][] = [
+    ["a colour", `el.style.color = "var(--fg-faint)";`, "declaration"],
+    ["a colour under a literal key", `el.style["color"] = "var(--fg-faint)";`, "declaration"],
+    ["a text fill colour", `el.style.webkitTextFillColor = "var(--fg-faint)";`, "declaration"],
+    ["an opacity", `el.style.opacity = "0.5";`, "opacity"],
+    ["an opacity as a percentage", `el.style.opacity = "50%";`, "opacity"],
+    ["a filter opacity", `el.style.filter = "opacity(.5)";`, "opacity"],
+    ["a colour through setProperty", `el.style.setProperty("color", "var(--fg-faint)");`, "declaration"],
+    ["an opacity through setProperty", `el.style.setProperty("opacity", "0.5", "important");`, "opacity"],
+    ["a colour in cssText", `el.style.cssText = "font-weight: 600; color: var(--fg-faint)";`, "declaration"],
+    ["an opacity in cssText", `el.style.cssText = "color: var(--fg); opacity: .5";`, "opacity"],
+    ["a colour in a style attribute", `el.setAttribute("style", "color: var(--fg-faint)");`, "declaration"],
+    ["a colour in a whole style given as text", `el.style = "color: var(--fg-faint)";`, "declaration"],
+    ["a translucent fill attribute", `el.setAttribute("fill", "rgb(0 0 0 / 0.5)");`, "opacity"],
+    ["an opacity assigned into the element's style", `Object.assign(el.style, { opacity: "0.5" });`, "opacity"],
+    ["a colour written through a name for the element's style", `const style = el.style;\n  style.color = "var(--fg-faint)";`, "declaration"],
+    ["a colour set through a name for the element's style", `const style = el.style;\n  style.setProperty("color", "var(--fg-faint)");`, "declaration"],
+    ["a faint custom property a rule reads", `el.style.setProperty("--hint-ink", "var(--fg-faint)");`, "declaration"],
+  ];
+  it.each(BY_HAND)("fails on %s set on an element by hand", (_name, body, check) => {
+    const seed = { ...paint(body), css: ".hint { color: var(--hint-ink, var(--fg)); }", extra: `\n      <p className={styles.hint}>Only the owner can publish.</p>` };
+    const f = judged(seed);
+    expect(checks(f)).toEqual([check]);
+    if (!body.includes("--hint-ink")) expect(f[0].message).toContain("set in code");
+  });
+
+  const BY_HAND_UNREAD: [string, string, string][] = [
+    ["a colour it cannot read", `el.style.color = inkFor(busy);`, "style :: color: inkFor(busy)"],
+    ["a property it cannot name", `el.style[prop] = "var(--fg-faint)";`, `style :: el.style[prop] = "var(--fg-faint)"`],
+    ["a property setProperty cannot name", `el.style.setProperty(prop, "var(--fg-faint)");`, `style :: el.style.setProperty(prop, "var(--fg-faint)")`],
+    ["cssText it cannot read", `el.style.cssText = css;`, "style :: el.style.cssText = css"],
+    ["a style attribute it cannot read", `el.setAttribute("style", css);`, `style :: el.setAttribute("style", css)`],
+    ["a colour assigned into the element's style that it cannot read", `Object.assign(el.style, { color: inkFor(busy) });`, "style :: color: inkFor(busy)"],
+  ];
+  it.each(BY_HAND_UNREAD)("names %s, set on an element by hand, as unread", (_name, body, site) => {
+    expect(unreadOf(paint(body))).toContain(site);
+  });
+
+  it("passes styles set by hand that keep text readable", () => {
+    const seed = paint(
+      [
+        `el.style.color = "var(--fg)";`,
+        `el.style.opacity = busy ? "1" : "0";`,
+        `el.style.filter = "grayscale(1)";`,
+        `el.style.display = "none";`,
+        `el.style.minWidth = String(busy);`,
+        `el.style.setProperty("--menu-room", \`\${Number(busy)}px\`);`,
+        `el.style.cssText = "position: fixed; color: var(--fg-muted)";`,
+        `el.setAttribute("style", "pointer-events: none");`,
+      ].join("\n  "),
+    );
+    expect(judged(seed)).toEqual([]);
+    expect(unreadOf(seed)).toEqual([]);
+  });
+
+  it("passes a fade set by hand while dragging listed as transient, and an icon's colour and fade set by hand listed as non-text", () => {
+    const seed = paint(`if (busy) el.style.opacity = "0.6";\n  const icon = el.querySelector("svg")!;\n  icon.style.color = "var(--fg-faint)";\n  icon.style.opacity = "0.5";`);
+    const seedDragging = { top: seed.top.replace(/busy/g, "dragging") };
+    const uses = usesOf(tree(seedDragging));
+    const added = [...uses.uses.values()].filter((u) => !(`${u.layer} :: ${u.id}` in KIND_OF));
+    expect(added.map((u) => u.layer).sort()).toEqual(["ink", "opacity", "opacity"]);
+    const kinds = Object.fromEntries(added.map((u) => [`${u.layer} :: ${u.id}`, u.id.includes("icon.style") ? "non-text" : "transient"]));
+    const listed = rowsFor(uses, { ...KIND_OF, ...kinds }).map((r) => (r.elements?.length ? r : { ...r, unseen: "set on an element by hand" }));
+    expect(judge(uses, { allowed: listed })).toEqual([]);
+    // The same fade set at rest is no transient state.
+    const atRest = usesOf(tree(paint(`el.style.opacity = "0.6";`)));
+    const rows = rowsFor(atRest, { ...KIND_OF, ...Object.fromEntries([...atRest.uses.keys()].filter((k) => !(k in KIND_OF)).map((k) => [k, "transient"])) }).map((r) =>
+      r.elements?.length ? r : { ...r, unseen: "set on an element by hand" },
+    );
+    expect(checks(judge(atRest, { allowed: rows }))).toEqual(["kind"]);
+    // A fade in a style object no element is seen to wear is not set by hand: it may reach text.
+    const theme = usesOf(tree({ files: { "src/fixture/editor-theme.ts": `export const editorTheme = { ".cm-tooltip": { opacity: 0.6 } };\n` } }));
+    const themeRows = rowsFor(theme, { ...KIND_OF, ...Object.fromEntries([...theme.uses.keys()].filter((k) => !(k in KIND_OF)).map((k) => [k, "non-text"])) }).map((r) =>
+      r.elements?.length ? r : { ...r, unseen: "an editor's tooltip" },
+    );
+    expect(judge(theme, { allowed: themeRows }).map((x) => x.message)).toEqual([expect.stringContaining("not non-text: an opacity listed here would reach text")]);
+  });
+
+  /* Stylesheet text in a component: a <style> element's text, or the markup
+   * it is handed, read as rules for the classes the page puts on elements. */
+  const HINT_CLASS = `\n      <p className="hint">Only the owner can publish.</p>`;
+  const IN_STYLE: [string, Seed, string][] = [
+    ["a faint colour in a <style> element's text", { extra: `\n      <style>{\`.hint { color: var(--fg-faint); }\`}</style>` + HINT_CLASS }, "declaration"],
+    ["an opacity in a <style> element's text", { extra: `\n      <style>{".hint { opacity: 0.6; }"}</style>` + HINT_CLASS }, "opacity"],
+    ["a faint colour in a <style> element's text held in a constant", { top: `\nconst HINT_CSS = ".hint { color: var(--fg-faint); }";`, extra: `\n      <style>{HINT_CSS}</style>` + HINT_CLASS }, "declaration"],
+    ["a faint colour in the markup a <style> element is handed", { extra: `\n      <style dangerouslySetInnerHTML={{ __html: ".hint { color: var(--fg-faint); }" }} />` + HINT_CLASS }, "declaration"],
+    ["an opacity as a percentage in the markup a <style> element is handed", { extra: `\n      <style dangerouslySetInnerHTML={{ __html: ".hint { opacity: 60%; }" }} />` + HINT_CLASS }, "opacity"],
+  ];
+  it.each(IN_STYLE)("fails on %s", (_name, seed, check) => {
+    const f = judged(seed);
+    expect(checks(f)).toEqual([check]);
+    expect(f[0].message).toContain('<p.hint> "Only the owner can publish."');
+  });
+
+  it("names stylesheet text it cannot read as unread", () => {
+    expect(unreadOf({ extra: `\n      <style>{cssFor(busy)}</style>` })).toContain("stylesheet :: cssFor(busy)");
+    expect(unreadOf({ extra: `\n      <style dangerouslySetInnerHTML={{ __html: cssFor(busy) }} />` })).toContain("stylesheet :: cssFor(busy)");
+    expect(unreadOf({ extra: `\n      <div dangerouslySetInnerHTML={{ __html: '<p style="color: var(--fg-faint)">Only the owner can publish.</p>' }} />` })).toHaveLength(1);
+  });
+
+  it("passes stylesheet text that keeps text readable", () => {
+    const seed = { extra: `\n      <style>{".hint { color: var(--fg); } .gone { opacity: 0; }"}</style>\n      <style dangerouslySetInnerHTML={{ __html: \`\${"nextjs-portal"}{display:none!important}\` }} />` + HINT_CLASS };
+    expect(judged(seed)).toEqual([]);
+    expect(unreadOf(seed)).toEqual([]);
+  });
+
+  /* Percentages and filters. */
+  const MEASURED: [string, Seed, string][] = [
+    ["an opacity written as a percentage in code", { extra: HINT_P(`opacity: "60%"`) }, "opacity"],
+    ["an opacity percentage held in a constant", { head: `\n  const dim = "60%";`, extra: HINT_P("opacity: dim") }, "opacity"],
+    ["an opacity written as a percentage in a stylesheet", { css: ".hint { opacity: 60%; }", extra: `\n      <p className={styles.hint}>Only the owner can publish.</p>` }, "opacity"],
+    ["a filter opacity written as a percentage in a stylesheet", { css: ".hint { filter: opacity(60%); }", extra: `\n      <p className={styles.hint}>Only the owner can publish.</p>` }, "opacity"],
+    ["a filter opacity set in code", { extra: HINT_P(`filter: "opacity(0.5)"`) }, "opacity"],
+    ["a filter opacity as a percentage after another filter, set in code", { extra: HINT_P(`filter: "grayscale(1) opacity(60%)"`) }, "opacity"],
+    ["a filter opacity held in a constant", { head: `\n  const dimmed = "opacity(.5)";`, extra: HINT_P("filter: dimmed") }, "opacity"],
+  ];
+  it.each(MEASURED)("fails on %s", (_name, seed, check) => {
+    const f = judged(seed);
+    expect(checks(f)).toEqual([check]);
+    expect(f[0].message).toContain('"Only the owner can publish."');
+  });
+
+  it("names a filter set in code that it cannot read as unread, and passes one that does not fade", () => {
+    expect(unreadOf({ extra: HINT_P("filter: filterFor(busy)") })).toContain("style :: filter: filterFor(busy)");
+    expect(judged({ extra: HINT_P(`filter: "grayscale(1)", opacity: "100%"`) })).toEqual([]);
   });
 });

@@ -12,15 +12,19 @@
  *     its palette and Liquid spellings, the raw faint hexes, and any custom
  *     property defined from them, in a stylesheet or inline (the token
  *     blocks that define the ink are definitions, not uses). A value set in
- *     code is read through the constants it names;
+ *     code is read through the constants it names. A style set on an
+ *     element by hand reaches no element the source names, so it is a use
+ *     that fails until it is listed (with the element it styles in
+ *     `unseen`);
  *   - elements: every element that wears one of those styles, a style
  *     object held in a constant included;
  *   - inheritance: text inside such an element that sets no colour of its
  *     own, so it takes the faint ink from it. A class, a rule or an inline
  *     colour that holds only some of the time sets one only when every
  *     branch does;
- *   - opacity: every opacity under one (or a see-through text colour) that
- *     applies at rest to an element with text in it, whatever that text's
+ *   - opacity: every opacity under one (or an opacity() filter, or a
+ *     see-through text colour) that applies at rest to an element with text
+ *     in it, or to an element the source does not name, whatever that text's
  *     colour. A colour is see-through by its alpha, read through the colour
  *     functions it nests and the custom properties it names, in a
  *     stylesheet or set in code. Fully transparent is hiding, not fading,
@@ -632,7 +636,8 @@ export function faintUses(model) {
     const values = cs.values ?? [];
     const value = values.length && !(values.length === 1 && values[0] === cs.value) ? `${cs.value} = ${[...new Set(values)].join(" | ")}` : cs.value;
     const fill = cs.prop === "fill";
-    const text = fill && owners.some(fillsText);
+    // A fill set on an element by hand may be svg text's.
+    const text = fill && (owners.some(fillsText) || (cs.dom && !owners.length));
     const ink = colour || text;
     if (ink && [cs.value, ...values].some((v) => isFaint(v, aliases))) {
       const u = record("ink", id, { file: cs.file, line: cs.line, origin: "code", value, keys: cs.keys, when: cs.when, pseudo: new Set() });
@@ -646,12 +651,14 @@ export function faintUses(model) {
     const fades =
       cs.prop === "opacity"
         ? [codeFade(cs.value), ...values.map((v) => (quoted(v) ? fadeOf("opacity", unquote(v), resolve) : codeFade(v)))]
-        : ink
-          ? values.map((v) => fadeOf(fill ? "fill" : "color", unquote(v), resolve))
-          : [];
+        : cs.prop === "filter"
+          ? values.map((v) => (quoted(v) ? fadeOf("filter", unquote(v), resolve) : null))
+          : ink
+            ? values.map((v) => fadeOf(fill ? "fill" : "color", unquote(v), resolve))
+            : [];
     const fade = fades.some((x) => x !== null) ? Math.min(...fades.filter((x) => x !== null)) : null;
     if (fade !== null && (!owners.length || owners.some(fill ? fillsText : textInside))) {
-      const u = record("opacity", id, { file: cs.file, line: cs.line, origin: "code", value: `${cs.prop}: ${value}`, keys: cs.keys, when: cs.when, pseudo: new Set() });
+      const u = record("opacity", id, { file: cs.file, line: cs.line, origin: "code", value: `${cs.prop}: ${value}`, keys: cs.keys, when: cs.when, byHand: !!cs.dom, pseudo: new Set() });
       for (const owner of owners) {
         const e = entry(owner);
         u.elements.set(e.id, e);
@@ -815,9 +822,11 @@ export const KINDS = {
   /** A colour that reaches no text: icons, rules with no element. A row
    * may name the rule that gives its text another ink in the state the text
    * shows (`textInk`); that rule must exist, set an ink that is not faint,
-   * outrank this one and stand for each of those elements. */
+   * outrank this one and stand for each of those elements. An opacity is
+   * recorded only where it reaches text, so it can be non-text only when it
+   * is set on an element by hand, which the source does not name. */
   "non-text"(use, row = {}, ctx = null) {
-    if (use.layer !== "ink") return "an opacity listed here would reach text";
+    if (use.layer !== "ink" && !(use.byHand && !use.elements.size)) return "an opacity listed here would reach text";
     let t = textEntries(use);
     if (row.textInk) {
       const over = ctx?.rule(row.textInk);

@@ -16,17 +16,23 @@
  *     or drawn by a function of the same file joins the element that shows
  *     it, and the children a component is handed join the element that
  *     shows them;
- *   - the styles set in code: every colour, opacity and custom property a
- *     TypeScript object or a JSX attribute gives (inline styles, editor
- *     themes) or a later write puts into a style object, with the values
- *     each can take, read through the names it uses where it uses them
- *     (the constants of the scopes around it, through the keys a
+ *   - the styles set in code: every colour, opacity, filter and custom
+ *     property a TypeScript object or a JSX attribute gives (inline styles,
+ *     editor themes) or a later write puts into a style object, with the
+ *     values each can take, read through the names it uses where it uses
+ *     them (the constants of the scopes around it, through the keys a
  *     destructuring takes, or one another file exports), and for an
  *     inline style, whether written, spread in or handed to a component,
- *     the colour each of its branches leaves the element with.
+ *     the colour each of its branches leaves the element with;
+ *   - the styles set on an element by hand (`el.style.color = x`,
+ *     `setProperty`, `cssText`, a style attribute, an object assigned into
+ *     an element's style), which reach an element the source does not name;
+ *   - stylesheet text a component writes in a <style> element, read as
+ *     global rules of its file.
  *
- * A class expression, a style or a style's value it cannot read is
- * recorded in `unresolved` with its place, never dropped in silence.
+ * A class expression, a style or a style's value, stylesheet text, or
+ * markup that may carry styles of its own that it cannot read is recorded
+ * in `unresolved` with its place, never dropped in silence.
  *
  * On top of that it answers: which elements a selector can stand for,
  * an element's parents and children in the drawn tree, whether it shows
@@ -467,9 +473,10 @@ export function statesOf(selector) {
 
 const CLASS_PROP = /^(className|class)$|ClassName$/;
 /** A TypeScript file without markup is read only when it can set a style:
- * it names a faint spelling, a colour, an opacity, a fill or a custom
- * property, whatever the value (a constant from another file included). */
-const CODE_STYLE_HINT = /fg-faint|#93a19c|#5d6880|#7f8d89|code-comment|\b(color|opacity|fill|WebkitTextFillColor)\b|["'`]--[-\w]+["'`]/i;
+ * it names a faint spelling, a colour, an opacity, a fill, a filter or a
+ * custom property, whatever the value (a constant from another file
+ * included), or it styles an element by hand. */
+const CODE_STYLE_HINT = /fg-faint|#93a19c|#5d6880|#7f8d89|code-comment|\b(color|opacity|fill|WebkitTextFillColor)\b|\bfilter\s*[:=]|["'`]--[-\w]+["'`]|\.style\b|cssText|setProperty|setAttribute/i;
 /** Names an expression shows that hold a drawing, not text. */
 const ICONISH = /icon|glyph|svg|chevron|caret|arrow$|tile$/i;
 const SVG_TEXT = new Set(["text", "tspan", "textpath"]);
@@ -1654,6 +1661,50 @@ function readSource(file, text, env) {
     return out;
   };
 
+  /**
+   * Stylesheet text written in markup: a <style> element's text, read
+   * through the constants it names, or the markup it is handed, kept as
+   * rules of this file for the classes the page puts on elements. Markup
+   * any other element is handed (a script's aside) may carry inline styles
+   * or a stylesheet of its own; it is not parsed, so where it does, or
+   * where it cannot be read, it is named as unread. So is stylesheet text
+   * that cannot be read.
+   */
+  const sheetTexts = [];
+  const readMarkup = (node, opening, element, ctx) => {
+    const tag = element.tag.toLowerCase();
+    if (tag === "script") return;
+    const parts = [];
+    for (const a of opening.attributes.properties) {
+      if (!ts.isJsxAttribute(a) || a.name.getText(source) !== "dangerouslySetInnerHTML" || !a.initializer) continue;
+      const found = objectsOf(a.initializer, ctx);
+      const members = found.objects.map((o) => o.properties.find((p) => !ts.isSpreadAssignment(p) && memberKey(p.name) === "__html")).map((p) => (p ? memberValue(p) : null));
+      if (found.opaque || !members.length || members.some((m) => !m)) {
+        parts.push({ node: a.initializer, read: { values: [], open: [a.initializer.getText(source)], none: false } });
+        continue;
+      }
+      for (const m of members) parts.push({ node: m, read: valuesOf(m, valueScope) });
+    }
+    if (tag === "style" && ts.isJsxElement(node)) {
+      for (const child of node.children) {
+        if (ts.isJsxText(child) && child.text.trim()) parts.push({ node: child, read: { values: ['"' + child.text + '"'], open: [], none: false } });
+        else if (ts.isJsxExpression(child) && child.expression) parts.push({ node: child.expression, read: valuesOf(child.expression, valueScope) });
+      }
+    }
+    const unread = (n, kind) => unresolved.push({ file, line: lineOf(n), kind, component: ctx.component, text: n.getText(source).replace(/\s+/g, " ").slice(0, 100), element });
+    for (const { node: n, read } of parts) {
+      if (tag !== "style") {
+        if (read.open.length || read.values.some((v) => /<style\b|\sstyle\s*=/i.test(v))) unread(n, "markup");
+        continue;
+      }
+      if (read.open.length) {
+        unread(n, "stylesheet");
+        continue;
+      }
+      for (const css of new Set(read.values.map(unquoted))) sheetTexts.push({ file, line: lineOf(n), css });
+    }
+  };
+
   /** Walk one top-level statement for elements, carrying the element they
    * sit in. */
   const scan = (statement) => {
@@ -1712,6 +1763,7 @@ function readSource(file, text, env) {
         element.attrs.set(name, attributeValue(a));
       }
       if (inks) element.style = { ...(element.style ?? { opaque: false }), inks };
+      if (dom && (tag.toLowerCase() === "style" || element.html)) readMarkup(node, opening, element, ctx);
       for (const n of missed) {
         unresolved.push({ file, line: lineOf(n), kind: "class", component: ctx.component, text: n.getText(source).replace(/\s+/g, " ").slice(0, 100), element });
       }
@@ -1841,34 +1893,141 @@ function readSource(file, text, env) {
     }
     return { keys, jsx };
   };
-  const WATCHED = /^(color|WebkitTextFillColor|opacity|fill)$/;
+  const WATCHED = /^(color|WebkitTextFillColor|opacity|fill|filter)$/;
+  const watched = (name) => WATCHED.test(name) || name.startsWith("--");
   const ASSIGNS = new Set([ts.SyntaxKind.EqualsToken, ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken]);
-  /** One colour, opacity or custom property set in code: recorded with the
-   * elements whose style holds it, and when it styles an element and its
-   * value cannot be read, named as unread. */
-  const record = (node, name, given, keys, element, owners, styled, when, jsxAttr) => {
-    const value = given.getText(source);
-    const read = valuesOf(given, valueScope);
+  /** A site whose style cannot be read, named by its source text. */
+  const unreadAt = (node, element = null) =>
+    unresolved.push({ file, line: lineOf(node), kind: "style", component: ctxFor(node).component, text: node.getText(source).replace(/\s+/g, " ").slice(0, 100), element });
+  /** One colour, opacity, filter or custom property set in code: recorded
+   * with the elements whose style holds it, and when it styles an element
+   * and its value cannot be read, named as unread. `dom` marks a style set
+   * on an element by hand, which reaches an element the source does not
+   * name. */
+  const record = (node, name, given, keys, element, owners, styled, when, jsxAttr, dom = false) => {
+    put(node, name, given.getText(source), valuesOf(given, valueScope), keys, element, owners, styled, when, jsxAttr, dom);
+  };
+  const put = (node, name, value, read, keys, element, owners, styled, when, jsxAttr, dom) => {
     if (name.startsWith("--")) {
       codeCustoms.push({ file, line: lineOf(node), prop: name, values: read.values.map(unquoted), open: read.open, element, owners: [...owners], when });
       return;
     }
-    codeStyles.push({ file, line: lineOf(node), prop: name, value, values: read.values, none: read.none, keys, element, owners: [...owners], when, jsxAttr });
+    codeStyles.push({ file, line: lineOf(node), prop: name, value, values: read.values, none: read.none, keys, element, owners: [...owners], when, jsxAttr, dom });
     // A text colour or an opacity that styles an element (an inline
-    // style, a style object an element wears, the attribute itself) and
-    // whose value cannot be read is recorded, never passed in silence.
-    const inks = name !== "fill" || [...owners].some((el) => SVG_TEXT.has(el.tag.toLowerCase()));
-    const styles = styled.size > 0 || (element !== null && (jsxAttr ? element.dom : keys[0] === "style"));
+    // style, a style object an element wears, the attribute itself, a
+    // style set by hand) and whose value cannot be read is recorded, never
+    // passed in silence.
+    const inks = dom || name !== "fill" || [...owners].some((el) => SVG_TEXT.has(el.tag.toLowerCase()));
+    const styles = dom || styled.size > 0 || (element !== null && (jsxAttr ? element.dom : keys[0] === "style"));
     if (read.open.length && inks && styles) {
       unresolved.push({ file, line: lineOf(node), kind: "style", component: ctxFor(node).component, text: `${name}: ${value}`.replace(/\s+/g, " ").slice(0, 100), element });
     }
   };
+
+  /* ---- styles set on an element by hand ---- */
+
+  /** The name a style property set by hand is recorded under, as an
+   * element's style object or `setProperty` spells it: null for one that
+   * holds no colour, opacity, filter or custom property. */
+  const BY_HAND = new Map([
+    ["color", "color"], ["opacity", "opacity"], ["fill", "fill"], ["filter", "filter"],
+    ["webkitTextFillColor", "WebkitTextFillColor"], ["WebkitTextFillColor", "WebkitTextFillColor"], ["-webkit-text-fill-color", "WebkitTextFillColor"],
+  ]);
+  const byHandName = (name) => (name.startsWith("--") ? name : BY_HAND.get(name) ?? null);
+  /** Whether an expression is an element's own style (`el.style`, or a
+   * constant that holds one) rather than a style object this file makes. */
+  const isElementStyle = (expr, depth = 0) => {
+    const n = unwrap(expr);
+    if (!n || depth > 4) return false;
+    if (ts.isPropertyAccessExpression(n) && n.name.text === "style") return objectsOf(n, ctxFor(n)).objects.length === 0;
+    if (!ts.isIdentifier(n)) return false;
+    const held = heldBy(n.text, n);
+    if (!held || held.binding.kind !== "const" || held.exprs.length !== 1) return false;
+    const [only] = held.exprs;
+    return only.expr !== null && !only.keys.length && isElementStyle(only.expr, depth + 1);
+  };
+  /** Where a style is set by hand: the function it is set in. */
+  const placeOf = (node) => {
+    for (let n = node.parent; n; n = n.parent) {
+      if ((ts.isFunctionDeclaration(n) || ts.isMethodDeclaration(n)) && n.name) return n.name.getText(source) + "()";
+      if ((ts.isArrowFunction(n) || ts.isFunctionExpression(n)) && n.parent && ts.isVariableDeclaration(n.parent) && ts.isIdentifier(n.parent.name)) return n.parent.name.text + "()";
+    }
+    return null;
+  };
+  /** The condition a statement is set under, up to its function. */
+  const conditionOf = (node) => {
+    for (let n = node.parent; n && !ts.isFunctionLike(n) && !ts.isSourceFile(n); n = n.parent) {
+      if (ts.isIfStatement(n)) return n.expression.getText(source);
+      if (ts.isConditionalExpression(n)) return n.condition.getText(source);
+      if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return n.left.getText(source);
+    }
+    return null;
+  };
+  /** A style set by hand under a name it can read. */
+  const byHand = (node, name, given, receiver) => {
+    const prop = byHandName(name);
+    if (!prop) return;
+    const keys = [placeOf(node), receiver.getText(source).replace(/\s+/g, " "), prop].filter(Boolean);
+    record(node, prop, given, keys, null, new Set(), new Set(), conditionOf(node), false, true);
+  };
+  /** Declarations written as text (`cssText`, a style attribute), read
+   * through the constants they name, each colour, opacity, filter or
+   * custom property recorded as set by hand; text it cannot read is named
+   * as unread. */
+  const byHandText = (node, given, receiver) => {
+    const read = valuesOf(given, valueScope);
+    if (read.open.length) {
+      unreadAt(node);
+      return;
+    }
+    const byProp = new Map();
+    for (const v of read.values) {
+      for (const d of declarationsOf(unquoted(v))) {
+        const prop = byHandName(d.prop);
+        if (!prop) continue;
+        if (!byProp.has(prop)) byProp.set(prop, []);
+        byProp.get(prop).push('"' + d.value + '"');
+      }
+    }
+    for (const [prop, values] of byProp) {
+      const keys = [placeOf(node), receiver.getText(source).replace(/\s+/g, " "), prop].filter(Boolean);
+      put(node, prop, values.join(" | "), { values, none: false, open: [] }, keys, null, new Set(), new Set(), conditionOf(node), false, true);
+    }
+  };
+  /** Whether an expression is text in every branch. */
+  const isStyleText = (expr) => {
+    const read = valuesOf(expr, valueScope);
+    return !read.open.length && read.values.length > 0 && read.values.every((v) => /^["'`]/.test(v));
+  };
+  /** The names a key can be, or null when it cannot be read. */
+  const namesOf = (keyExpr) => {
+    const read = valuesOf(keyExpr, valueScope);
+    return read.open.length || !read.values.length ? null : [...new Set(read.values.map(unquoted))];
+  };
+  /** Objects assigned into an element's own style: their members are set
+   * by hand. */
+  const handObjects = new Set();
+  if (/Object\s*\.\s*assign/.test(text)) {
+    const mark = (n) => {
+      const callee = ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) ? n.expression : null;
+      if (callee && ts.isIdentifier(callee.expression) && callee.expression.text === "Object" && callee.name.text === "assign" && n.arguments.length > 1 && isElementStyle(n.arguments[0])) {
+        for (const a of n.arguments.slice(1)) {
+          const found = objectsOf(a, ctxFor(a));
+          if (found.opaque) unreadAt(a);
+          for (const o of found.objects) handObjects.add(o);
+        }
+      }
+      ts.forEachChild(n, mark);
+    };
+    mark(source);
+  }
+
   const codeVisit = (node) => {
     const shorthand = ts.isShorthandPropertyAssignment(node);
     if (((ts.isPropertyAssignment(node) || ts.isJsxAttribute(node)) && node.initializer) || shorthand) {
       // A name computed from a constant is read as the constant's value.
       const names = ts.isJsxAttribute(node) ? [node.name.getText(source)] : memberNames(node);
-      if (names === null || names.some((n) => WATCHED.test(n) || n.startsWith("--"))) {
+      if (names === null || names.some(watched)) {
         // `{ color }` holds the constant of that name.
         const given = shorthand ? node.name : node.initializer;
         const { keys, jsx } = keyPath(node);
@@ -1877,49 +2036,76 @@ function readSource(file, text, env) {
         const owners = new Set(element ? [element] : []);
         const styled = new Set();
         let when = null;
+        let dom = false;
         for (let n = node.parent; n && !ts.isStatement(n) && !ts.isJsxElement(n) && !ts.isJsxSelfClosingElement(n); n = n.parent) {
           for (const el of styleOwners.get(n) ?? []) {
             owners.add(el);
             styled.add(el);
           }
+          dom ||= handObjects.has(n);
           if (when === null && ts.isConditionalExpression(n)) when = n.condition.getText(source);
           if (when === null && ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) when = n.left.getText(source);
         }
         const jsxAttr = ts.isJsxAttribute(node);
         if (names === null) {
           // A style member whose name cannot be read may be a colour.
-          if (styled.size > 0 || (element !== null && keys[0] === "style")) {
+          if (dom || styled.size > 0 || (element !== null && keys[0] === "style")) {
             unresolved.push({ file, line: lineOf(node), kind: "style", component: ctxFor(node).component, text: `${node.name.getText(source)}: ${given.getText(source)}`.replace(/\s+/g, " ").slice(0, 100), element });
           }
         } else {
-          for (const name of new Set(names)) if (WATCHED.test(name) || name.startsWith("--")) record(node, name, given, keys, element, owners, styled, when, jsxAttr);
+          for (const name of new Set(names)) if (watched(name)) record(node, name, given, keys, element, owners, styled, when ?? (dom ? conditionOf(node) : null), jsxAttr, dom);
         }
       }
     }
-    // A colour written into a style object after it is made: `s.color = x`.
+    // A value written into a style after it is made: into an object this
+    // file makes (`s.color = x`), or into an element's own style by hand
+    // (`el.style.color = x`, `el.style.cssText = "..."`, `el.style = "..."`).
     if (ts.isBinaryExpression(node) && ASSIGNS.has(node.operatorToken.kind)) {
       const left = unwrap(node.left);
       if (left && (ts.isPropertyAccessExpression(left) || ts.isElementAccessExpression(left))) {
-        let names = null;
-        if (ts.isPropertyAccessExpression(left)) names = [left.name.text];
-        else {
-          const read = valuesOf(left.argumentExpression, valueScope);
-          names = read.open.length || !read.values.length ? null : read.values.map(unquoted);
-        }
-        const target = names?.some((n) => WATCHED.test(n) || n.startsWith("--")) ? objectsOf(left.expression, ctxFor(node)) : null;
-        // Only into an object this file makes: a value written into
-        // something else (a layer, an element's own style) is not read.
+        const names = ts.isPropertyAccessExpression(left) ? [left.name.text] : namesOf(left.argumentExpression);
+        const target = names === null || names.some(watched) ? objectsOf(left.expression, ctxFor(node)) : null;
         if (target?.objects.length) {
           const owners = new Set(target.objects.flatMap((o) => styleOwners.get(o) ?? []));
-          let when = null;
-          for (let n = node.parent; n && !ts.isFunctionLike(n) && !ts.isSourceFile(n); n = n.parent) {
-            if (ts.isIfStatement(n)) {
-              when = n.expression.getText(source);
-              break;
-            }
-          }
           const keys = [left.expression.getText(source).replace(/\s+/g, " ")];
-          for (const name of new Set(names)) if (WATCHED.test(name) || name.startsWith("--")) record(node, name, node.right, [...keys, name], null, owners, owners, when, false);
+          if (names === null) {
+            // A member it cannot name, written into a style an element wears.
+            if (owners.size) unreadAt(node);
+          } else {
+            let when = null;
+            for (let n = node.parent; n && !ts.isFunctionLike(n) && !ts.isSourceFile(n); n = n.parent) {
+              if (ts.isIfStatement(n)) {
+                when = n.expression.getText(source);
+                break;
+              }
+            }
+            for (const name of new Set(names)) if (watched(name)) record(node, name, node.right, [...keys, name], null, owners, owners, when, false);
+          }
+        } else if (names !== null && names.includes("style") && ts.isPropertyAccessExpression(left) && isStyleText(node.right) && isElementStyle(left)) {
+          // A style given whole as text; an object given to a `style` member
+          // is data, not an element's style.
+          byHandText(node, node.right, left);
+        } else if (isElementStyle(left.expression)) {
+          if (names === null) unreadAt(node);
+          else for (const name of names) name === "cssText" ? byHandText(node, node.right, left.expression) : byHand(node, name, node.right, left.expression);
+        }
+      }
+    }
+    // A style set by hand through a call: `el.style.setProperty(name, value)`,
+    // `el.setAttribute("style", text)` and the presentation attributes.
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.arguments.length >= 2) {
+      const method = node.expression.name.text;
+      const receiver = node.expression.expression;
+      const [prop, value] = node.arguments;
+      if (method === "setProperty" && isElementStyle(receiver)) {
+        const names = namesOf(prop);
+        if (names === null) unreadAt(node);
+        else for (const name of names) byHand(node, name, value, receiver);
+      } else if (method === "setAttribute") {
+        // An attribute it cannot name is left: attributes are not styles.
+        for (const name of namesOf(prop) ?? []) {
+          if (name === "style") byHandText(node, value, receiver);
+          else if (/^(color|opacity|fill|filter)$/.test(name)) byHand(node, name, value, receiver);
         }
       }
     }
@@ -1934,7 +2120,7 @@ function readSource(file, text, env) {
     return alts(init, { ...ctxFor(init), globals: true, miss: () => {} });
   };
 
-  return { file, sheets, imports, reexports, components, exportsAs, helpers, elements, codeStyles, codeCustoms, unresolved, exportAlts };
+  return { file, sheets, imports, reexports, components, exportsAs, helpers, elements, codeStyles, codeCustoms, unresolved, exportAlts, sheetTexts };
 }
 
 /* ---- the model ---- */
@@ -2039,27 +2225,37 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
   const exportedAs = (file, name, depth = 0) => moduleScope(file)?.exported(name, depth) ?? null;
   const exported = (file, name) => exportedAs(file, name);
 
-  for (const [file, text] of [...sources].sort(([a], [b]) => a.localeCompare(b, "en"))) {
-    if (file.endsWith(".css")) {
-      const isModule = file.endsWith(".module.css");
-      for (const rule of parseRules(text, { lines: true })) {
-        const prelude = rule.selectors.join(", ");
-        for (const d of rule.decls) if (d.prop.startsWith("--")) customs.push({ file, prelude, context: rule.context, ...d });
-        for (const selector of rule.selectors) {
-          const parts = selectorParts(selector);
-          selectors.push({ file, module: isModule, prelude, selector, context: rule.context, line: rule.line, decls: rule.decls, parts, subject: parts[parts.length - 1] });
-          const single = /^\.([-_a-zA-Z0-9]+)$/.exec(selector);
-          if (!single || !isModule) continue;
-          for (const d of rule.decls.filter((x) => x.prop === "composes")) {
-            const m = /^(.*?)(?:\s+from\s+(["'])(.+)\2)?$/.exec(d.value);
-            if (!m || m[3] === "global") continue;
-            const from = m[3] ? path.posix.join(path.posix.dirname(file), m[3]) : file;
-            const key = "m\t" + file + "\t" + single[1];
-            if (!composes.has(key)) composes.set(key, []);
-            for (const cls of m[1].trim().split(/\s+/)) composes.get(key).push("m\t" + from + "\t" + cls);
-          }
+  /** One stylesheet's rules, custom properties and composed classes.
+   * Stylesheet text a component writes in markup is read as a global
+   * stylesheet of the component's file, its lines counted from `first`. */
+  const readSheet = (file, text, isModule, first = 1) => {
+    for (const rule of parseRules(text, { lines: true })) {
+      if (first > 1) {
+        rule.line += first - 1;
+        for (const d of rule.decls) d.line += first - 1;
+      }
+      const prelude = rule.selectors.join(", ");
+      for (const d of rule.decls) if (d.prop.startsWith("--")) customs.push({ file, prelude, context: rule.context, ...d });
+      for (const selector of rule.selectors) {
+        const parts = selectorParts(selector);
+        selectors.push({ file, module: isModule, prelude, selector, context: rule.context, line: rule.line, decls: rule.decls, parts, subject: parts[parts.length - 1] });
+        const single = /^\.([-_a-zA-Z0-9]+)$/.exec(selector);
+        if (!single || !isModule) continue;
+        for (const d of rule.decls.filter((x) => x.prop === "composes")) {
+          const m = /^(.*?)(?:\s+from\s+(["'])(.+)\2)?$/.exec(d.value);
+          if (!m || m[3] === "global") continue;
+          const from = m[3] ? path.posix.join(path.posix.dirname(file), m[3]) : file;
+          const key = "m\t" + file + "\t" + single[1];
+          if (!composes.has(key)) composes.set(key, []);
+          for (const cls of m[1].trim().split(/\s+/)) composes.get(key).push("m\t" + from + "\t" + cls);
         }
       }
+    }
+  };
+
+  for (const [file, text] of [...sources].sort(([a], [b]) => a.localeCompare(b, "en"))) {
+    if (file.endsWith(".css")) {
+      readSheet(file, text, file.endsWith(".module.css"));
       continue;
     }
     if (!file.endsWith(".tsx") && !CODE_STYLE_HINT.test(text)) continue;
@@ -2069,6 +2265,7 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
     codeStyles.push(...info.codeStyles);
     codeCustoms.push(...info.codeCustoms);
     unresolved.push(...info.unresolved);
+    for (const sheet of info.sheetTexts) readSheet(file, sheet.css, false, sheet.line);
   }
 
   /* Constants imported from another file: read now that every file is. */
