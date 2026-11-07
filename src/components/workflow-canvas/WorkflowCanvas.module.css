@@ -546,7 +546,7 @@
 }
 
 .edgeWord[data-time="lineage"] {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* Locked: the ports are out of sight and out of reach, nothing links. They
@@ -602,7 +602,7 @@
   margin: 0;
   padding: 6px 14px 0;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-style: italic;
 }
 
@@ -656,7 +656,7 @@
 
 .tabCount {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   background: var(--bg-raised);
   border-radius: var(--radius-pill);
   padding: 0 5px;
@@ -714,7 +714,7 @@
 
 .paneEmpty {
   padding: 16px 10px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
 }
 
@@ -786,7 +786,7 @@ button.tableRow:hover {
 
 .rowMeta {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -1068,7 +1068,7 @@ button.tableRow {
   align-items: center;
   gap: 4px;
   text-align: center;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-body);
   pointer-events: none;
   max-width: 300px;
@@ -1221,7 +1221,7 @@ button.tableRow {
 
 .cnt {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   background: var(--bg-raised);
   border-radius: var(--radius-pill);
   padding: 0 6px;
@@ -1302,7 +1302,7 @@ button.tableRow {
   font-family: var(--font-mono);
   font-size: 11px;
   text-decoration: line-through;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .changeRow .now {
@@ -1416,7 +1416,7 @@ span.chip {
 }
 
 .colType {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-meta);
   flex: none;
@@ -1700,7 +1700,7 @@ span.chip {
 
 .planList li[data-current] b::after {
   content: " · current";
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-weight: 400;
 }
 
