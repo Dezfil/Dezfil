@@ -916,6 +916,21 @@ describe("the faint boundary reads the classes a props spread puts on an element
     expect(unreadOf({ extra: `\n      <p {...propsFor(busy)} className={styles.name} style={{ color: "var(--fg)" }}>Readable hint</p>` })).toEqual([]);
   });
 
+  it("names a spread it cannot read on a component that may put the style it is handed on an element, unless a style is set after it", () => {
+    const TAKES_CLASS_SPREADS_REST = `\nfunction Hint({ className, ...rest }: React.HTMLAttributes<HTMLParagraphElement>) {\n  return <p className={className} {...rest} />;\n}`;
+    const classAfter = `\n      <Hint {...propsFor(busy)} className={styles.name}>Readable hint</Hint>`;
+    expect(unreadOf({ top: SPREADS_PROPS, extra: classAfter })).toContain("spread :: propsFor(busy)");
+    expect(unreadOf({ top: TAKES_CLASS_SPREADS_REST, extra: classAfter })).toContain("spread :: propsFor(busy)");
+    // A component that takes a style and lands no class.
+    expect(unreadOf({ top: NOTE, extra: `\n      <Note {...propsFor(busy)}>Readable hint</Note>` })).toContain("spread :: propsFor(busy)");
+    // Set again after it, the class and the style it could carry are not its.
+    expect(unreadOf({ top: SPREADS_PROPS, extra: `\n      <Hint {...propsFor(busy)} className={styles.name} style={{ color: "var(--fg)" }}>Readable hint</Hint>` })).toEqual([]);
+    expect(unreadOf({ top: NOTE, extra: `\n      <Note {...propsFor(busy)} style={{ color: "var(--fg)" }}>Readable hint</Note>` })).toEqual([]);
+    // A component that puts neither a class nor a style it is handed on an element.
+    const TAKES_TITLE = `\nfunction Hint({ title, children }: { title?: string; children: React.ReactNode }) {\n  return <p title={title}>{children}</p>;\n}`;
+    expect(unreadOf({ top: TAKES_TITLE, extra: `\n      <Hint {...propsFor(busy)}>Readable hint</Hint>` })).toEqual([]);
+  });
+
   it("reads what a function another file exports returns, and names a spread of it as unread only where it may hold a class or a style", () => {
     const files = { "src/fixture/attrs.ts": `export function ariaFor(open: boolean) {\n  if (!open) return {};\n  return { "aria-expanded": true, "data-hint": "Layers" };\n}\nexport const classFor = (on: boolean) => ({ className: on ? "on" : "off" });\n` };
     const top = `\nimport { ariaFor, classFor } from "./attrs";`;
@@ -968,6 +983,67 @@ describe("the faint boundary reads rules nested in a rule", () => {
   it("passes nested rules that keep text readable", () => {
     const css = ".panel { color: var(--fg); & .hint { color: var(--fg-muted); } &:hover .hint { opacity: .5; } & .gone { opacity: 0; } }";
     expect(judged({ css, extra: NESTED_BODY })).toEqual([]);
+  });
+
+  it("reads every selector a nested rule composes under a long selector list", () => {
+    const parents = Array.from({ length: 9 }, (_, i) => `.p${i}`).join(", ");
+    const kids = Array.from({ length: 8 }, (_, i) => `.k${i}`).join(", ");
+    const f = judged({ css: `${parents} { ${kids} { opacity: .5; } }`, extra: `\n      <div className={styles.p8}><p className={styles.k7}>Only the owner can publish.</p></div>` });
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain('"Only the owner can publish."');
+  });
+
+  it("names a nested rule whose composed selectors run past what it reads as unread", () => {
+    const parents = Array.from({ length: 17 }, (_, i) => `.p${i}`).join(", ");
+    const kids = Array.from({ length: 16 }, (_, i) => `.k${i}`).join(", ");
+    expect(unreadOf({ css: `${parents} { ${kids} { opacity: .5; } }` })).toEqual([`stylesheet :: ${kids}`]);
+    expect(unreadOf({ css: `${parents} { & .hint { opacity: .5; } }` })).toEqual([]);
+  });
+});
+
+describe("the faint boundary reads a selector whose first compound names no class, tag or attribute", () => {
+  const PANEL = `\n      <div className={styles.panel}><p className={styles.hint}>Only the owner can publish.</p></div>`;
+  const DIVS = `\n      <div><div className={styles.hint}>Only the owner can publish.</div></div>`;
+  const ANY: [string, string, string][] = [
+    ["under :is(&) in a nested rule", ".panel { :is(&) .hint { opacity: .5; } }", PANEL],
+    ["under :where(&) in a nested rule", ".panel { :where(&) .hint { opacity: .5; } }", PANEL],
+    ["under & continuing a pseudo-class, its parent with combinators", ".a .b { :not(.on)& .hint { opacity: .5; } }", `\n      <div className={styles.a}><div className={styles.b}><p className={styles.hint}>Only the owner can publish.</p></div></div>`],
+    ["under & at the top of a scope", "@scope (.panel) { & .hint { opacity: .5; } }", PANEL],
+    ["under :scope", "@scope (.panel) { :scope .hint { opacity: .5; } }", PANEL],
+    ["under :is() at the start of a selector", ":is(.panel) .hint { opacity: .5; }", PANEL],
+    ["under :where() at the start of a selector", ":where(.panel) .hint { opacity: .5; }", PANEL],
+    ["under *", "* .hint { opacity: .5; }", PANEL],
+    ["on a div inside a div, under a type", "div .hint { opacity: .5; }", DIVS],
+    ["on a div inside a div, under a type rule it is nested in", "div { & .hint { opacity: .5; } }", DIVS],
+  ];
+  it.each(ANY)("fails on an opacity %s", (_name, css, extra) => {
+    const f = judged({ css, extra });
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain('"Only the owner can publish."');
+  });
+
+  /* A scope's rules hold only inside its root, which the matching does not
+   * read, so an ink set there is no ink at rest. */
+  const SCOPED: [string, string][] = [
+    ["under & at the top of a scope", "@scope (.panel) { & .label { color: var(--fg); } }"],
+    ["under :scope", "@scope (.panel) { :scope .label { color: var(--fg); } }"],
+    ["in a scope", "@scope (.panel) { .label { color: var(--fg); } }"],
+  ];
+  it.each(SCOPED)("fails on text in a listed faint container whose only own ink is set %s it sits outside", (_name, css) => {
+    const seed = { css, body: inTool(`<span className={styles.label}>Export</span>`) };
+    const f = judged(seed, { allowed: asIconRows(seed) });
+    expect(checks(f)).toEqual(["inheritance", "kind"]);
+    expect(f.find((x) => x.check === "inheritance")?.message).toContain('<span.label> "Export" inherits it');
+  });
+
+  it("fails on text that wears a listed faint style matched under :where()", () => {
+    const css = ":where(.panel) .icon { color: var(--fg-faint); }";
+    const icon = `\n      <div className={styles.panel}><i className={styles.icon}><svg /></i></div>`;
+    const listed = rowsFor(usesOf(tree({ css, extra: icon })), { ...KIND_OF, [`ink :: ${CSS} :: :where(.panel) .icon`]: "non-text" });
+    expect(judge(usesOf(tree({ css, extra: icon })), { allowed: listed })).toEqual([]);
+    const f = judged({ css, extra: icon + `\n      <div className={styles.panel}><p className={styles.icon}>Only the owner can publish.</p></div>` }, { allowed: listed });
+    expect(checks(f)).toEqual(["element", "kind"]);
+    expect(f.find((x) => x.check === "element")?.message).toContain('"Only the owner can publish." wears it');
   });
 });
 
@@ -1036,5 +1112,101 @@ describe("the faint boundary reads every opacity a filter list holds", () => {
   it("passes filter lists that do not fade", () => {
     const css = ":root { --keep: opacity(1) blur(1px); --gone: opacity(0); }\n.hint { filter: opacity(1) opacity(100%) var(--keep); }\n.name { filter: var(--outside-token) opacity(.5) var(--gone); }";
     expect(judged({ css, extra: HINT_CLASS_P + `\n      <b className={styles.name}>Parcels</b>` })).toEqual([]);
+  });
+
+  /* Filter functions need no space between them: `blur(0)opacity(.5)` is
+   * the same list as `blur(0) opacity(.5)`. */
+  const UNSPACED: [string, Seed][] = [
+    ["filter functions written with no space between them", { css: ".hint { filter: blur(0)opacity(.5); }", extra: HINT_CLASS_P }],
+    ["a second opacity function written with no space before it", { css: ".hint { filter: opacity(1)opacity(.5); }", extra: HINT_CLASS_P }],
+    ["a filter custom property whose functions have no space between them", { css: ":root { --fade: blur(0)opacity(.5); }\n.hint { filter: var(--fade); }", extra: HINT_CLASS_P }],
+    ["filter functions with no space between them, set in code", { extra: HINT_P(`filter: "grayscale(1)opacity(.5)"`) }],
+  ];
+  it.each(UNSPACED)("fails on a hint faded by %s", (_name, seed) => {
+    const f = judged(seed);
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain('"Only the owner can publish."');
+  });
+
+  it("fails on an editor theme's filter whose functions have no space between them", () => {
+    const f = judged({ files: { "src/fixture/editor-theme.ts": `export const editorTheme = { ".cm-tooltip": { "& .cm-hint": { filter: "blur(0)opacity(.5)" } } };\n` } });
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain("blur(0)opacity(.5)");
+  });
+
+  /* The prefixed property is the same filter. */
+  const paint = (body: string) => ({ top: `\nfunction paint(el: HTMLElement) {\n  ${body}\n}` });
+  const PREFIXED: [string, Seed][] = [
+    ["the prefixed filter property in a stylesheet", { css: ".hint { -webkit-filter: opacity(.5); }", extra: HINT_CLASS_P }],
+    ["the prefixed filter property set in code", { extra: HINT_P(`WebkitFilter: "opacity(.5)"`) }],
+    ["the prefixed filter property set on an element by hand", { ...paint(`el.style.webkitFilter = "opacity(.5)";`), extra: HINT_CLASS_P }],
+    ["the prefixed filter property set through setProperty", { ...paint(`el.style.setProperty("-webkit-filter", "opacity(.5)");`), extra: HINT_CLASS_P }],
+    ["the prefixed filter property in cssText", { ...paint(`el.style.cssText = "-webkit-filter: opacity(.5)";`), extra: HINT_CLASS_P }],
+  ];
+  it.each(PREFIXED)("fails on a fade through %s", (_name, seed) => {
+    expect(checks(judged(seed))).toEqual(["opacity"]);
+  });
+
+  it("names a prefixed filter set in code that it cannot read as unread, and passes one that does not fade", () => {
+    expect(unreadOf({ extra: HINT_P("WebkitFilter: filterFor(busy)") })).toContain("style :: WebkitFilter: filterFor(busy)");
+    const css = ".hint { -webkit-filter: blur(1px)opacity(1); filter: drop-shadow(0 0 1px red)opacity(100%); }";
+    expect(judged({ css, extra: HINT_CLASS_P + HINT_P(`WebkitFilter: "grayscale(1)"`) })).toEqual([]);
+  });
+});
+
+describe("the faint boundary reads the text a list item's marker writes", () => {
+  const MARKERS: [string, string][] = [
+    ["a marker's content", '.mark::marker { content: "Delete map"; }'],
+    ["a list style written as a string", '.mark { list-style-type: "Delete map "; }'],
+    ["a list style shorthand that holds a string", '.mark { list-style: "Delete map " inside; }'],
+  ];
+  it.each(MARKERS)("fails on words %s writes inside a listed icon container (inheritance)", (_name, css) => {
+    const seed = { css, body: inTool(`<ul><li className={styles.mark} /></ul>`) };
+    const f = judged(seed, { allowed: asIconRows(seed) });
+    expect(checks(f)).toEqual(["inheritance", "kind"]);
+    expect(f.find((x) => x.check === "inheritance")?.message).toContain("Delete map");
+  });
+
+  const FADED: [string, string][] = [
+    ...MARKERS,
+    ["a list style a list item inherits from its list", '.card { list-style-type: "Delete map "; }'],
+  ];
+  it.each(FADED)("fails on a parent's opacity over words %s writes", (_name, css) => {
+    const f = judged({ css: `.card { opacity: 0.8; }\n${css}`, extra: `\n      <ul className={styles.card}><li className={styles.mark} /></ul>` });
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain("Delete map");
+  });
+
+  it("fails on a faint marker that writes words, listed as non-text", () => {
+    const seed = { css: '.mark::marker { content: "Delete map"; color: var(--fg-faint); }', extra: `\n      <ul><li className={styles.mark} /></ul>` };
+    const uses = usesOf(tree(seed));
+    const f = judge(uses, { allowed: rowsFor(uses, { ...KIND_OF, [`ink :: ${CSS} :: .mark::marker`]: "non-text" }) });
+    expect(checks(f)).toEqual(["kind"]);
+    expect(f[0].message).toContain("not non-text");
+  });
+
+  it("passes markers that write no words", () => {
+    const css = '.card { opacity: 0.8; }\n.mark::marker { content: "– "; color: var(--fg-muted); }\n.dot { list-style-type: "• "; }\n.disc { list-style: disc inside; }';
+    const extra = `\n      <ul className={styles.card}><li className={styles.mark} /><li className={styles.dot} /><li className={styles.disc} /></ul>`;
+    expect(judged({ css, extra })).toEqual([]);
+  });
+});
+
+describe("the faint boundary reads a custom property's registered initial value", () => {
+  const HINT_CLASS_P = `\n      <p className={styles.hint}>Only the owner can publish.</p>`;
+  const REGISTERED: [string, string, string][] = [
+    ["a filter held in", '@property --fade { syntax: "*"; inherits: true; initial-value: opacity(.5); }\n.hint { filter: var(--fade); }', "opacity"],
+    ["an opacity held in", '@property --o { syntax: "<number>"; inherits: true; initial-value: 0.5; }\n.hint { opacity: var(--o); }', "opacity"],
+    ["a faint colour held in", '@property --hint-ink { syntax: "<color>"; inherits: true; initial-value: #93a19c; }\n.hint { color: var(--hint-ink); }', "declaration"],
+  ];
+  it.each(REGISTERED)("fails on %s a registered initial value", (_name, css, check) => {
+    const f = judged({ css, extra: HINT_CLASS_P });
+    expect(checks(f)).toEqual([check]);
+    expect(f[0].message).toContain('"Only the owner can publish."');
+  });
+
+  it("passes registered initial values that keep text readable", () => {
+    const css = '@property --o { syntax: "<number>"; inherits: true; initial-value: 1; }\n@property --ink { syntax: "<color>"; inherits: true; initial-value: #1f2a26; }\n.hint { opacity: var(--o); color: var(--ink); }';
+    expect(judged({ css, extra: HINT_CLASS_P })).toEqual([]);
   });
 });

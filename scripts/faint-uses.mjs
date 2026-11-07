@@ -31,9 +31,10 @@
  *     custom properties it names, in a stylesheet or set in code. Fully
  *     transparent is hiding, not fading, and is left out.
  *
- * Text a ::before or ::after rule writes is text of the element it is
- * written in, for all four layers and for the kinds, unless it is
- * decoration (an ornament glyph, an icon font's glyph, nothing at all).
+ * Text a ::before, ::after or ::marker rule writes, and a list style
+ * written as a string, is text of the element it is written in, for all
+ * four layers and for the kinds, unless it is decoration (an ornament
+ * glyph, an icon font's glyph, nothing at all).
  *
  * Each use carries what the check needs to judge a listed use by its kind:
  * the selectors, the value, the elements with what they show.
@@ -46,6 +47,8 @@ export const FAINT_TOKENS = ["--fg-faint", "--fg-faint-palette", "--liquid-fg-fa
 export const FAINT_HEXES = ["#93a19c", "#5d6880", "#7f8d89"];
 
 const TEXT_COLOUR = new Set(["color", "-webkit-text-fill-color"]);
+/** The pseudo-elements that write text of their own into an element. */
+const WRITES = new Set(["before", "after", "marker"]);
 const SVG_TEXT = /^(text|tspan|textpath)$/i;
 const NO_COLOUR = /^(inherit|currentcolor|unset|initial|revert|revert-layer)$/i;
 /** Fields keep the browser's own ink unless a rule says otherwise. */
@@ -113,6 +116,34 @@ function callOf(value) {
   }
   return null;
 }
+
+/** A filter list's parts: its functions and the custom properties it
+ * names, whether or not space stands between them (`blur(0)opacity(.5)` is
+ * two functions, as a browser reads it). */
+function filterParts(value) {
+  return splitTop(value, /\s/).flatMap((word) => {
+    const out = [];
+    let depth = 0;
+    let quote = "";
+    let from = 0;
+    for (let i = 0; i < word.length; i += 1) {
+      const ch = word[i];
+      if (quote) {
+        if (ch === quote) quote = "";
+      } else if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === "(") depth += 1;
+      else if (ch === ")" && --depth === 0) {
+        out.push(word.slice(from, i + 1));
+        from = i + 1;
+      }
+    }
+    if (from < word.length) out.push(word.slice(from));
+    return out;
+  });
+}
+
+/** The filter property and its prefixed spellings, in a stylesheet and in code. */
+const FILTER_PROPS = new Set(["filter", "-webkit-filter", "WebkitFilter", "webkitFilter"]);
 
 /** The most values a custom property is followed into. */
 const READ_CAP = 64;
@@ -307,7 +338,7 @@ function reader(resolve = () => []) {
    */
   const filters = (value, seen = new Set()) => {
     let out = [1];
-    for (const token of splitTop(value.trim(), /\s/)) {
+    for (const token of filterParts(value.trim())) {
       let xs = [1];
       const ref = varOf(token);
       if (ref) {
@@ -349,7 +380,7 @@ export function fadeOf(prop, value, resolve) {
   const read = reader(resolve);
   let xs = null;
   if (prop === "opacity") xs = read.numbers(value);
-  else if (prop === "filter") xs = read.filters(value);
+  else if (FILTER_PROPS.has(prop)) xs = read.filters(value);
   else if (TEXT_COLOUR.has(prop) || prop === "fill") xs = read.alphas(value);
   if (!xs) return null;
   const fading = xs.filter(between);
@@ -384,19 +415,20 @@ export function faintUses(model) {
     return uses.get(key);
   };
   /** An element a use reaches, with whether it shows text and what. The
-   * text a ::before or ::after rule writes in it is its text too, unless
-   * it is decoration; a rule on one of those reaches only what that
-   * pseudo-element writes, a glyph included, so its kind can say which. */
+   * text a ::before, ::after or ::marker rule (or a list style) writes in
+   * it is its text too, unless it is decoration; a rule on one of those
+   * pseudo-elements reaches only what it writes, a glyph included, so its
+   * kind can say which. */
   const entry = (el, pseudo = null) => {
     const generated = generatedText(model, el);
-    if (pseudo === "before" || pseudo === "after") {
+    if (WRITES.has(pseudo)) {
       const own = generated.filter((g) => g.pseudo === pseudo).map((g) => g.text);
       return { id: ids.get(el.index), el, text: own.length > 0, shows: shows(model, el), own: false, generated: own };
     }
-    const words = generated.filter((g) => !g.decoration).map((g) => g.text);
+    const words = generated.filter((g) => !g.decoration);
     const written = shows(model, el);
-    const more = words.map((t) => "content " + JSON.stringify(t)).join(" ");
-    return { id: ids.get(el.index), el, text: bearsText(model, el), shows: written && more ? written + " " + more : written || more, own: true, generated: words };
+    const more = words.map((g) => (g.pseudo === "marker" ? "marker " : "content ") + JSON.stringify(g.text)).join(" ");
+    return { id: ids.get(el.index), el, text: bearsText(model, el), shows: written && more ? written + " " + more : written || more, own: true, generated: words.map((g) => g.text) };
   };
 
   const customs = customValues(model);
@@ -415,8 +447,9 @@ export function faintUses(model) {
    * sets that hold every class its subject asks for (and none its :not()
    * names, and one of each :is() or :where() list). A rule that gives an
    * ink only some of the time is no ink at rest: under a media or container
-   * query, a class on the page or one an element around it wears under a
-   * condition, a sibling, a :has(), or a position (:nth-child and its kin).
+   * query, in a scope (whose root the matching does not read), a class on
+   * the page or one an element around it wears under a condition, a
+   * sibling, a :has(), or a position (:nth-child and its kin).
    * A colour that names a custom property gives an ink only where the
    * property is always given: on the page itself, in the same rule, or
    * inline on the element in every branch. An inline colour outranks the
@@ -452,7 +485,7 @@ export function faintUses(model) {
   const SITUATIONAL = /^(nth-|first-|last-|only-|empty$|has$)/;
   /** Whether a rule holds only some of the time, beyond its subject's classes. */
   const someOfTheTime = (sel) => {
-    if (/@(media|container)\b/i.test(sel.context ?? "")) return true;
+    if (/@(media|container|scope)\b/i.test(sel.context ?? "")) return true;
     const parts = sel.parts;
     if (parts.some((c) => c.comb === "+" || c.comb === "~")) return true;
     return parts.some((c, i) => {
@@ -637,7 +670,7 @@ export function faintUses(model) {
         for (const el of fill ? filled : elementsMatching(model, sel)) {
           const e = entry(el, pseudo);
           if (pseudo === "placeholder") e.shows = typeof el.attrs.get("placeholder") === "string" ? "placeholder " + JSON.stringify(el.attrs.get("placeholder")) : "a placeholder";
-          else if (pseudo === "before" || pseudo === "after") e.shows = "content " + (sel.decls.find((x) => x.prop === "content")?.value ?? "(none)");
+          else if (WRITES.has(pseudo)) e.shows = "content " + (sel.decls.find((x) => x.prop === "content")?.value ?? (e.generated.map((t) => JSON.stringify(t)).join(" ") || "(none)"));
           u.elements.set(e.id, e);
           if (fill) for (const inner of svgTextBelow(el)) u.inherits.set(ids.get(inner.index), entry(inner));
           else if (!pseudo) for (const inner of inherited(el)) u.inherits.set(ids.get(inner.index), entry(inner));
@@ -649,7 +682,7 @@ export function faintUses(model) {
           ? filled
           : elementsMatching(model, sel).filter((el) => {
               if (pseudo === "placeholder") return typeof el.attrs.get("placeholder") === "string" || model.tagsOf(el).some((t) => t === "input" || t === "textarea");
-              if (pseudo === "before" || pseudo === "after") return generatedText(model, el).some((g) => g.pseudo === pseudo && !g.decoration);
+              if (WRITES.has(pseudo)) return generatedText(model, el).some((g) => g.pseudo === pseudo && !g.decoration);
               if (pseudo) return false;
               return textInside(el);
             });
@@ -698,7 +731,7 @@ export function faintUses(model) {
     const fades =
       cs.prop === "opacity"
         ? [codeFade(cs.value), ...values.map((v) => (quoted(v) ? fadeOf("opacity", unquote(v), resolve) : codeFade(v)))]
-        : cs.prop === "filter"
+        : FILTER_PROPS.has(cs.prop)
           ? values.map((v) => (quoted(v) ? fadeOf("filter", unquote(v), resolve) : null))
           : ink
             ? values.map((v) => fadeOf(fill ? "fill" : "color", unquote(v), resolve))
@@ -743,7 +776,7 @@ const literal = (expr) => {
 };
 /** What an entry shows as written text: its element's text and literal
  * expressions (unless the use reaches only a pseudo-element's), and the
- * text a ::before or ::after rule writes; null when it shows an
+ * text a ::before, ::after or ::marker rule writes; null when it shows an
  * expression that is not a literal. */
 const written = (e) => {
   const out = [...(e.own === false ? [] : e.el.texts), ...(e.generated ?? [])];
@@ -763,8 +796,8 @@ const NO_VALUE = /^[—–∅-]$/u;
  * question or an exclamation mark. A placeholder prompts; it does not explain. */
 const isSentence = (t) => t.split(/\s+/).filter(Boolean).length >= 3 && /[\p{L}\p{N})][.!?](?=\s|$)/u.test(t);
 /** What an entry shows: its written text with its literal expressions
- * and the text a ::before or ::after rule writes, and whether it also
- * shows an expression that is not written out. */
+ * and the text a ::before, ::after or ::marker rule writes, and whether
+ * it also shows an expression that is not written out. */
 const readText = (e) => {
   const exprs = e.own === false ? [] : e.el.exprs;
   const words = [...(e.own === false ? [] : e.el.texts), ...(e.generated ?? []), ...exprs.map(literal).filter((l) => l !== null)].map((t) => t.trim()).filter(Boolean);
