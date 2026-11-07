@@ -75,6 +75,25 @@ const pill = (scope: Page | Locator, owner: Person) => scope.getByRole("img", { 
 
 const opacity = (face: Locator) => face.evaluate((element) => getComputedStyle(element).opacity);
 
+/** A face's ink, and the muted ink as it computes beside the face. */
+const inkBeside = (face: Locator) => face.evaluate((element) => {
+  const probe = document.createElement("span");
+  probe.style.color = "var(--fg-muted)";
+  element.parentElement!.append(probe);
+  const muted = getComputedStyle(probe).color;
+  probe.remove();
+  return { color: getComputedStyle(element).color, muted };
+});
+
+/** A deactivated person's face: the face itself unfaded in the muted ink,
+ * the picture inside it alone faded. */
+async function expectOffFace(face: Locator): Promise<void> {
+  expect(await opacity(face)).toBe("1");
+  const ink = await inkBeside(face);
+  expect(ink.color, "the face takes the muted ink").toBe(ink.muted);
+  expect(await opacity(face.locator("img"))).toBe("0.5");
+}
+
 /** Runs a workflow to its end, so its output stands as a folder on Data. */
 async function runToEnd(api: APIRequestContext, id: string): Promise<void> {
   const started = await readThenWriteRequestSetup(api, `/api/recipes/${id}`, () => ({ method: "POST", path: `/api/recipes/${id}/runs` }));
@@ -212,7 +231,7 @@ test("a shared project draws its people's pictures on every mark, a deactivated 
     });
 
     const own = await ada.context.newPage();
-    await test.step("on the owner's home: the members line, the deactivated member's face dimmed", async () => {
+    await test.step("on the owner's home: the members line, the deactivated member's face muted and its picture faded", async () => {
       await own.goto(`/projects/${projectId}`);
       const line = own.locator('[data-members-line="shared"]');
       await expect(line).toBeVisible();
@@ -221,10 +240,10 @@ test("a shared project draws its people's pictures on every mark, a deactivated 
       await expectPicture(faces.nth(0), bo.sqlName, version.bo);
       await expectPicture(faces.nth(1), cy.sqlName, version.cy);
       expect(await opacity(faces.nth(0))).toBe("1");
-      expect(await opacity(faces.nth(1))).toBe("0.5");
+      await expectOffFace(faces.nth(1));
     });
 
-    await test.step("in the Share dialog: the members, a deactivated one dimmed, the results and the person picked", async () => {
+    await test.step("in the Share dialog: the members, a deactivated one muted with the picture faded, the results and the person picked", async () => {
       await own.getByRole("button", { name: "Share", exact: true }).click();
       const dialog = own.getByRole("dialog", { name: /^Share / });
       const member = (person: Person) => dialog.locator(`[data-member="${person.sqlName}"] [data-face]`);
@@ -232,7 +251,7 @@ test("a shared project draws its people's pictures on every mark, a deactivated 
       await expectPicture(member(bo), bo.sqlName, version.bo);
       await expectPicture(member(cy), cy.sqlName, version.cy);
       expect(await opacity(member(bo))).toBe("1");
-      expect(await opacity(member(cy))).toBe("0.5");
+      await expectOffFace(member(cy));
       const field = dialog.getByRole("combobox", { name: "Add people by name or email" });
       await field.fill(`dee ${tag}`);
       await expectLetters(dialog.locator(`[data-result="${dee.sqlName}"] [data-face]`), firstLast(dee.name));

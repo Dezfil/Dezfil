@@ -192,7 +192,7 @@
 
 .pMeta {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -213,7 +213,7 @@
 .pickEmpty {
   padding: 16px 10px;
   font-size: var(--text-label);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   text-align: center;
 }
 
@@ -287,7 +287,7 @@
 
 .dsMeta {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   white-space: nowrap;
 }
 

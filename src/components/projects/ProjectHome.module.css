@@ -71,13 +71,15 @@
   font-size: var(--text-body);
 }
 
+/* "edit" or "add a note": a link-styled action, in the link's ink. */
 .noteEdit {
-  color: var(--fg-faint);
+  color: var(--accent);
   font-size: var(--text-meta);
+  font-weight: 500;
 }
 
 .noteEdit:hover {
-  color: var(--accent);
+  color: var(--accent-bright);
 }
 
 .noteInput {

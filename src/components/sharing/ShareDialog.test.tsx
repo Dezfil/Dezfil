@@ -144,14 +144,18 @@ describe("the share dialog's faces", () => {
     expect(picture(q('[data-picked="eli"]'))).toBe("/api/accounts/eli/picture?v=e1");
   });
 
-  it("dims a deactivated member's picture with their row, as their initials are", async () => {
+  it("draws a deactivated member's initials in the muted ink, never faded, and fades their picture alone", async () => {
     people = [person("ada", "Ada Okafor", "owner"), { ...person("cy", "Cy Marsh", "viewer", true), pictureVersion: "c1" }];
     await open();
     const face = q('[data-member="cy"]')!.querySelector("[data-face]")!;
     expect(q('[data-member="cy"]')!.hasAttribute("data-off")).toBe(true);
     expect(face.className).toMatch(/avatar/);
-    const dim = cssRules("src/components/sharing/ShareDialog.module.css").filter((rule) => rule.selector === ".row[data-off] .avatar");
-    expect(dim.map((rule) => /opacity:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["0.5"]);
+    expect(face.querySelector("img")).toBeTruthy();
+    const rules = cssRules("src/components/sharing/ShareDialog.module.css");
+    const ink = rules.filter((rule) => rule.selector === ".row[data-off] .avatar");
+    expect(ink.map((rule) => /(?<![-\w])color:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["var(--fg-muted)"]);
+    const faded = rules.filter((rule) => rule.selector.startsWith(".row[data-off]") && /opacity:/.test(rule.body));
+    expect(faded.map((rule) => [rule.selector, /opacity:\s*([^;]+);/.exec(rule.body)?.[1]])).toEqual([['.row[data-off] .avatar[data-face="picture"] img', "0.5"]]);
   });
 });
 

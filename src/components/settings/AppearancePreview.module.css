@@ -252,7 +252,7 @@
 
 .faint {
   margin-top: auto;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .buttons {

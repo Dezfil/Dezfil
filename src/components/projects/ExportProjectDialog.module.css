@@ -129,7 +129,7 @@
 
 .selHead small {
   font-weight: 500;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -224,7 +224,7 @@
 
 .meta {
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -232,14 +232,14 @@
 .sub {
   grid-column: 3 / span 2;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .emptyGroup {
   margin: 0;
   padding: 4px 2px;
   font-size: var(--text-label);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .review {
@@ -290,7 +290,7 @@
 .treeNote {
   font-family: inherit;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .reviewForm {
@@ -334,7 +334,7 @@
 
 .ext {
   font-size: var(--text-label);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-family: var(--font-mono);
 }
 

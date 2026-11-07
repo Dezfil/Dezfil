@@ -102,13 +102,16 @@ it("draws the initials alone, asking for no picture, for a person who has none",
   expect(container.querySelector("img")).toBeNull();
 });
 
-it("dims a deactivated person's picture with their row, as their initials are", () => {
+it("draws a deactivated person's initials in the muted ink, never faded, and fades their picture alone", () => {
   draw({ ...person, status: "deactivated", pictureVersion: "p1" }, { open: false });
   const face = container.querySelector("[data-off]")!.querySelector("[data-face]");
   expect(face?.className).toMatch(/avatar/);
   expect(face?.querySelector("img")).toBeTruthy();
-  const dim = cssRules("src/components/users/UsersScreen.module.css").filter(rule => rule.selector === ".row[data-off] .avatar");
-  expect(dim.map(rule => /opacity:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["0.5"]);
+  const rules = cssRules("src/components/users/UsersScreen.module.css");
+  const ink = rules.filter(rule => rule.selector === ".row[data-off] .avatar");
+  expect(ink.map(rule => /(?<![-\w])color:\s*([^;]+);/.exec(rule.body)?.[1])).toEqual(["var(--fg-muted)"]);
+  const faded = rules.filter(rule => rule.selector.startsWith(".row[data-off]") && /opacity:/.test(rule.body));
+  expect(faded.map(rule => [rule.selector, /opacity:\s*([^;]+);/.exec(rule.body)?.[1]])).toEqual([['.row[data-off] .avatar[data-face="picture"] img', "0.5"]]);
 });
 
 describe("Remove picture", () => {

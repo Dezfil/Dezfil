@@ -14,7 +14,7 @@
   min-height: 160px;
   align-items: center;
   justify-content: center;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
 }
 
@@ -26,7 +26,7 @@
 }
 
 .sectionTitle {
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
   font-size: var(--text-meta);
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -102,7 +102,7 @@
 
 .server {
   overflow: hidden;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: 11px;
   text-overflow: ellipsis;
@@ -145,7 +145,7 @@
 /* The rule's one sentence under it. */
 .refusal {
   margin-top: 8px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
   line-height: 1.5;
 }
@@ -310,7 +310,7 @@
   padding: 5px 10px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-raised);
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
   font-size: var(--text-meta);
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -318,8 +318,10 @@
   text-transform: uppercase;
 }
 
+/* The caret keeps the decoration ink beside the kicker it opens. */
 .schemaCaret {
   display: inline-flex;
+  color: var(--fg-faint);
   transition: transform var(--dur-micro);
 }
 
@@ -336,7 +338,7 @@
 
 .noMatches {
   padding: 28px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
   text-align: center;
 }
@@ -417,7 +419,7 @@
   padding: 0 5px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-family: var(--font-ui);
   font-size: var(--text-meta);
   font-weight: 600;
@@ -432,7 +434,7 @@
 }
 
 .relationRows[data-unknown] {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-family: var(--font-ui);
   font-style: italic;
 }
@@ -457,7 +459,7 @@
   padding: 24px;
   border: 1.5px dashed var(--border);
   border-radius: var(--radius-control);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
   text-align: center;
 }
@@ -543,7 +545,7 @@
 }
 
 .estimateFact[data-unknown] {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-style: italic;
 }
 
@@ -583,7 +585,7 @@
 
 .columnPending {
   display: block;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
 }
 
@@ -606,7 +608,7 @@
   padding: 5px 9px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-meta);
 }
 
@@ -659,7 +661,7 @@
 
 .previewTable th small {
   display: block;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-meta);
   font-weight: 400;
 }
@@ -678,7 +680,7 @@
 
 .previewEmpty {
   padding: 28px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-label);
   text-align: center;
 }
@@ -746,7 +748,7 @@
 }
 
 .field em {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-style: normal;
 }
 
@@ -787,7 +789,7 @@
 }
 
 .importActions span {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: var(--text-meta);
 }
 
