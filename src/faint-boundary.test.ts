@@ -152,10 +152,12 @@ const BASE_BODY = `
       </ul>
       <button className={styles.tool} aria-label="Export"><svg /></button>`;
 
-type Seed = { css?: string; body?: string; extra?: string; baseCss?: string };
-function tree({ css = "", body = BASE_BODY, extra = "", baseCss = BASE_CSS }: Seed = {}): Map<string, string> {
-  const tsx = `import styles from "./panel.module.css";
-export function Panel({ busy, dragging }: { busy: boolean; dragging: boolean }) {
+/** A seeded tree: `top` is written at the top of the component's module,
+ * `head` in its body before it draws, and `files` adds files beside it. */
+type Seed = { css?: string; body?: string; extra?: string; baseCss?: string; top?: string; head?: string; files?: Record<string, string> };
+function tree({ css = "", body = BASE_BODY, extra = "", baseCss = BASE_CSS, top = "", head = "", files = {} }: Seed = {}): Map<string, string> {
+  const tsx = `import styles from "./panel.module.css";${top}
+export function Panel({ busy, dragging }: { busy: boolean; dragging: boolean }) {${head}
   return (
     <section>${body}${extra}
     </section>
@@ -165,6 +167,7 @@ export function Panel({ busy, dragging }: { busy: boolean; dragging: boolean }) 
   return new Map([
     [CSS, baseCss + css],
     [TSX, tsx],
+    ...Object.entries(files),
   ]);
 }
 const usesOf = (sources: Map<string, string>): Uses => faintUses(collect({ root: "/fixture", sources }));
@@ -296,6 +299,140 @@ describe("the faint boundary on seeded trees", () => {
     const f = judge(uses, { allowed: rowsFor(uses, { ...KIND_OF, [added[0]]: kind }) });
     expect(checks(f)).toEqual(["kind"]);
     expect(f[0].message).toContain(`not ${kind}: `);
+  });
+
+  /* Values held in constants: read through them, or named as unread. */
+  it("fails on a faint colour held in a constant", () => {
+    const f = judged({ head: `\n  const ink = "var(--fg-faint)";`, extra: `\n      <p style={{ color: ink }}>Pick a layer to style it.</p>` });
+    expect(checks(f)).toEqual(["declaration"]);
+    expect(f[0].message).toContain('set in code at src/fixture/Panel.tsx:13 (ink = "var(--fg-faint)")');
+    expect(f[0].message).toContain('<p> "Pick a layer to style it."');
+  });
+
+  it("fails on a faint colour held in a constant and set by shorthand", () => {
+    const f = judged({ head: `\n  const color = "var(--fg-faint)";`, extra: `\n      <p style={{ color }}>Pick a layer to style it.</p>` });
+    expect(checks(f)).toEqual(["declaration"]);
+    expect(f[0].message).toContain('<p> "Pick a layer to style it."');
+  });
+
+  it("fails on a faint colour held in a constant another file exports", () => {
+    const f = judged({
+      top: `\nimport { HINT_INK } from "./inks";`,
+      files: { "src/fixture/inks.ts": `export const HINT_INK = "var(--fg-faint)";\n` },
+      extra: `\n      <p style={{ color: HINT_INK }}>Pick a layer to style it.</p>`,
+    });
+    expect(checks(f)).toEqual(["declaration"]);
+    expect(f[0].message).toContain('<p> "Pick a layer to style it."');
+  });
+
+  it("fails on an opacity held in a constant", () => {
+    const f = judged({ head: `\n  const dim = 0.6;`, extra: `\n      <p style={{ opacity: dim }}>Shared with 3 people.</p>` });
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain('<p> "Shared with 3 people."');
+  });
+
+  it("names a style value it cannot read as unread, never passing it in silence", () => {
+    const seed = {
+      top: `\nconst inkFor = (on: boolean) => (on ? "var(--fg)" : "var(--fg-faint)");`,
+      head: `\n  let tone = "var(--fg)";\n  if (busy) tone = "var(--fg-faint)";`,
+      extra: `\n      <p style={{ color: inkFor(busy) }}>Saving changes</p>\n      <p style={{ opacity: busy ? 1 : fadeFor(dragging) }}>Roads</p>\n      <p style={{ color: tone }}>Rivers</p>`,
+    };
+    const unread = collect({ root: "/fixture", sources: tree(seed) }).unresolved.map((u: { kind: string; text: string }) => `${u.kind} :: ${u.text}`);
+    expect(unread).toEqual(["style :: color: inkFor(busy)", "style :: opacity: busy ? 1 : fadeFor(dragging)", "style :: color: tone"]);
+  });
+
+  /* A conditional ink stops the faint ink only when every branch gives one. */
+  it("fails on text whose own ink is a conditional class that may be absent", () => {
+    const seed = {
+      css: ".fullInk { color: var(--fg); }",
+      body: BASE_BODY.replace(TOOL, `<button className={styles.tool} aria-label="Export"><svg /><span className={busy ? styles.fullInk : undefined}>Export</span></button>`),
+    };
+    const f = judged(seed, { allowed: asIcon(seed) });
+    expect(checks(f)).toEqual(["inheritance", "kind"]);
+    expect(f.find((x) => x.check === "inheritance")?.message).toContain('<span.fullInk> "Export" inherits it');
+  });
+
+  it("fails on text whose own ink is a conditional inline colour that may be absent", () => {
+    const seed = {
+      body: BASE_BODY.replace(TOOL, `<button className={styles.tool} aria-label="Export"><svg /><span style={{ color: busy ? "var(--fg)" : undefined }}>Export</span></button>`),
+    };
+    const f = judged(seed, { allowed: asIcon(seed) });
+    expect(checks(f)).toEqual(["inheritance", "kind"]);
+    expect(f.find((x) => x.check === "inheritance")?.message).toContain('<span> "Export" inherits it');
+  });
+
+  it("fails on text whose inline style object is set only under a condition", () => {
+    const seed = {
+      body: BASE_BODY.replace(TOOL, `<button className={styles.tool} aria-label="Export"><svg /><span style={busy ? { color: "var(--fg)" } : undefined}>Export</span></button>`),
+    };
+    const f = judged(seed, { allowed: asIcon(seed) });
+    expect(checks(f)).toEqual(["inheritance", "kind"]);
+  });
+
+  it("passes text whose conditional class and inline colour give an ink in every branch", () => {
+    const seed = {
+      css: ".fullInk { color: var(--fg); }\n.mutedInk { color: var(--fg-muted); }",
+      body: BASE_BODY.replace(
+        TOOL,
+        `<button className={styles.tool} aria-label="Export"><svg /><span className={busy ? styles.fullInk : styles.mutedInk}>Export</span><b style={{ color: busy ? "var(--fg)" : "var(--fg-muted)" }}>Now</b></button>`,
+      ),
+    };
+    expect(judged(seed, { allowed: asIcon(seed) })).toEqual([]);
+  });
+
+  /* A named style object: its ink reaches every element that wears it. */
+  const ICON_STYLE = `\nconst iconStyle = { color: "var(--fg-faint)" };`;
+  const ICON_KEY = `ink :: ${TSX} :: iconStyle > color`;
+  const ON_SVG = { top: ICON_STYLE, extra: `\n      <svg style={iconStyle} />` };
+
+  it("passes an icon colour held in a named style object, worn only by an svg", () => {
+    const listed = rowsFor(usesOf(tree(ON_SVG)), { ...KIND_OF, [ICON_KEY]: "non-text" });
+    expect(listed.find((r) => keyOf(r) === ICON_KEY)?.elements).toEqual([`${TSX} :: Panel <svg> #2`]);
+    expect(judge(usesOf(tree(ON_SVG)), { allowed: listed })).toEqual([]);
+  });
+
+  it("fails on a hint that reuses a named icon style object, with no change to the list", () => {
+    const listed = rowsFor(usesOf(tree(ON_SVG)), { ...KIND_OF, [ICON_KEY]: "non-text" });
+    const f = judged({ ...ON_SVG, extra: ON_SVG.extra + `\n      <p style={iconStyle}>Readable hint</p>` }, { allowed: listed });
+    expect(checks(f)).toEqual(["element", "kind"]);
+    expect(f.find((x) => x.check === "element")?.message).toContain('<p> "Readable hint" wears it');
+  });
+
+  it("fails on a hint that reuses a named icon style object listed as reaching no element", () => {
+    const listed = [...BASE, { layer: "ink" as const, id: `${TSX} :: iconStyle > color`, kind: "non-text", unseen: "an icon colour", elements: [], inherits: [], inside: [] }];
+    const f = judged({ ...ON_SVG, extra: ON_SVG.extra + `\n      <p style={iconStyle}>Readable hint</p>` }, { allowed: listed });
+    expect(checks(f)).toEqual(["element", "kind"]);
+    expect(f.filter((x) => x.check === "kind").map((x) => x.message)).toEqual(
+      expect.arrayContaining([expect.stringContaining('shows text: "Readable hint"'), expect.stringContaining("it reaches elements now")]),
+    );
+  });
+
+  /* Fades written as a colour: nested colour functions are read through. */
+  const FADED: [string, string][] = [
+    ["a token mixed with transparent", "color-mix(in srgb, var(--fg-muted) 50%, transparent)"],
+    ["transparent mixed with a token", "color-mix(in oklab, transparent 40%, var(--fg))"],
+    ["a token mixed with a translucent colour", "color-mix(in srgb, var(--fg) 50%, rgb(0 0 0 / 0.4))"],
+    ["a colour made from a token with an alpha", "rgb(from var(--fg) r g b / 60%)"],
+    ["an hsl colour with an alpha", "hsl(var(--hue) 20% 30% / 0.6)"],
+  ];
+  it.each(FADED)("fails on a hint faded by %s, in a stylesheet", (_name, colour) => {
+    const f = judged({ css: `.hint { color: ${colour}; }`, extra: `\n      <p className={styles.hint}>Only the owner can publish.</p>` });
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain('<p.hint> "Only the owner can publish."');
+  });
+  it.each(FADED)("fails on a hint faded by %s, set in code", (_name, colour) => {
+    const f = judged({ extra: `\n      <p style={{ color: "${colour}" }}>Only the owner can publish.</p>` });
+    expect(checks(f)).toEqual(["opacity"]);
+    expect(f[0].message).toContain("set in code");
+    expect(f[0].message).toContain('<p> "Only the owner can publish."');
+  });
+
+  it("passes a hint whose mixed colour is opaque", () => {
+    const opaque = ["color-mix(in srgb, var(--fg-muted) 60%, var(--fg))", "color-mix(in srgb, var(--fg) 100%, transparent)", "rgb(from var(--fg) r g b)"];
+    for (const colour of opaque) {
+      expect(judged({ css: `.hint { color: ${colour}; }`, extra: `\n      <p className={styles.hint}>Only the owner can publish.</p>` })).toEqual([]);
+      expect(judged({ extra: `\n      <p style={{ color: "${colour}" }}>Only the owner can publish.</p>` })).toEqual([]);
+    }
   });
 
   const POSITIVES: [string, string, string, string][] = [

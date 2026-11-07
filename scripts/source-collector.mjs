@@ -17,10 +17,13 @@
  *     it, and the children a component is handed join the element that
  *     shows them;
  *   - the styles set in code: every colour and opacity a TypeScript object
- *     or a JSX attribute gives (inline styles, editor themes).
+ *     or a JSX attribute gives (inline styles, editor themes), with the
+ *     values each can take, read through the constants it names (in its
+ *     function, its file, or one another file exports), and for an inline
+ *     style the colour each of its branches leaves the element with.
  *
- * A class expression or a style it cannot read is recorded in
- * `unresolved` with its place, never dropped in silence.
+ * A class expression, a style or a style's value it cannot read is
+ * recorded in `unresolved` with its place, never dropped in silence.
  *
  * On top of that it answers: which elements a selector can stand for,
  * an element's parents and children in the drawn tree, whether it shows
@@ -552,6 +555,145 @@ function attributeValue(attr) {
   return null;
 }
 
+/* ---- values set in code ---- */
+
+/** An expression with its brackets, type assertions and JSX braces taken off. */
+function unwrap(node) {
+  let n = node;
+  while (n && (ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isSatisfiesExpression?.(n) || ts.isNonNullExpression(n) || ts.isJsxExpression(n) || ts.isTypeAssertionExpression?.(n))) n = n.expression;
+  return n;
+}
+
+/** Whether an initializer belongs to a `const`, so the value it gives is the
+ * only one the name ever holds. */
+const isConstInit = (init) => !!init?.parent && ts.isVariableDeclaration(init.parent) && init.parent.initializer === init && (ts.getCombinedNodeFlags(init.parent) & ts.NodeFlags.Const) !== 0;
+
+/** The most values one expression is followed into, and the depth. */
+const VALUE_CAP = 32;
+const VALUE_DEPTH = 12;
+
+/**
+ * The values an expression set in code can take, read through the
+ * constants it names, the properties and items of constant objects and
+ * arrays, and both sides of a condition or a fallback (every branch is
+ * taken to be possible):
+ *
+ *   - `values`: each literal it can be, as written (a string with its
+ *     quotes, a number);
+ *   - `none`: whether a branch gives no value at all (null, undefined,
+ *     false, a key the object does not hold);
+ *   - `open`: what it cannot read: a call, a prop or a parameter, a
+ *     constant that is not one (a `let`), a name another file does not
+ *     export as a constant.
+ *
+ * `scope.lookup(name)` answers what a name is: a list of { init, scope }
+ * for a constant, or null for anything else.
+ */
+function valuesOf(node, scope, from = 0) {
+  const out = { values: [], none: false, open: [] };
+  const text = (n) => n.getText().replace(/\s+/g, " ");
+  const visit = (raw, sc, keys, depth) => {
+    const n = unwrap(raw);
+    if (!n || depth > VALUE_DEPTH || out.values.length > VALUE_CAP) {
+      out.open.push(raw ? text(raw) : "(nothing)");
+      return;
+    }
+    if (ts.isConditionalExpression(n)) {
+      visit(n.whenTrue, sc, keys, depth + 1);
+      visit(n.whenFalse, sc, keys, depth + 1);
+      return;
+    }
+    if (ts.isBinaryExpression(n)) {
+      const op = n.operatorToken.kind;
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) {
+        out.none = true;
+        visit(n.right, sc, keys, depth + 1);
+        return;
+      }
+      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) {
+        // A left side that gives nothing falls through to the right.
+        const none = out.none;
+        visit(n.left, sc, keys, depth + 1);
+        out.none = none;
+        visit(n.right, sc, keys, depth + 1);
+        return;
+      }
+    }
+    if (n.kind === ts.SyntaxKind.NullKeyword || n.kind === ts.SyntaxKind.FalseKeyword || (ts.isIdentifier(n) && n.text === "undefined")) {
+      out.none = true;
+      return;
+    }
+    if (ts.isIdentifier(n)) {
+      const found = sc.lookup(n.text, n);
+      if (!found?.length) out.open.push(text(n));
+      else for (const f of found) visit(f.init, f.scope, keys, depth + 1);
+      return;
+    }
+    if (ts.isPropertyAccessExpression(n)) {
+      visit(n.expression, sc, [n.name.text, ...keys], depth + 1);
+      return;
+    }
+    if (ts.isElementAccessExpression(n)) {
+      const arg = unwrap(n.argumentExpression);
+      const key = arg && (ts.isStringLiteral(arg) || ts.isNumericLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) ? arg.text : "*";
+      visit(n.expression, sc, [key, ...keys], depth + 1);
+      return;
+    }
+    if (keys.length) {
+      const [key, ...rest] = keys;
+      if (ts.isObjectLiteralExpression(n)) {
+        let hit = false;
+        for (const p of n.properties) {
+          if (ts.isSpreadAssignment(p)) {
+            hit = true;
+            visit(p.expression, sc, keys, depth + 1);
+            continue;
+          }
+          if (!ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) continue;
+          if (key !== "*" && p.name.getText().replace(/^["']|["']$/g, "") !== key) continue;
+          hit = true;
+          visit(ts.isPropertyAssignment(p) ? p.initializer : p.name, sc, rest, depth + 1);
+        }
+        if (!hit) out.none = true;
+        return;
+      }
+      if (ts.isArrayLiteralExpression(n) && (key === "*" || /^\d+$/.test(key))) {
+        const items = key === "*" ? [...n.elements] : [n.elements[Number(key)]].filter(Boolean);
+        if (!items.length) out.none = true;
+        for (const item of items) visit(item, sc, rest, depth + 1);
+        return;
+      }
+      out.open.push(text(n));
+      return;
+    }
+    if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isNumericLiteral(n)) {
+      out.values.push(text(n));
+      return;
+    }
+    if (ts.isPrefixUnaryExpression(n) && ts.isNumericLiteral(n.operand)) {
+      out.values.push(text(n));
+      return;
+    }
+    if (ts.isTemplateExpression(n)) {
+      // Each part read through; a part it cannot read leaves the whole unread.
+      let combos = [n.head.text];
+      for (const span of n.templateSpans) {
+        const part = valuesOf(span.expression, sc, depth + 1);
+        if (part.open.length || part.none || !part.values.length || combos.length * part.values.length > VALUE_CAP) {
+          out.open.push(text(n));
+          return;
+        }
+        combos = combos.flatMap((c) => part.values.map((v) => c + v.replace(/^(["'`])([\s\S]*)\1$/, "$2") + span.literal.text));
+      }
+      for (const c of combos) out.values.push("`" + c + "`");
+      return;
+    }
+    out.open.push(text(n));
+  };
+  visit(node, scope, [], from);
+  return out;
+}
+
 /** Read one source file: its stylesheet imports, its other imports, its
  * exports, its components, every element it draws, and every style it
  * sets in code. */
@@ -717,6 +859,24 @@ function readSource(file, text, env) {
     }
     return null;
   };
+  /** What a name in a value set in code is, seen from where it is used: a
+   * constant of the function it sits in or of this file, or a constant
+   * another file exports. A parameter, a prop or a `let` is none of these. */
+  const valueScope = {
+    lookup: (name, at) => {
+      if (paramOf(at, name)) return null;
+      const ctx = ctxFor(at);
+      if (ctx.bindings && (ctx.bindings.props.has(name) || name === ctx.bindings.whole || name === ctx.bindings.rest)) return null;
+      const init = ctx.constOf(name);
+      if (init !== undefined) {
+        const list = [init].flat();
+        return list.every(isConstInit) ? list.map((i) => ({ init: i, scope: valueScope })) : null;
+      }
+      const imported = imports.get(name);
+      return imported && !imported.file.startsWith("external:") && env.exported ? env.exported(imported.file, imported.name) : null;
+    },
+  };
+
   /** The name a function is called by in this file, if it has one. */
   const nameOfFunction = (fn) => {
     if (ts.isFunctionDeclaration(fn) && fn.name) return fn.name.text;
@@ -919,12 +1079,56 @@ function readSource(file, text, env) {
     return EMPTY;
   };
 
+  /** The text colour each branch of an inline style leaves an element with:
+   * null where the branch sets none (the element's rules decide), else the
+   * colour as written, or { open } where the value cannot be read. A later
+   * key or spread that sets a colour replaces an earlier one; a style
+   * handed in as a prop, or one that cannot be read, sets none here. */
+  const inksOf = (raw, ctx, depth = 0) => {
+    const n = unwrap(raw);
+    if (!n || depth > 6) return [null];
+    const distinct = (list) => {
+      const seen = new Map();
+      for (const x of list) seen.set(JSON.stringify(x), x);
+      return [...seen.values()].slice(0, VALUE_CAP);
+    };
+    if (ts.isObjectLiteralExpression(n)) {
+      let branches = [null];
+      for (const p of n.properties) {
+        if (ts.isSpreadAssignment(p)) {
+          const spread = inksOf(p.expression, ctx, depth + 1);
+          branches = distinct(branches.flatMap((b) => spread.map((s) => (s === null ? b : s))));
+          continue;
+        }
+        if (!ts.isPropertyAssignment(p) && !ts.isShorthandPropertyAssignment(p)) continue;
+        const name = p.name.getText(source).replace(/^["']|["']$/g, "");
+        if (name !== "color" && name !== "WebkitTextFillColor") continue;
+        const v = valuesOf(ts.isPropertyAssignment(p) ? p.initializer : p.name, valueScope);
+        const next = [...v.values, ...(v.none ? [null] : []), ...v.open.map((t) => ({ open: t }))];
+        branches = next.length ? distinct(next) : [null];
+      }
+      return branches;
+    }
+    if (ts.isConditionalExpression(n)) return distinct([...inksOf(n.whenTrue, ctx, depth + 1), ...inksOf(n.whenFalse, ctx, depth + 1)]);
+    if (ts.isBinaryExpression(n)) {
+      const op = n.operatorToken.kind;
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) return distinct([null, ...inksOf(n.right, ctx, depth + 1)]);
+      if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) return distinct([...inksOf(n.left, ctx, depth + 1), ...inksOf(n.right, ctx, depth + 1)]);
+    }
+    if (ts.isIdentifier(n) && !(ctx.bindings?.props.has(n.text) || (ctx.bindings && n.text === ctx.bindings.whole))) {
+      const init = ctx.constOf(n.text);
+      if (init !== undefined && !Array.isArray(init) && isConstInit(init)) return inksOf(init, ctx, depth + 1);
+    }
+    return [null];
+  };
+
   /** An inline style's colour and opacity, read from its object literals
-   * (every branch of a condition, spreads included). A style handed in as a
+   * (every branch of a condition, spreads included), and in `inks` the
+   * colour each branch leaves the element with. A style handed in as a
    * prop is read where the callers write it; anything else it cannot read
    * is recorded. */
   const readStyle = (node, ctx, element) => {
-    const out = { color: null, colorText: null, opacity: null, opaque: false, props: [] };
+    const out = { color: null, colorText: null, opacity: null, opaque: false, props: [], inks: [null] };
     const objects = [];
     const gather = (n, depth = 0) => {
       if (!n || depth > 6) return;
@@ -987,6 +1191,7 @@ function readSource(file, text, env) {
       styleOwners.get(o).push(element);
     }
     for (const o of mine) visitObj(o);
+    out.inks = inksOf(node, ctx);
     if (out.opaque) {
       unresolved.push({ file, line: lineOf(node), kind: "style", component: ctx.component, text: node.getText(source).replace(/\s+/g, " ").slice(0, 100), element });
     }
@@ -1165,21 +1370,38 @@ function readSource(file, text, env) {
     return { keys, jsx };
   };
   const codeVisit = (node) => {
-    if ((ts.isPropertyAssignment(node) || ts.isJsxAttribute(node)) && node.initializer) {
+    const shorthand = ts.isShorthandPropertyAssignment(node);
+    if (((ts.isPropertyAssignment(node) || ts.isJsxAttribute(node)) && node.initializer) || shorthand) {
       const name = node.name.getText(source).replace(/^["']|["']$/g, "");
       if (/^(color|WebkitTextFillColor|opacity|fill)$/.test(name)) {
-        const value = node.initializer.getText(source);
+        // `{ color }` holds the constant of that name.
+        const given = shorthand ? node.name : node.initializer;
+        const value = given.getText(source);
         const { keys, jsx } = keyPath(node);
         const element = jsx ? elements.find((e) => e.line === lineOf(jsx) && e.tag === jsx.tagName.getText(source)) ?? null : null;
         // The elements whose style holds it, and the condition it is set under.
         const owners = new Set(element ? [element] : []);
+        const styled = new Set();
         let when = null;
         for (let n = node.parent; n && !ts.isStatement(n) && !ts.isJsxElement(n) && !ts.isJsxSelfClosingElement(n); n = n.parent) {
-          for (const el of styleOwners.get(n) ?? []) owners.add(el);
+          for (const el of styleOwners.get(n) ?? []) {
+            owners.add(el);
+            styled.add(el);
+          }
           if (when === null && ts.isConditionalExpression(n)) when = n.condition.getText(source);
           if (when === null && ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) when = n.left.getText(source);
         }
-        codeStyles.push({ file, line: lineOf(node), prop: name, value, keys, element, owners: [...owners], when, jsxAttr: ts.isJsxAttribute(node) });
+        const jsxAttr = ts.isJsxAttribute(node);
+        const read = valuesOf(given, valueScope);
+        codeStyles.push({ file, line: lineOf(node), prop: name, value, values: read.values, none: read.none, keys, element, owners: [...owners], when, jsxAttr });
+        // A text colour or an opacity that styles an element (an inline
+        // style, a style object an element wears, the attribute itself) and
+        // whose value cannot be read is recorded, never passed in silence.
+        const inks = name !== "fill" || [...owners].some((el) => SVG_TEXT.has(el.tag.toLowerCase()));
+        const styles = styled.size > 0 || (element !== null && (jsxAttr ? element.dom : keys[0] === "style"));
+        if (read.open.length && inks && styles) {
+          unresolved.push({ file, line: lineOf(node), kind: "style", component: ctxFor(node).component, text: `${name}: ${value}`.replace(/\s+/g, " ").slice(0, 100), element });
+        }
       }
     }
     ts.forEachChild(node, codeVisit);
@@ -1229,6 +1451,40 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
   const codeStyles = [];
   const unresolved = [];
 
+  /* The constants a file declares at its top, for a value set in code
+   * that names one it imports: read when first asked for, whether or not
+   * the file is read for elements. */
+  const moduleScopes = new Map();
+  const moduleScope = (file) => {
+    if (moduleScopes.has(file)) return moduleScopes.get(file);
+    moduleScopes.set(file, null);
+    const text = sources.get(file);
+    if (text === undefined) return null;
+    const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    const consts = new Map();
+    const imported = new Map();
+    for (const statement of source.statements) {
+      if (ts.isVariableStatement(statement)) {
+        for (const d of statement.declarationList.declarations) if (ts.isIdentifier(d.name) && d.initializer && isConstInit(d.initializer)) consts.set(d.name.text, d.initializer);
+      }
+      const clause = ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier) ? statement.importClause : null;
+      if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+        const target = resolveImport(root, file, statement.moduleSpecifier.text, exists);
+        if (target) for (const el of clause.namedBindings.elements) imported.set(el.name.text, { file: target, name: (el.propertyName ?? el.name).text });
+      }
+    }
+    const scope = {
+      lookup: (name, _at, depth = 0) => {
+        if (consts.has(name)) return [{ init: consts.get(name), scope }];
+        const from = imported.get(name);
+        return from && depth < 8 ? moduleScope(from.file)?.lookup(from.name, null, depth + 1) ?? null : null;
+      },
+    };
+    moduleScopes.set(file, scope);
+    return scope;
+  };
+  const exported = (file, name) => moduleScope(file)?.lookup(name, null) ?? null;
+
   for (const [file, text] of [...sources].sort(([a], [b]) => a.localeCompare(b, "en"))) {
     if (file.endsWith(".css")) {
       const isModule = file.endsWith(".module.css");
@@ -1253,7 +1509,7 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
       continue;
     }
     if (!file.endsWith(".tsx") && !CODE_STYLE_HINT.test(text)) continue;
-    const info = readSource(file, text, { root, exists, base: elements.length });
+    const info = readSource(file, text, { root, exists, base: elements.length, exported });
     elements.push(...info.elements);
     files.set(file, info);
     codeStyles.push(...info.codeStyles);

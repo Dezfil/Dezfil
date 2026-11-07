@@ -10,18 +10,23 @@
  *   - declarations: every colour of text that resolves to the faint ink,
  *     in a stylesheet or set in code: the token, its palette and Liquid
  *     spellings, the raw faint hexes, and any custom property defined from
- *     them (the token blocks that define the ink are definitions, not uses);
- *   - elements: every element that wears one of those styles;
+ *     them (the token blocks that define the ink are definitions, not uses).
+ *     A value set in code is read through the constants it names;
+ *   - elements: every element that wears one of those styles, a style
+ *     object held in a constant included;
  *   - inheritance: text inside such an element that sets no colour of its
- *     own, so it takes the faint ink from it;
+ *     own, so it takes the faint ink from it. A class or an inline colour
+ *     set under a condition sets one only when every branch does;
  *   - opacity: every opacity under one (or a see-through text colour) that
  *     applies at rest to an element with text in it, whatever that text's
- *     colour. Fully transparent is hiding, not fading, and is left out.
+ *     colour. A colour is see-through by its alpha, read through the colour
+ *     functions it nests, in a stylesheet or set in code. Fully
+ *     transparent is hiding, not fading, and is left out.
  *
  * Each use carries what the check needs to judge a listed use by its kind:
  * the selectors, the value, the elements with what they show.
  */
-import { atRest, bearsText, cmp, collect, descend, elementIds, elementsMatching, selectorParts, shows, specificity, statesOf } from "./source-collector.mjs";
+import { atRest, bearsText, cmp, collect, descend, elementIds, elementsMatching, selectorParts, shows, specificity, splitTop, statesOf } from "./source-collector.mjs";
 
 /** The faint ink's spellings: the token, its palette capture and the Liquid
  * steps, and the raw hexes the token holds (light, dark, and by day). */
@@ -63,11 +68,79 @@ export function isFaint(value, aliases) {
   return false;
 }
 
+const num = (s) => (s.endsWith("%") ? parseFloat(s) / 100 : parseFloat(s));
+const between = (x) => Number.isFinite(x) && x > 0 && x < 1;
+
+/** A CSS function call written as the whole of a value: its name and what
+ * stands between its brackets, or null. */
+function callOf(value) {
+  const m = /^([a-z][-a-z0-9]*)\(/i.exec(value);
+  if (!m || !value.endsWith(")")) return null;
+  let depth = 0;
+  for (let i = m[1].length; i < value.length; i += 1) {
+    if (value[i] === "(") depth += 1;
+    else if (value[i] === ")") {
+      depth -= 1;
+      if (depth === 0) return i === value.length - 1 ? { name: m[1].toLowerCase(), inner: value.slice(m[1].length + 1, -1) } : null;
+    }
+  }
+  return null;
+}
+
+/**
+ * The opacity a colour paints with, from nothing to all, read through the
+ * colour functions it nests: transparent; a hex with an alpha; rgb(), hsl()
+ * and their kin with an alpha after a slash or as a fourth argument (the
+ * relative form `rgb(from var(--x) r g b / 60%)` too); color-mix(), from the
+ * share each colour is given and its own opacity, the total under all
+ * fading it as well; light-dark(), the fainter of the two. A custom
+ * property, a keyword or an alpha written as a calculation reads as opaque.
+ */
+export function alphaOf(value) {
+  const v = value.trim().toLowerCase();
+  if (v === "transparent") return 0;
+  const hex = /^#([0-9a-f]{3,8})$/.exec(v);
+  if (hex) {
+    const h = hex[1];
+    if (h.length === 4) return parseInt(h[3] + h[3], 16) / 255;
+    if (h.length === 8) return parseInt(h.slice(6), 16) / 255;
+    return 1;
+  }
+  const call = callOf(v);
+  if (!call) return 1;
+  if (call.name === "color-mix") {
+    const [, ...colours] = splitTop(call.inner, /,/);
+    if (colours.length !== 2) return 1;
+    const sides = colours.map((part) => {
+      const words = splitTop(part, /\s/);
+      const share = words.find((w) => /^[\d.]+%$/.test(w));
+      return { colour: words.filter((w) => w !== share).join(" "), share: share === undefined ? null : parseFloat(share) / 100 };
+    });
+    let [a, b] = sides.map((s) => s.share);
+    if (a === null && b === null) a = b = 0.5;
+    else if (a === null) a = 1 - b;
+    else if (b === null) b = 1 - a;
+    const total = a + b;
+    if (!(total > 0)) return 1;
+    return ((alphaOf(sides[0].colour) * a + alphaOf(sides[1].colour) * b) / total) * Math.min(total, 1);
+  }
+  if (call.name === "light-dark") {
+    const sides = splitTop(call.inner, /,/);
+    return sides.length === 2 ? Math.min(...sides.map(alphaOf)) : 1;
+  }
+  if (/^(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)$/.test(call.name)) {
+    const slash = splitTop(call.inner, /\//);
+    const commas = splitTop(call.inner, /,/);
+    const alpha = slash.length === 2 ? slash[1] : /^(rgba?|hsla?)$/.test(call.name) && commas.length === 4 ? commas[3] : null;
+    const x = alpha === null ? 1 : num(alpha.trim());
+    return Number.isFinite(x) ? Math.min(Math.max(x, 0), 1) : 1;
+  }
+  return 1;
+}
+
 /** The opacity a declaration fades by, or null: a number or percentage
  * between none and all, an opacity() filter, or a see-through colour. */
 export function fadeOf(prop, value) {
-  const num = (s) => (s.endsWith("%") ? parseFloat(s) / 100 : parseFloat(s));
-  const between = (x) => Number.isFinite(x) && x > 0 && x < 1;
   if (prop === "opacity") {
     const x = num(value.trim());
     return between(x) ? x : null;
@@ -77,15 +150,8 @@ export function fadeOf(prop, value) {
     return m && between(num(m[1])) ? num(m[1]) : null;
   }
   if (TEXT_COLOUR.has(prop)) {
-    const mix = /color-mix\([^)]*?([\d.]+)%[^)]*transparent/i.exec(value) ?? /transparent[^)]*?([\d.]+)%/i.exec(value);
-    if (mix && /color-mix/i.test(value)) {
-      const x = parseFloat(mix[1]) / 100;
-      return between(x) ? x : null;
-    }
-    const rgba = /(?:rgba|hsla)\([^)]*,\s*([\d.]+%?)\s*\)/i.exec(value) ?? /(?:rgb|hsl)\([^)]*\/\s*([\d.]+%?)\s*\)/i.exec(value);
-    if (rgba && between(num(rgba[1]))) return num(rgba[1]);
-    const hex8 = /#[0-9a-f]{6}([0-9a-f]{2})\b/i.exec(value);
-    if (hex8 && between(parseInt(hex8[1], 16) / 255)) return parseInt(hex8[1], 16) / 255;
+    const x = alphaOf(value);
+    return between(x) ? x : null;
   }
   return null;
 }
@@ -123,26 +189,46 @@ export function faintUses(model) {
    * pseudo-element, a state, or an attribute the selector asks for. The
    * strongest of them decides; where two tie, every one must give a colour.
    * `inherit`, `currentColor` and their kin give none, whatever the tag, so
-   * the element takes its parent's ink. An inline colour outranks them all.
-   * With no rule, a field keeps the browser's own ink. */
+   * the element takes its parent's ink. With no rule, a field keeps the
+   * browser's own ink.
+   *
+   * An element that wears its classes under a condition gets its own ink
+   * only when every set of classes it can wear does: a rule stands for the
+   * sets that hold every class its subject asks for. An inline colour
+   * outranks the rules, in the branches of the style that set one; a
+   * branch that sets none leaves the rules to decide, and one that says
+   * `inherit` takes the parent's ink whatever the rules say. */
   const atRestRules = new Map();
   for (const sel of model.selectors) {
     const colours = sel.decls.filter((d) => TEXT_COLOUR.has(d.prop));
     if (!colours.length || sel.subject.pseudoElement) continue;
     if (statesOf(sel.selector).pseudos.length || needsAttr(sel.selector)) continue;
     const decisive = colours.filter((d) => d.prop === "color").at(-1) ?? colours.at(-1);
-    const rule = { specificity: specificity(sel.selector), gives: !NO_COLOUR.test(decisive.value.trim()) };
+    const subject = sel.subject;
+    const tokens = subject.opaque ? [] : [...subject.classes.map((c) => (sel.module ? "m\t" + sel.file + "\t" + c : "g\t" + c)), ...subject.globals.map((c) => "g\t" + c)];
+    const rule = { specificity: specificity(sel.selector), gives: !NO_COLOUR.test(decisive.value.trim()), tokens };
     for (const el of elementsMatching(model, sel)) {
       if (!atRestRules.has(el.index)) atRestRules.set(el.index, []);
       atRestRules.get(el.index).push(rule);
     }
   }
+  const unquote = (v) => v.trim().replace(/^(["'`])([\s\S]*)\1$/, "$2").trim();
+  const rulesGiveInk = (el) => {
+    const rules = atRestRules.get(el.index) ?? [];
+    const field = model.tagsOf(el).some((t) => FIELD_TAGS.has(t));
+    const sets = el.wears?.length ? el.wears : [[]];
+    return sets.every((set) => {
+      const here = rules.filter((r) => r.tokens.every((t) => set.includes(t)));
+      if (!here.length) return field;
+      const top = here.reduce((best, r) => (cmp(r.specificity, best) > 0 ? r.specificity : best), [0, 0, 0]);
+      return here.filter((r) => cmp(r.specificity, top) === 0).every((r) => r.gives);
+    });
+  };
   const ownColour = (el) => {
-    if (el.style?.color) return !NO_COLOUR.test((el.style.colorText ?? "").replace(/^["'`]|["'`]$/g, "").trim());
-    const rules = atRestRules.get(el.index);
-    if (!rules) return model.tagsOf(el).some((t) => FIELD_TAGS.has(t));
-    const top = rules.reduce((best, r) => (cmp(r.specificity, best) > 0 ? r.specificity : best), [0, 0, 0]);
-    return rules.filter((r) => cmp(r.specificity, top) === 0).every((r) => r.gives);
+    const inks = el.style?.inks ?? [null];
+    if (inks.some((ink) => typeof ink === "string" && NO_COLOUR.test(unquote(ink)))) return false;
+    if (!inks.includes(null)) return true;
+    return rulesGiveInk(el);
   };
   const isBox = (el) => el.dom || el.landings.length > 0;
 
@@ -223,25 +309,31 @@ export function faintUses(model) {
     }
   }
 
-  /* Styles set in code. */
+  /* Styles set in code: the value as written and every value it can take
+   * through the constants it names. A style object held in a constant
+   * reaches every element that wears it. */
   for (const cs of model.codeStyles) {
     const el = cs.element;
+    const owners = cs.owners?.length ? cs.owners : el ? [el] : [];
     const where = el ? `${ids.get(el.index).replace(/^.*? :: /, "")} ${cs.keys.join(" > ")}` : cs.keys.join(" > ");
     const id = `${cs.file} :: ${where}`;
-    const text = /^(text|tspan|textpath)$/i.test(el?.tag ?? "");
+    const values = cs.values ?? [];
+    const value = values.length && !(values.length === 1 && values[0] === cs.value) ? `${cs.value} = ${[...new Set(values)].join(" | ")}` : cs.value;
+    const text = owners.some((o) => /^(text|tspan|textpath)$/i.test(o.tag ?? ""));
     const ink = cs.prop === "color" || cs.prop === "WebkitTextFillColor" || (cs.prop === "fill" && text);
-    if (ink && isFaint(cs.value, aliases)) {
-      const u = record("ink", id, { file: cs.file, line: cs.line, origin: "code", value: cs.value, keys: cs.keys, when: cs.when, pseudo: new Set() });
-      if (el) {
-        const e = entry(el);
+    if (ink && [cs.value, ...values].some((v) => isFaint(v, aliases))) {
+      const u = record("ink", id, { file: cs.file, line: cs.line, origin: "code", value, keys: cs.keys, when: cs.when, pseudo: new Set() });
+      for (const owner of owners) {
+        const e = entry(owner);
         u.elements.set(e.id, e);
-        for (const inner of inherited(el)) u.inherits.set(ids.get(inner.index), entry(inner));
+        for (const inner of inherited(owner)) u.inherits.set(ids.get(inner.index), entry(inner));
       }
     }
-    const fade = cs.prop === "opacity" ? codeFade(cs.value) : null;
-    if (fade !== null && (!el || textInside(el))) {
-      const u = record("opacity", id, { file: cs.file, line: cs.line, origin: "code", value: `opacity: ${cs.value}`, keys: cs.keys, when: cs.when, pseudo: new Set() });
-      for (const owner of cs.owners ?? (el ? [el] : [])) {
+    const fades = cs.prop === "opacity" ? [cs.value, ...values].map(codeFade) : ink ? values.map((v) => fadeOf("color", unquote(v))) : [];
+    const fade = fades.some((x) => x !== null) ? Math.min(...fades.filter((x) => x !== null)) : null;
+    if (fade !== null && (!owners.length || owners.some(textInside))) {
+      const u = record("opacity", id, { file: cs.file, line: cs.line, origin: "code", value: `${cs.prop}: ${value}`, keys: cs.keys, when: cs.when, pseudo: new Set() });
+      for (const owner of owners) {
         const e = entry(owner);
         u.elements.set(e.id, e);
         for (const inner of textBelow(owner)) u.inside.set(ids.get(inner.index), entry(inner));
