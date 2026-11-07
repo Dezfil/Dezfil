@@ -139,7 +139,7 @@
 
 .metaHint {
   font-size: 12px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 /* ---- options rail ---- */
@@ -227,7 +227,7 @@
 
 .chipSub {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .chip:hover {
@@ -279,7 +279,7 @@
 
 .hint {
   font-size: 12px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   margin: 6px 0 0;
 }
 

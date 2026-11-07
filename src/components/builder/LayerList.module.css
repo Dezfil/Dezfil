@@ -7,7 +7,7 @@
 
 .empty {
   font-size: 12.5px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   padding: 4px 2px;
 }
 
@@ -323,7 +323,7 @@
 
 .menu a small,
 .menu button small {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font-size: 11px;
 }
 
@@ -378,17 +378,6 @@
 .expanded {
   border-top: 1px solid var(--divider);
   padding: 11px 10px 12px;
-}
-
-/* The recipe sentence a layer card carries. Its ratified
-   cost is that it wraps to a second line on a busy recipe — and the inspector
-   is narrower than the prototype's 342 px assumption, so it wraps sooner. */
-.recipeNote {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  line-height: 1.35;
-  color: var(--fg-faint);
 }
 
 /* Select mode: every card is a target while the picker is armed. */

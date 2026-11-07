@@ -18,7 +18,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
   margin-bottom: 5px;
 }
 
@@ -98,16 +98,19 @@
   border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius);
   background: transparent;
-  color: var(--fg-faint);
+  color: var(--fg);
   font-size: var(--text-label);
   padding: 5px 10px;
   cursor: pointer;
   transition: var(--dur-micro);
 }
 
+/* The door's icon keeps the decoration ink while its label reads in full
+   ink, and joins the accent sweep on hover. */
 .door svg {
   width: 14px;
   height: 14px;
+  color: var(--fg-faint);
 }
 
 /* The house ghost-door hover: the whole tile sweeps to accent. */
@@ -115,6 +118,10 @@
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-dim);
+}
+
+.door:hover svg {
+  color: inherit;
 }
 
 .dropZone {
@@ -191,7 +198,7 @@
 .note {
   margin: 0;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   line-height: 1.45;
 }
 

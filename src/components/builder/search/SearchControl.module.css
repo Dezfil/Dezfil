@@ -66,7 +66,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
 }
 
 .row {
@@ -105,7 +105,7 @@
 .attribution {
   padding: 4px 9px 6px;
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .note {

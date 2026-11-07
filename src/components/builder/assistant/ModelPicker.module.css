@@ -99,7 +99,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
 }
 
 .item {
@@ -137,7 +137,7 @@
 .identity {
   font-family: var(--font-mono);
   font-size: var(--text-meta);
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -93,7 +93,7 @@
 }
 
 .pillFaint {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .pillDelete {

@@ -427,12 +427,6 @@
   {
     "file": "src/components/builder/LegendTab.module.css",
     "rule": "font-size",
-    "value": "11.5px",
-    "count": 1
-  },
-  {
-    "file": "src/components/builder/LegendTab.module.css",
-    "rule": "font-size",
     "value": "12.5px",
     "count": 1
   },

@@ -1,5 +1,5 @@
 /* The "talking about" chips, after page 02 section 1
-   variant A: a wrapping row of quiet pills, the subject's word faint and
+   variant A: a wrapping row of quiet pills, the subject's word muted and
    the fact in the body weight; a failed execution or run wears the
    failure tone on its glyph. */
 
@@ -39,7 +39,7 @@
 }
 
 .label {
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   flex: none;
 }
 

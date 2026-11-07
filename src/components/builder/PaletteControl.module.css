@@ -170,7 +170,7 @@
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: color-mix(in srgb, var(--fg) 10%, var(--fg-muted));
   padding: 2px 0;
 }
 
@@ -260,7 +260,7 @@
 
 .emptyHint {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   padding: 2px 7px 4px;
   margin: 0;
 }
@@ -346,7 +346,7 @@
 
 .stopPct {
   font-size: 11px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
 }
 
 .stopRemove {
