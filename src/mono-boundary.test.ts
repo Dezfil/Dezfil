@@ -353,6 +353,34 @@ describe("the mono boundary on seeded trees", () => {
     expect(message(f, "digits")).toContain(`no longer ${verb} digits of one width from it`);
   });
 
+  /* The feature settings apply over the numeric variants whatever rule
+   * sets which, so turning the tnum feature off takes digits of one width
+   * away even from a weaker rule, and the strongest feature setting
+   * decides. */
+  const FEATURE_OFF: [string, Seed, string][] = [
+    ["a weaker rule that turns the tnum feature off", { css: 'span { font-feature-settings: "tnum" 0; }' }, "wears"],
+    ["the tnum feature turned off on an inherited number", { css: '.facts li { font-feature-settings: "tnum" off; }' }, "inherits"],
+    ["an inline style that turns the tnum feature off", { body: BASE_BODY.replace(SPAN_COUNT, `<span className={styles.count} style={{ fontFeatureSettings: '"tnum" 0' }}>`) }, "wears"],
+  ];
+  it.each(FEATURE_OFF)("fails on a list's numbers without digits of one width: %s", (_name, seed, verb) => {
+    const f = judged(seed);
+    expect(checks(f)).toEqual(["digits"]);
+    expect(message(f, "digits")).toContain(`no longer ${verb} digits of one width from it`);
+  });
+
+  it("fails on numbers set in digits of one width in code when a rule turns the tnum feature off", () => {
+    const seed = { extra: `\n      <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCount(t.rowCount)}</span>` };
+    const rows = rowsFor(usesOf(tree(seed)), KIND_OF);
+    expect(judge(usesOf(tree(seed)), { allowed: rows })).toEqual([]);
+    const f = judge(usesOf(tree({ ...seed, css: 'span { font-feature-settings: "tnum" 0; }' })), { allowed: rows });
+    expect(checks(f)).toEqual(["digits"]);
+    expect(message(f, "digits")).toContain("no longer wears digits of one width from it");
+  });
+
+  it("keeps a list's digits of one width when a stronger feature setting gives the tnum feature back", () => {
+    expect(judged({ css: 'span { font-feature-settings: "tnum" 0; }\nspan.count { font-feature-settings: "liga"; }' })).toEqual([]);
+  });
+
   it("fails on numbers set in digits of one width by the feature settings that a later font shorthand sets back", () => {
     const seed = { css: '.fig { font-feature-settings: "tnum"; }', extra: `\n      <span className={styles.fig}>{formatCount(t.rowCount)}</span>` };
     const rows = rowsFor(usesOf(tree(seed)), KIND_OF);

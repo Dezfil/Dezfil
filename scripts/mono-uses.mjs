@@ -67,6 +67,8 @@ const CODE_FEATURES_CASCADE = new Set([...CODE_FEATURES, "font"]);
 /** The elements the browser sets its own monospace on. */
 const MARK_TAGS = /^(code|pre|kbd|samp)$/i;
 const FIELD_TAGS = new Set(["input", "textarea", "select"]);
+/** A feature setting that turns the tnum feature off. */
+const TNUM_OFF = /["']tnum["']\s+(?:0|off)\b/i;
 /** Values that set nothing of their own: the parent's holds. */
 const KEYWORD = /^(inherit|initial|unset|revert|revert-layer)$/i;
 const unquote = (v) => String(v).trim().replace(/^(["'`])([\s\S]*)\1$/, "$2").trim();
@@ -236,9 +238,9 @@ export function monoUses(model) {
   /** Whether an element keeps what a rule gives it in some set of classes
    * it can wear: the rule's own last word on the property group gives it,
    * and no stronger rule that always holds for it gives another. */
-  const keeps = (el, rule, index, same) =>
+  const keeps = (el, rule, index, same, lost = () => false) =>
     same(rule.decl) &&
-    setsOf(el).some((set) => applies(rule, set) && !(index.get(el.index) ?? []).some((r) => r !== rule && r.always && applies(r, set) && literalOn(r, el) && outranks(r, rule) && !same(r.decl)));
+    setsOf(el).some((set) => applies(rule, set) && !lost(set) && !(index.get(el.index) ?? []).some((r) => r !== rule && r.always && applies(r, set) && literalOn(r, el) && outranks(r, rule) && !same(r.decl)));
   /** The code styles set on an element, by property group. */
   const codeOn = new Map();
   for (const cs of model.codeStyles) for (const owner of cs.owners ?? []) push(codeOn, owner.index, cs);
@@ -257,6 +259,19 @@ export function monoUses(model) {
     if (rules.length && setsOf(el).every((set) => rules.some((r) => applies(r, set)))) return true;
     return (codeOn.get(el.index) ?? []).some((cs) => codeProps.has(cs.prop) && cs.when === null && !cs.none && [cs.value, ...(cs.values ?? [])].every((v) => !KEYWORD.test(unquote(v))));
   };
+  /** Whether the feature settings turn the tnum feature off on an element
+   * in a set of classes it can wear. They apply over the numeric
+   * variants whatever rule sets which, so this takes away the digits a
+   * `tabular-nums` gives. A feature setting set in code decides when
+   * there is one; otherwise the strongest rule that always holds does. */
+  const tnumOffIn = (el, set) => {
+    const code = (codeOn.get(el.index) ?? []).filter((cs) => CODE_FEATURES_CASCADE.has(cs.prop) && cs.when === null && !cs.none);
+    if (code.length) return code.every((cs) => [cs.value, ...(cs.values ?? [])].every((v) => TNUM_OFF.test(String(v))));
+    const here = (features.get(el.index) ?? []).filter((r) => r.always && literalOn(r, el) && applies(r, set));
+    const top = here.find((r) => here.every((o) => o === r || !outranks(o, r)));
+    return !!top && TNUM_OFF.test(top.decl.value);
+  };
+  const tnumOff = (el) => setsOf(el).every((set) => tnumOffIn(el, set));
   const ownFamily = ownOf(families, CODE_FAMILY);
   const ownNumeric = ownOf(numerics, CODE_NUMERIC_CASCADE);
   const ownFeatures = ownOf(features, CODE_FEATURES_CASCADE);
@@ -314,14 +329,17 @@ export function monoUses(model) {
       const same = (d) => isTabular(d.prop, d.value);
       const matched = sel.subject.document || !onScreen(sel.context) ? [] : elementsMatching(model, sel);
       // A stronger rule, a later `font` shorthand or a style set in code
-      // that sets the digits back takes them away.
+      // that sets the digits back takes them away, and so do feature
+      // settings that turn the tnum feature off, from the numeric variants.
+      const lost = (el) => (byFeature ? () => false : (set) => tnumOffIn(el, set));
       const kept = matched.filter((el) => {
         if (!tabular.every((d) => d.important) && codeTakes(el, byFeature ? CODE_FEATURES_CASCADE : CODE_NUMERIC_CASCADE, same)) return false;
         const own = (index.get(el.index) ?? []).find((r) => r.sel === sel);
-        return !own || keeps(el, own, index, same);
+        return own ? keeps(el, own, index, same, lost(el)) : byFeature || !tnumOff(el);
       });
       for (const el of kept) u.elements.set(ids.get(el.index), entry(el));
-      for (const el of inheritedFrom(kept, byFeature ? ownFeatures : ownNumeric)) u.inherits.set(ids.get(el.index), entry(el));
+      const stop = byFeature ? ownFeatures : (el) => ownNumeric(el) || tnumOff(el);
+      for (const el of inheritedFrom(kept, stop)) u.inherits.set(ids.get(el.index), entry(el));
     }
   }
 
@@ -341,9 +359,13 @@ export function monoUses(model) {
     const u = record(family ? "mono" : "digits", codeId(cs), { file: cs.file, line: cs.line, origin: "code", value: `${cs.prop}: ${cs.value}`, keys: cs.keys, when: cs.when });
     if (family) codeLines.add(cs.file + ":" + cs.line);
     u.definition = false;
-    const owners = cs.owners?.length ? cs.owners : cs.element ? [cs.element] : [];
+    const all = cs.owners?.length ? cs.owners : cs.element ? [cs.element] : [];
+    // Numeric variants set in code lose to feature settings that turn the
+    // tnum feature off, as a rule's do.
+    const numeric = !family && !CODE_FEATURES.has(cs.prop);
+    const owners = numeric ? all.filter((el) => !tnumOff(el)) : all;
     for (const el of owners) u.elements.set(ids.get(el.index), entry(el));
-    const stop = family ? familyStop : CODE_FEATURES.has(cs.prop) ? ownFeatures : ownNumeric;
+    const stop = family ? familyStop : numeric ? (el) => ownNumeric(el) || tnumOff(el) : ownFeatures;
     for (const el of inheritedFrom(owners, stop)) u.inherits.set(ids.get(el.index), entry(el));
   }
   for (const cc of model.codeCustoms ?? []) {
