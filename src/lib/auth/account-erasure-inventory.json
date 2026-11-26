@@ -3111,6 +3111,16 @@
         "memory:immutable-configuration"
       ]
     },
+    "memory:src/lib/api/openapi-style.ts#LABEL_PROPERTIES": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
+    "memory:src/lib/api/openapi-style.ts#STYLE_SCHEMAS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/api/openapi-table-catalogue.ts#TABLE_CATALOGUE_PATHS": {
       "stores": [
         "memory:immutable-configuration"
