@@ -316,6 +316,14 @@
   },
   {
     "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .opDesc code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <code> {parameter.name}"
+    ]
+  },
+  {
+    "layer": "mono",
     "id": "src/components/DocsScreen.module.css :: .path",
     "kind": "identifier",
     "elements": [
@@ -500,6 +508,15 @@
   },
   {
     "layer": "mono",
+    "id": "src/components/settings/McpCard.module.css :: .configuration code",
+    "kind": "code",
+    "elements": [
+      "src/components/settings/McpCard.tsx :: McpCard <code> {endpoint ? guide.code : '/api/mcp'}",
+      "src/components/settings/McpCard.tsx :: McpCard <code> {guide.alternate}"
+    ]
+  },
+  {
+    "layer": "mono",
     "id": "src/components/settings/McpCard.module.css :: .endpoint",
     "kind": "address",
     "elements": [
@@ -549,6 +566,14 @@
       "src/components/settings/AssistantKeyCard.tsx :: AssistantKeyCard <span.mono> {key.lastFour}": "identifier",
       "src/components/settings/SystemTab.tsx :: VariableName <Fragment> \"_\" {part}": "identifier"
     }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingsCard.module.css :: .note code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/settings/McpCard.tsx :: McpCard <code> \"DEZFIL_API_TOKEN\""
+    ]
   },
   {
     "layer": "mono",
@@ -954,30 +979,6 @@
     "elements": [
       "src/components/workflow-canvas/BadgeNode.tsx :: BadgeNode <span.tOut.tOutName> {m.outputName}"
     ]
-  },
-  {
-    "layer": "mark",
-    "id": "src/components/DocsScreen.tsx :: DocsScreen <code> {parameter.name}",
-    "kind": "to-mono",
-    "note": "The Developer page's parameter names: a later change gives them the mono face at the size of the sentence around them."
-  },
-  {
-    "layer": "mark",
-    "id": "src/components/settings/McpCard.tsx :: McpCard <code> \"DEZFIL_API_TOKEN\"",
-    "kind": "to-mono",
-    "note": "The MCP card's note names a variable: a later change gives it the mono face at the size of the sentence around it."
-  },
-  {
-    "layer": "mark",
-    "id": "src/components/settings/McpCard.tsx :: McpCard <code> {endpoint ? guide.code : '/api/mcp'}",
-    "kind": "to-mono",
-    "note": "The client configuration inside the MCP card's mono block: the browser sets its monospace on the code element itself, so the block's face does not reach it. A later change gives it the mono face."
-  },
-  {
-    "layer": "mark",
-    "id": "src/components/settings/McpCard.tsx :: McpCard <code> {guide.alternate}",
-    "kind": "to-mono",
-    "note": "The second client configuration block, as above."
   },
   {
     "layer": "mark",

@@ -65,8 +65,9 @@ const ALLOWED: Row[] = JSON.parse(readFileSync(path.join(HERE, "mono-boundary.al
  * to the reading face, rules no element wears, and code marks still in the
  * browser's monospace. Each move drops its parts from the list and lowers
  * this number with them; a new use that the rule moves is not added here.
+ * None is left: the list holds only uses that keep their face.
  */
-const PENDING = 4;
+const PENDING = 0;
 
 const model = collect({ root: ROOT });
 const found: Uses = monoUses(model);
@@ -93,7 +94,7 @@ describe("the mono boundary", () => {
     expect(found.uses.has('mono :: src/components/SqlEditor.tsx :: editorTheme > ".cm-scroller" > fontFamily')).toBe(true);
     expect(found.uses.has("mono :: src/components/ResultGrid.module.css :: .grid")).toBe(true);
     expect(found.uses.has("mono :: src/app/document.tsx :: const dmMono = DM_Mono({")).toBe(true);
-    expect(found.marks.has("src/components/DocsScreen.tsx :: DocsScreen <code> {parameter.name}")).toBe(true);
+    expect(found.marks.has("src/components/sql/ResultsPane.tsx :: ResultsPane <code> {savedAs}")).toBe(true);
     expect(found.uses.has("digits :: src/components/gallery.module.css :: .numCell")).toBe(true);
     expect(ALLOWED.length).toBeGreaterThan(150);
   });
