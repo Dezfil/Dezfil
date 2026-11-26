@@ -67,6 +67,8 @@ const CODE_FEATURES_CASCADE = new Set([...CODE_FEATURES, "font"]);
 /** The elements the browser sets its own monospace on. */
 const MARK_TAGS = /^(code|pre|kbd|samp)$/i;
 const FIELD_TAGS = new Set(["input", "textarea", "select"]);
+/** What an unread site is, by the kind the collector gives it. */
+const UNREAD_WHAT = { style: "its style", spread: "what is spread on it", element: "the props an element is made with", stylesheet: "a rule's selector", markup: "markup set as text" };
 /** A feature setting that turns the tnum feature off. */
 const TNUM_OFF = /["']tnum["']\s+(?:0|off)\b/i;
 /** Values that set nothing of their own: the parent's holds. */
@@ -264,17 +266,31 @@ export function monoUses(model) {
    * variants whatever rule sets which, so this takes away the digits a
    * `tabular-nums` gives. A feature setting set in code decides when
    * there is one; otherwise the strongest rule that always holds does. */
-  const tnumOffIn = (el, set) => {
+  const featureSay = (el, set) => {
     const code = (codeOn.get(el.index) ?? []).filter((cs) => CODE_FEATURES_CASCADE.has(cs.prop) && cs.when === null && !cs.none);
     if (code.length) return code.every((cs) => [cs.value, ...(cs.values ?? [])].every((v) => TNUM_OFF.test(String(v))));
     const here = (features.get(el.index) ?? []).filter((r) => r.always && literalOn(r, el) && applies(r, set));
+    if (!here.length) return null;
     const top = here.find((r) => here.every((o) => o === r || !outranks(o, r)));
     return !!top && TNUM_OFF.test(top.decl.value);
   };
+  /** The feature settings inherit: an element that sets none of its own
+   * takes them from the element it is drawn in (filled below, once the
+   * elements that set their own are known). */
+  const tnumOffBelow = new Set();
+  const tnumOffIn = (el, set) => featureSay(el, set) ?? tnumOffBelow.has(el.index);
   const tnumOff = (el) => setsOf(el).every((set) => tnumOffIn(el, set));
   const ownFamily = ownOf(families, CODE_FAMILY);
   const ownNumeric = ownOf(numerics, CODE_NUMERIC_CASCADE);
   const ownFeatures = ownOf(features, CODE_FEATURES_CASCADE);
+  for (const el of model.elements) {
+    if (!setsOf(el).every((set) => featureSay(el, set) === true)) continue;
+    descend(model, [el], (d) => {
+      if (isBox(d) && ownFeatures(d)) return false;
+      tnumOffBelow.add(d.index);
+      return true;
+    });
+  }
   /** Text inside some elements that takes a property group from them. The
    * browser sets a family on code marks itself, so they stop a family. */
   const inheritedFrom = (roots, own) => {
@@ -418,7 +434,16 @@ export function monoUses(model) {
   const sheetsOf = (file) => model.files.get(file)?.sheets ?? new Map();
   const unread = new Map();
   for (const u of model.unresolved) {
-    if (u.kind !== "class") continue;
+    if (u.kind !== "class") {
+      // A style, a spread, an element made in code or stylesheet text it
+      // cannot read can set a family or the digits wherever it lands; a
+      // named colour, opacity or filter is the faint check's.
+      if (u.kind === "style" && /^[A-Za-z][\w-]*\s*:/.test(u.text) && !/^font/i.test(u.text)) continue;
+      const where = u.element ? ids.get(u.element.index) : u.file;
+      const id = `${where} :: ${u.kind} :: ${u.text}`;
+      unread.set(id, { layer: "unread", id, kind: u.kind, file: u.file, line: u.line, text: u.text, modules: [] });
+      continue;
+    }
     const sheets = sheetsOf(u.file);
     const named = [...sheets].filter(([name]) => new RegExp(`(?<![\\w$.])${name.replace(/\$/g, "\\$")}(?![\\w$])`).test(u.text)).map(([, f]) => f);
     const from = /^imported (\S+)/.exec(u.text)?.[1];
@@ -692,7 +717,9 @@ export function judge({ uses, marks, unread = new Map(), context }, { allowed = 
     if (!listed.has("mark :: " + id)) add("mark", "mark :: " + id, `${described(mark)} has no family of its own, so the browser sets its own monospace on it, at its own size`);
   }
   for (const [id, site] of unread) {
-    if (!listed.has("unread :: " + id)) add("unread", "unread :: " + id, `its classes cannot be read, and ${site.modules.join(", ")} sets mono or digits of one width; read them, or name the site (${site.file}:${site.line})`);
+    if (listed.has("unread :: " + id)) continue;
+    if (site.modules.length) add("unread", "unread :: " + id, `its classes cannot be read, and ${site.modules.join(", ")} sets mono or digits of one width; read them, or name the site (${site.file}:${site.line})`);
+    else add("unread", "unread :: " + id, `${UNREAD_WHAT[site.kind] ?? "it"} cannot be read, so it could set mono or take digits of one width where no check sees it; read it, or name the site (${site.file}:${site.line})`);
   }
 
   const twoWay = (check, key, rows, found, verb) => {

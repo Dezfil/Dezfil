@@ -1006,8 +1006,83 @@
   },
   {
     "layer": "unread",
+    "id": "src/app/document.tsx :: DezfilDocument <html> :: spread :: look",
+    "note": "The person's look as data-look-* attributes on the page root. The stylesheet rules that read them are read as rules; the Typeface pick among them moves the reading face, never mono or digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/assistant/AssistantDoor.tsx :: AssistantDoor <button> :: spread :: triggerProps",
+    "note": "A trigger's aria state, title and hint attributes, typed as such: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/BuilderRecovery.tsx :: withBuilderRecovery <Editor> :: spread :: props",
+    "note": "A recovery wrapper hands the props it is given on to the editor component it wraps, which takes no class and no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/filters/RangeBrush.tsx :: RangeBrush <span.knob> :: style :: {seat(lo)}",
+    "note": "A range handle's position, written as the --p custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/filters/RangeBrush.tsx :: RangeBrush <span.knob> #2 :: style :: {seat(hi)}",
+    "note": "A range handle's position, written as the --p custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/LayerList.tsx :: LayerList <button.grip.hint> :: spread :: handle.attributes",
+    "note": "A drag handle's role, tab index and aria attributes, from the drag-and-drop library: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/LegendTab.tsx :: LegendTab <button.grip.hint> :: spread :: handle?.attributes",
+    "note": "A drag handle's role, tab index and aria attributes, from the drag-and-drop library: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/style-panel/ContinuousBrush.tsx :: ContinuousBrush <input.slider> :: style :: {sliderFill(shown.center, clampLo, clampHi) as CSSProperties}",
+    "note": "A slider's fill, written as the --fill custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/style-panel/rows.tsx :: SliderRow <input.slider> :: style :: {sliderFill(shown, min, max)}",
+    "note": "A slider's fill, written as the --fill custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/style-panel/size-rows.tsx :: CellSizeRow <input.slider> :: style :: {sliderFill(positionFor(shown, min, max), 0, TRACK_STEPS)}",
+    "note": "A slider's fill, written as the --fill custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/WidgetsTab.tsx :: WidgetsTab <button.grip.hint> :: spread :: handle?.attributes",
+    "note": "A drag handle's role, tab index and aria attributes, from the drag-and-drop library: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/look/panel-lens.ts :: style :: el.style.setProperty(name, value)",
+    "note": "The panel lens's backdrop blur, set by hand under a custom property named per surface role: no family, no digits."
+  },
+  {
+    "layer": "unread",
     "id": "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text} :: p.cls",
     "note": "A highlighted SQL token in a history card or a provenance box: the highlighter picks one of the console's token classes (tkKw, tkFn, tkStr, tkNum, tkCm) at run time, and they set colour, weight and slant, never a family or digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/ui/Menu.tsx :: Menu <button.trigger> {trigger} :: spread :: triggerProps",
+    "note": "A trigger's aria state, title and hint attributes, typed as such: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.tsx :: Canvas <div.flowArea> :: spread :: notesCtl.pane",
+    "note": "The note tool's pointer handlers on the canvas pane, from the canvas's notes hook: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/workflow-canvas/WorkflowRecovery.tsx :: withWorkflowRecovery <Editor> :: spread :: props",
+    "note": "A recovery wrapper hands the props it is given on to the editor component it wraps, which takes no class and no style."
   },
   {
     "layer": "digits",

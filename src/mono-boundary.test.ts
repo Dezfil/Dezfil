@@ -377,6 +377,15 @@ describe("the mono boundary on seeded trees", () => {
     expect(message(f, "digits")).toContain("no longer wears digits of one width from it");
   });
 
+  it("fails on numbers whose tnum feature a container turns off, since the feature settings inherit", () => {
+    const seed = { css: ".fig { font-variant-numeric: tabular-nums; }", extra: `\n      <div className={styles.manifest}><b className={styles.fig}>{formatCount(t.rowCount)}</b></div>` };
+    const rows = rowsFor(usesOf(tree(seed)), KIND_OF);
+    expect(judge(usesOf(tree(seed)), { allowed: rows })).toEqual([]);
+    const off = (css: string) => judge(usesOf(tree({ ...seed, css: seed.css + "\n" + css })), { allowed: rows });
+    expect(message(off('.manifest { font-feature-settings: "tnum" 0; }'), "digits")).toContain("no longer wears digits of one width from it");
+    expect(off('.manifest { font-feature-settings: "tnum" 0; }\n.fig { font-feature-settings: "liga"; }')).toEqual([]);
+  });
+
   it("keeps a list's digits of one width when a stronger feature setting gives the tnum feature back", () => {
     expect(judged({ css: 'span { font-feature-settings: "tnum" 0; }\nspan.count { font-feature-settings: "liga"; }' })).toEqual([]);
   });
@@ -490,6 +499,26 @@ describe("the mono boundary on seeded trees", () => {
     expect(judged(UNREAD_SEED, { allowed: rows })).toEqual([]);
     expect(message(judged(UNREAD_SEED, { allowed: [...BASE, { layer: "unread", id: UNREAD_SITE }] }), "unread")).toContain("must say what they are (note)");
     expect(message(judged({}, { allowed: rows }), "unread")).toContain("drop its row");
+  });
+
+  /* Styles and spreads it cannot read can set a family or the digits as
+   * well as a class can, so they are named in the list too; a colour or
+   * an opacity it cannot read is the faint check's. */
+  const UNREAD_OTHER: [string, string, string][] = [
+    ["a whole style object", `<td style={cellStyle(col)}>{formatCount(t.rowCount)}</td>`, `${TSX} :: Panel <td> {formatCount(t.rowCount)} :: style :: {cellStyle(col)}`],
+    ["a spread", `<span {...rest}>{table.name}</span>`, `${TSX} :: Panel <span> {table.name} :: spread :: rest`],
+  ];
+  it.each(UNREAD_OTHER)("fails on %s it cannot read, until the list names it", (_name, extra, site) => {
+    const seed = { extra: `\n      ${extra}` };
+    const f = judged(seed);
+    expect(checks(f)).toEqual(["unread"]);
+    expect(message(f, "unread")).toContain(`unread :: ${site}: `);
+    expect(message(f, "unread")).toContain("cannot be read, so it could set mono or take digits of one width where no check sees it");
+    expect(judged(seed, { allowed: [...BASE, { layer: "unread", id: site, note: "Set at run time." }] })).toEqual([]);
+  });
+
+  it("leaves a colour it cannot read to the faint check", () => {
+    expect(judged({ extra: `\n      <span style={{ color: inkFor(busy) }}>{table.name}</span>` })).toEqual([]);
   });
 
   it("reads a class it cannot read against the modules it can come from: those it names, else every one its file imports", () => {
