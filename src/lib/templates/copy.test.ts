@@ -318,7 +318,7 @@ describe("a copy of a map template", () => {
     // themed pair marked as the template's, each with evidence naming the
     // copied datasets.
     const manifest = JSON.parse(await readFile(mapThumbnails.thumbnailManifestPath(map.id), "utf8")) as Record<"light" | "dark", string>;
-    expect(await mapThumbnails.publishedPictureFormat(map.id)).toEqual({ sized: false, recipe: 0, template: true });
+    expect(await mapThumbnails.publishedPictureFormat(map.id)).toEqual({ sized: false, recipe: 0, labels: 0, template: true });
     for (const theme of ["light", "dark"] as const) {
       const bytes = await readFile(path.join(dataDir(), "thumbnails", manifest[theme]));
       expect(sha(bytes)).toBe(sha(M1.files.binaries.get(`pictures/${theme}.png`)!));

@@ -17,6 +17,8 @@ import { mintPictureCredential, revokePictureCredential, renewPictureCredential 
 import { inputsAreCurrent, readAttemptInputs } from "./inputs";
 import { cardDefinition, completePicture, pictureRequest, type PictureImages } from "./card";
 import { PICTURE_RECIPE } from "./shapes";
+import { drawsLabels } from "./digest";
+import { LABEL_RECIPE_VERSION } from "@/lib/style/label-recipe";
 import { pictureRendererAvailable, pictureRendererFailed, retryPictureRenderer } from "./renderer";
 export interface PictureServiceOptions {
   baseUrl: string;
@@ -68,7 +70,7 @@ export class PictureService {
         const inputs = await publishedPictureInputs(map.id);
         if (state.state === "current" && inputs && !inputsAreCurrent(inputs)) state = requestPicture(map.id, target.digest, this.now(), true);
         await reconcilePictureFiles(map.id, hasPicture, this.now());
-        await this.remakeOutdated(map.id);
+        await this.remakeOutdated(map.id, drawsLabels(target.map));
       } catch {
         // Deletion or changed ownership during a file read removes this
         // candidate from the look; the next committed change supplies it.
@@ -95,8 +97,9 @@ export class PictureService {
     const { target, inputs, resolved } = await schedulingBindings(scope, mapId);
     if ((await servedThumbnails(scope, [mapId])).has(mapId)) {
       adoptPicture(mapId, target.digest, this.now()); rememberBindings(mapId, inputs, resolved);
-      // A copy of a set without sizes waits for no look.
-      if (await this.remakeOutdated(mapId)) { this.checkRenderer(); this.queue.tick(); }
+      // A copy of a set without sizes, or of labels an earlier recipe drew
+      // (its source's renewal not yet finished), waits for no look.
+      if (await this.remakeOutdated(mapId, drawsLabels(target.map))) { this.checkRenderer(); this.queue.tick(); }
     }
     else await this.request(mapId);
   }
@@ -105,11 +108,13 @@ export class PictureService {
   }
   /** A current picture that keeps no sizes, or was framed by an earlier
    * recipe (by this server, a template or an older duplicate), is made
-   * once more, after all other work. */
-  private async remakeOutdated(mapId: string): Promise<boolean> {
+   * once more, after all other work; so is one of a map that shows labels
+   * whose labels an earlier label recipe drew. A map without visible
+   * labels keeps its picture whatever label recipe it records. */
+  private async remakeOutdated(mapId: string, labelled: boolean): Promise<boolean> {
     if (getPictureState(mapId)?.state !== "current") return false;
     const format = await publishedPictureFormat(mapId);
-    if (format?.sized && format.recipe >= PICTURE_RECIPE) return false;
+    if (format?.sized && format.recipe >= PICTURE_RECIPE && (!labelled || format.labels >= LABEL_RECIPE_VERSION)) return false;
     return requestRemake(mapId, this.now())?.state === "waiting";
   }
   /**

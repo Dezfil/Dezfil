@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { MapWithLayers } from "@/lib/metadata/maps";
+import { LABEL_RECIPE_VERSION } from "@/lib/style/label-recipe";
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
@@ -27,13 +28,22 @@ function drawn(map: MapWithLayers, effectiveStyles: readonly string[], sketchArt
   };
 }
 
+/** Whether the map's picture shows labels: one of its visible layers
+ * carries a label. */
+export function drawsLabels(map: Pick<MapWithLayers, "layers">): boolean {
+  return map.layers.some((layer) => layer.visible && !!layer.style.label);
+}
+
 /** Only drawn content participates. The picture frames the drawn data, so
  * of the saved camera only its tilt and rotation count. Sketch artifacts are
  * supplied by the stored bindings; ordinary dataset replacements advance
- * the generation. */
+ * the generation. A map that shows labels also counts the label recipe
+ * they are drawn by, so a new one renews its picture; every other map's
+ * digest is the one it had before labels counted. */
 export function drawingDigest(map: MapWithLayers, effectiveStyles: readonly string[], sketchArtifacts: readonly string[] = []): string {
   const camera = { pitch: map.viewport.pitch ?? 0, bearing: map.viewport.bearing ?? 0 };
-  return FORMULA + hashed({ ...drawn(map, effectiveStyles, sketchArtifacts), camera });
+  const labels = drawsLabels(map) ? { labels: LABEL_RECIPE_VERSION } : {};
+  return FORMULA + hashed({ ...drawn(map, effectiveStyles, sketchArtifacts), camera, ...labels });
 }
 
 /** The first formula, kept only to recognise a stored digest written by it. */

@@ -17,6 +17,7 @@ import { dataDir } from "@/lib/config";
 import type { ArtifactInputs } from "@/lib/query/evaluation-inputs";
 import type { DrawnBasemap } from "./picture-credit";
 import { KEPT_SHAPE, PICTURE_RECIPE, PICTURE_SHAPE_NAMES, keptWidth, type PictureShape } from "./pictures/shapes";
+import { LABEL_RECIPE_VERSION } from "./style/label-recipe";
 import type { PictureImages } from "./pictures/card";
 import { retiredPictures } from "./pictures/state";
 import {
@@ -141,14 +142,17 @@ export function thumbnailSetFile(
  * set without sizes is an older picture, or a duplicate that could not
  * copy them. The recipe names how the picture was framed (shapes.ts),
  * apart from its sizes: a sized set without one was framed by the first,
- * and a set with neither at its map's saved view. A set marked as the
- * template's holds the pictures a template release made for its cards,
- * carried by a copy of the template (or a duplicate of one). */
+ * and a set with neither at its map's saved view. The label recipe names
+ * how its labels were drawn (style/label-recipe.ts); a set without one was
+ * drawn before sets recorded it. A set marked as the template's holds the
+ * pictures a template release made for its cards, carried by a copy of the
+ * template (or a duplicate of one). */
 export interface ThumbnailSet {
   light: string;
   dark: string;
   sizes?: PictureSizes;
   recipe?: number;
+  labels?: number;
   origin?: "template";
 }
 
@@ -210,14 +214,15 @@ async function readSet(mapId: string): Promise<ThumbnailSet | null> {
   try {
     const parsed = JSON.parse(
       await readFile(thumbnailManifestPath(mapId), "utf8"),
-    ) as Partial<Omit<ThumbnailSet, "sizes" | "recipe" | "origin">> & { sizes?: unknown; recipe?: unknown; origin?: unknown };
+    ) as Partial<Omit<ThumbnailSet, "sizes" | "recipe" | "labels" | "origin">> & { sizes?: unknown; recipe?: unknown; labels?: unknown; origin?: unknown };
     if (typeof parsed.light !== "string" || typeof parsed.dark !== "string") {
       return null;
     }
     const sizes = readSizes(parsed.sizes);
     if (sizes === null) return null;
     const recipe = readRecipe(parsed.recipe);
-    const listed = { ...(sizes ? { sizes } : {}), ...(recipe ? { recipe } : {}), ...(parsed.origin === "template" ? { origin: "template" as const } : {}) };
+    const labels = readRecipe(parsed.labels);
+    const listed = { ...(sizes ? { sizes } : {}), ...(recipe ? { recipe } : {}), ...(labels ? { labels } : {}), ...(parsed.origin === "template" ? { origin: "template" as const } : {}) };
     const lightCycle = parsed.light.slice(mapId.length + 1, -".light.png".length);
     if (parsed.dark === parsed.light && isThumbnailCycle(lightCycle) && parsed.light === thumbnailSetFile(mapId, lightCycle, "light")) return { light: parsed.light, dark: parsed.dark, ...listed };
     const darkCycle = parsed.dark.slice(mapId.length + 1, -".dark.png".length);
@@ -621,6 +626,7 @@ function copyThumbnailWork(scope: AccountScope, from: string, to: string): Promi
       dark: set.dark.replace(from, to),
       ...(set.sizes ? { sizes: set.sizes } : {}),
       ...(framedBy(set) ? { recipe: framedBy(set) } : {}),
+      ...(set.labels ? { labels: set.labels } : {}),
       ...(set.origin ? { origin: set.origin } : {}),
     };
     const light = await readFile(inDir(set.light));
@@ -677,7 +683,9 @@ function savePictureSetWork(scope: AccountScope, mapId: string, images: { light:
     const cycle = randomBytes(12).toString("hex");
     const light = thumbnailSetFile(mapId, cycle, "light");
     const dark = images.dark ? thumbnailSetFile(mapId, cycle, "dark") : light;
-    const next: ThumbnailSet = { light, dark, ...(sizes ? { sizes, recipe: PICTURE_RECIPE } : {}) };
+    // A server set names the recipes it was framed and its labels drawn
+    // by; one without sizes stands for an older picture, and names neither.
+    const next: ThumbnailSet = { light, dark, ...(sizes ? { sizes, recipe: PICTURE_RECIPE, labels: LABEL_RECIPE_VERSION } : {}) };
     try {
       for (const theme of themes) {
         // The kept sizes land first, so the PNG whose evidence serves
@@ -721,13 +729,15 @@ function framedBy(set: ThumbnailSet): number {
 
 /** How the map's published picture was made: whether it keeps sizes, the
  * recipe it was framed by (0 at its map's saved view, as the single image
- * always was) and whether it is marked as a template's; null when it has
+ * always was), the label recipe its labels were drawn by (0 when it
+ * records none: a single image, a template's set, or one made before sets
+ * recorded it) and whether it is marked as a template's; null when it has
  * none. */
-export async function publishedPictureFormat(mapId: string): Promise<{ sized: boolean; recipe: number; template: boolean } | null> {
+export async function publishedPictureFormat(mapId: string): Promise<{ sized: boolean; recipe: number; labels: number; template: boolean } | null> {
   return queueTurn(mapId, async () => {
     const set = await readSet(mapId);
-    if (set) return { sized: !!set.sizes, recipe: framedBy(set), template: set.origin === "template" };
-    return (await exists(thumbnailPath(mapId))) ? { sized: false, recipe: 0, template: false } : null;
+    if (set) return { sized: !!set.sizes, recipe: framedBy(set), labels: set.labels ?? 0, template: set.origin === "template" };
+    return (await exists(thumbnailPath(mapId))) ? { sized: false, recipe: 0, labels: 0, template: false } : null;
   });
 }
 

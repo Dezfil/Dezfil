@@ -44,6 +44,7 @@ import { PictureService } from "./service";
 import { getPictureState } from "./state";
 import { pictureTarget } from "./publication";
 import { PICTURE_SHAPE } from "./shapes";
+import { LABEL_RECIPE_VERSION } from "@/lib/style/label-recipe";
 
 isolatePictureData();
 afterAll(closeMetadataDb);
@@ -65,7 +66,7 @@ it("renders the one shape once per appearance, framed by its margin, and publish
     expect(call.requestRule).toBe("export");
     expect(call.budgetMs).toBe(30_000);
   }
-  expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 2, template: false });
+  expect(await publishedPictureFormat(map.id)).toEqual({ sized: true, recipe: 2, labels: LABEL_RECIPE_VERSION, template: false });
   expect((await readPicture(scope, map.id, "dark", { shape: "wide", width: 2000 }))?.type).toBe("image/webp");
   expect((await readPicture(scope, map.id, "light"))?.type).toBe("image/png");
 });

@@ -29,6 +29,15 @@ export const LABEL_RECIPES: Record<LabelTone, LabelRecipe> = {
   dark: { color: { r: 233, g: 236, b: 243, a: 1 }, haloWidth: 1.5, haloColor: { r: 11, g: 14, b: 20, a: 1 } },
 };
 
+/**
+ * How labels are drawn, as a map's card pictures record it: the paint
+ * above, and the face and weights every surface draws labels in. Raise it
+ * whenever any of them changes, so the pictures of every map whose visible
+ * layers carry labels are made once more, and those of every other map are
+ * kept. A picture made before pictures recorded it was drawn by none (0).
+ */
+export const LABEL_RECIPE_VERSION = 1;
+
 /** What of a map decides its fallbacks: the basemap as saved. */
 export interface SavedBasemap {
   basemap: BasemapKey | null;

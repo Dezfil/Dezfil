@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { MapWithLayers, Layer } from "@/lib/metadata/maps";
+import { LABEL_RECIPE_VERSION } from "@/lib/style/label-recipe";
 import { drawingDigest, firstFormulaDigest, onCurrentFormula, requestDrawing } from "./digest";
 
 const layer = { id: "a", sql: "SELECT * FROM places", visible: true, style: { opacity: 1 }, viz: { type: "points" }, filters: [], ordinal: 0 } as unknown as Layer;
@@ -48,6 +49,35 @@ describe("drawing freshness", () => {
     expect(firstFormulaDigest(map, ["light", "dark"], ["shape-file"])).toBe(first);
     expect(onCurrentFormula(first)).toBe(false);
     expect(firstFormulaDigest({ ...map, viewport: { lng: -70, lat: 40, zoom: 9 } }, ["light", "dark"], ["shape-file"])).not.toBe(first);
+  });
+  describe("the label recipe", () => {
+    const label = { attribute: "name", size: 12, textPaint: "automatic", color: { r: 36, g: 50, b: 48, a: 1 }, haloPaint: "automatic", haloWidth: 1.5, haloColor: { r: 255, g: 255, b: 255, a: 1 } };
+    /** The first layer labelled, shown or hidden; the second as it was. */
+    const labelled = (visible: boolean): MapWithLayers => ({ ...map, layers: [{ ...layer, visible, style: { opacity: 1, label } } as unknown as Layer, map.layers[1]] });
+    /** The digest module as a later release would load it, drawing labels
+     * by the next label recipe. */
+    async function nextRecipe() {
+      vi.resetModules();
+      vi.doMock("@/lib/style/label-recipe", async (actual) => ({ ...(await actual<object>()), LABEL_RECIPE_VERSION: LABEL_RECIPE_VERSION + 1 }));
+      try { return await import("./digest"); }
+      finally { vi.doUnmock("@/lib/style/label-recipe"); vi.resetModules(); }
+    }
+    it("a new label recipe changes the digest of a map whose visible layers carry labels, and of no other", async () => {
+      const next = await nextRecipe();
+      const both = (value: MapWithLayers) => [drawingDigest(value, ["light", "dark"], []), next.drawingDigest(value, ["light", "dark"], [])];
+      const [now, later] = both(labelled(true));
+      expect(later).not.toBe(now);
+      expect(next.onCurrentFormula(later)).toBe(true);
+      for (const value of [map, labelled(false)]) {
+        const [unchanged, same] = both(value);
+        expect(same).toBe(unchanged);
+      }
+    });
+    it("keeps the digest a map without visible labels had before labels were recorded, so its pictures are not made again", () => {
+      // Written by this formula before the label recipe entered it.
+      expect(digest()).toBe("v2:adcadf42be835adfe94b2c508648205709dba1bb1fa1f9a420756239e9ad74e2");
+      expect(digest(labelled(false))).toBe("v2:117b1eec0ebe0e1969720201dd0ce0a7c6f9346e68be3e3505c8fb5bb5ba6b8c");
+    });
   });
   it("keeps excluded edits out of generations and ordering; forced refresh advances only requested", () => {
     const first = requestDrawing(null, "a", 100);

@@ -41,6 +41,19 @@ export function asFirstRecipe(mapId: string): void {
   writeFileSync(manifestFile, JSON.stringify({ light: set.light, dark: set.dark, sizes: { card: [...FIRST_RECIPE_WIDTHS.card], wide: [...FIRST_RECIPE_WIDTHS.wide] } }));
 }
 
+/**
+ * Rewrites a map's published set as a server wrote it before a set
+ * recorded the label recipe it was drawn by: the same files, sizes and
+ * framing recipe, and no label record. A test stands it for a picture
+ * whose labels an earlier release drew.
+ */
+export function asEarlierLabels(mapId: string): void {
+  const manifestFile = path.join(dataDir(), "thumbnails", `${mapId}.json`);
+  const set = JSON.parse(readFileSync(manifestFile, "utf8")) as Record<string, unknown>;
+  delete set.labels;
+  writeFileSync(manifestFile, JSON.stringify(set));
+}
+
 /** The map's published manifest as written. */
 export function publishedManifest(mapId: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path.join(dataDir(), "thumbnails", `${mapId}.json`), "utf8"));
