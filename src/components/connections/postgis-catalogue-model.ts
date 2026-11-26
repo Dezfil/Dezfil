@@ -1,3 +1,4 @@
+import { geometryKindWord } from "../geometry-class";
 import {
   relationKey,
   type PostgisRemoteRelation,
@@ -78,13 +79,16 @@ export function estimateLabel(relation: PostgisRemoteRelation): string {
   return `~${relation.approxRows.toLocaleString()} rows`;
 }
 
-export function spatialLabel(relation: PostgisRemoteRelation): string {
-  if (!relation.spatialKind || !relation.geometryType) return "no geometry";
-  return [
-    relation.spatialKind,
-    relation.geometryType,
-    relation.srid ? String(relation.srid) : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+/** A remote table's spatial facts: its column's database type
+ * (`geometry` or `geography`) and its SRID as the schema has them, and its
+ * kind as a plain word. Null when it has no spatial column. */
+export function spatialFacts(
+  relation: PostgisRemoteRelation,
+): { type: string; kind: string; srid: string | null } | null {
+  if (!relation.spatialKind) return null;
+  return {
+    type: relation.spatialKind,
+    kind: geometryKindWord(relation.geometryType),
+    srid: relation.srid ? String(relation.srid) : null,
+  };
 }

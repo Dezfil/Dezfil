@@ -63,7 +63,8 @@
   cursor: grabbing;
 }
 
-/* The label strip straddles the top edge, a tag in the code face. */
+/* The label strip straddles the top edge: a note's label, in the reading
+   face. */
 .label {
   position: absolute;
   z-index: 1;
@@ -78,7 +79,6 @@
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--nc) 55%, var(--bg-panel));
   color: var(--fg);
-  font-family: var(--font-mono);
   font-size: var(--text-meta);
   line-height: 1.5;
 }

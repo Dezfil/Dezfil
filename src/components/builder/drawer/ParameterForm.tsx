@@ -19,7 +19,7 @@ import {
   registeredName,
   tablesNamedIn,
 } from "./operation-form";
-
+import { resultKindWord } from "../../geometry-class";
 import type { RecipeSummary } from "./recipe-model";
 import { ParameterRow } from "./parameter-controls";
 import { TablePicker } from "./TablePicker";
@@ -347,7 +347,7 @@ export function ParameterForm({
           <div className={styles.control}>
             <input
               id="recipe-output-name"
-              className={styles.text}
+              className={`${styles.text} ${styles.outputName}`}
               data-output-name
               value={name}
               onChange={(e) => {
@@ -358,7 +358,7 @@ export function ParameterForm({
             />
             {registered !== name.trim() && registered !== "" && (
               <p className={styles.help}>
-                Registered as <strong>{registered}</strong>.
+                Registered as <strong className={styles.registered}>{registered}</strong>.
               </p>
             )}
             {problem && (
@@ -402,11 +402,7 @@ export function ParameterForm({
         <p className={styles.dryline} data-dry-run role="status">
           Dry run: <strong>{shown.rowCount.toLocaleString()} rows</strong>
           {" · "}
-          {shown.geometry === "none"
-            ? "no geometry: a table, not a layer"
-            : shown.geometry === "undetermined"
-              ? "spatial, class undetermined: no geometries to classify"
-              : (shown.geometryType ?? "spatial")}
+          {resultKindWord(shown.geometry, shown.geometryType, { preview: true })}
         </p>
       )}
       {shown?.warnings.map((warning) => (

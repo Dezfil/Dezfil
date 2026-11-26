@@ -79,14 +79,14 @@ export function CheckInspection({ entry }: { entry: RecordEntry }) {
   if (!check) return null;
   return (
     <dl className={styles.inspectionInputs} data-check-inspection>
-      <div className={styles.inspectionInput}><dt>render</dt><dd data-render-id>{check.renderId}</dd></div>
-      <div className={styles.inspectionInput}><dt>state</dt><dd data-render-state>{check.stateDigest}{check.layers !== undefined && check.widgets !== undefined ? `, ${check.layers} visible layer${check.layers === 1 ? "" : "s"}, ${check.widgets} widget${check.widgets === 1 ? "" : "s"}` : `, ${STATE_DETAIL_NOT_KEPT}`}</dd></div>
-      <div className={styles.inspectionInput}><dt>appearance</dt><dd>{check.appearance}</dd></div>
-      <div className={styles.inspectionInput}><dt>image</dt><dd>{check.image ? `${check.image.width} by ${check.image.height}, ${Math.round(check.image.bytes / 1024)} KiB` : "none"}</dd></div>
-      <div className={styles.inspectionInput}><dt>rendered at</dt><dd>{`${check.source.width} by ${check.source.height}`}</dd></div>
-      {check.attribution && <div className={styles.inspectionInput}><dt>credit</dt><dd>{check.attribution}</dd></div>}
-      {check.failures.length > 0 && <div className={styles.inspectionInput}><dt>in the picture</dt><dd data-check-failures>{check.failures.join("; ")}</dd></div>}
-      {check.abandoned.length > 0 && <div className={styles.inspectionInput}><dt>not answered</dt><dd data-check-abandoned>{`${check.abandoned.length} request${check.abandoned.length === 1 ? "" : "s"} to ${[...new Set(check.abandoned)].join(", ")}`}</dd></div>}
+      <div className={styles.checkFact}><dt>render</dt><dd className={styles.checkId} data-render-id>{check.renderId}</dd></div>
+      <div className={styles.checkFact}><dt>state</dt><dd data-render-state><span className={styles.checkId}>{check.stateDigest}</span>{check.layers !== undefined && check.widgets !== undefined ? `, ${check.layers} visible layer${check.layers === 1 ? "" : "s"}, ${check.widgets} widget${check.widgets === 1 ? "" : "s"}` : `, ${STATE_DETAIL_NOT_KEPT}`}</dd></div>
+      <div className={styles.checkFact}><dt>appearance</dt><dd>{check.appearance}</dd></div>
+      <div className={styles.checkFact}><dt>image</dt><dd>{check.image ? `${check.image.width} by ${check.image.height}, ${Math.round(check.image.bytes / 1024)} KiB` : "none"}</dd></div>
+      <div className={styles.checkFact}><dt>rendered at</dt><dd>{`${check.source.width} by ${check.source.height}`}</dd></div>
+      {check.attribution && <div className={styles.checkFact}><dt>credit</dt><dd>{check.attribution}</dd></div>}
+      {check.failures.length > 0 && <div className={styles.checkFact}><dt>in the picture</dt><dd data-check-failures>{check.failures.join("; ")}</dd></div>}
+      {check.abandoned.length > 0 && <div className={styles.checkFact}><dt>not answered</dt><dd data-check-abandoned>{`${check.abandoned.length} request${check.abandoned.length === 1 ? "" : "s"} to ${[...new Set(check.abandoned)].join(", ")}`}</dd></div>}
     </dl>
   );
 }

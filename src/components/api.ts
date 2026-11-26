@@ -5,7 +5,6 @@ import type { WorkflowListing } from "./workflow-model";
 import type { MapOverview } from "@/lib/map-service";
 import type { OperationDef } from "@/lib/operations/catalog";
 import { serverUnreachable } from "./failure-copy";
-import { classOfTable } from "./geometry-class";
 
 export type { DataTable, TableInspection, TableListing, MapOverview };
 
@@ -45,13 +44,6 @@ export async function readApiFailure(
 
 export function formatCount(n: number): string {
   return new Intl.NumberFormat("en-US").format(n);
-}
-
-export function geometryLabel(t: DataTable): string {
-  const geometryClass = classOfTable(t);
-  if (geometryClass === "none") return "non-spatial";
-  if (t.geometryType === null) return "geometry unknown";
-  return String(t.geometryType).toLowerCase().replace(/_/g, " ");
 }
 
 /** "2 h ago"-style relative time for cards and lists. */

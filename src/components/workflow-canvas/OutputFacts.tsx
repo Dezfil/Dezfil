@@ -28,7 +28,7 @@ export function OutputFacts({ step, outputName, table }: { step: WorkflowStep; o
       <dl className={styles.kvs} data-output-facts>
         <div className={styles.kv}>
           <dt>Dataset</dt>
-          <dd>{step.output?.name ?? outputName}</dd>
+          <dd className={styles.kvSql}>{step.output?.name ?? outputName}</dd>
         </div>
         <div className={styles.kv}>
           <dt>Rows</dt>

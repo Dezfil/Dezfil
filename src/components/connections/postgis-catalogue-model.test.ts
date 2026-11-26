@@ -4,7 +4,7 @@ import {
   estimateLabel,
   groupIsClosed,
   relationKindLabel,
-  spatialLabel,
+  spatialFacts,
 } from "./postgis-catalogue-model";
 import type { PostgisRemoteRelation } from "./postgis-pane-types";
 
@@ -77,8 +77,10 @@ describe("grouped PostGIS catalogue", () => {
     expect(estimateLabel(systemView!)).toBe("");
     expect(estimateLabel(relation("new", { approxRows: null }))).toBe("not analyzed");
     expect(estimateLabel(relation("empty", { approxRows: 0 }))).toBe("~0 rows");
+    // The kind as a plain word; the column type and the SRID as the
+    // schema has them, shown beside it in mono.
     expect(
-      spatialLabel(
+      spatialFacts(
         relation("places", {
           geometryColumn: "geog",
           geometryType: "POINT",
@@ -86,6 +88,13 @@ describe("grouped PostGIS catalogue", () => {
           spatialKind: "geography",
         }),
       ),
-    ).toBe("geography · POINT · 4326");
+    ).toEqual({ type: "geography", kind: "Points", srid: "4326" });
+    expect(
+      spatialFacts(relation("parcels", { geometryColumn: "geom", geometryType: "MULTIPOLYGON", srid: null, spatialKind: "geometry" })),
+    ).toEqual({ type: "geometry", kind: "Polygons", srid: null });
+    expect(
+      spatialFacts(relation("shapes", { geometryColumn: "geom", geometryType: null, srid: 3857, spatialKind: "geometry" })),
+    ).toEqual({ type: "geometry", kind: "Geometry", srid: "3857" });
+    expect(spatialFacts(relation("plain", { geometryColumn: null, geometryType: null, srid: null, spatialKind: null }))).toBeNull();
   });
 });

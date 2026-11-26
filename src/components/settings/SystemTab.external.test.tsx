@@ -84,9 +84,12 @@ it("names the keys by count in Server settings, set or not", () => {
   expect(shownValue(instanceReadFixture().settings.externalSignInKeys)).toEqual({ text: "Not set", muted: true });
 });
 
-it("shows the last applied reset's value and exact time in monospace beside the generations", async () => {
+it("shows the last applied reset's value and exact time beside the generations, as a fact in the reading face", async () => {
   read = { ...read, externalSignIn: { ...ON, lastReset: { value: 5, appliedAt: "2026-01-01T12:00:00.000Z" } } };
   await open();
   expect(rows()).toContain("Last door generation reset5 · 2026-01-01T12:00:00.000Z");
-  expect(card().querySelector('[id="sys-external-last-reset"]')?.querySelector('[data-mono="true"]')?.textContent).toBe("5 · 2026-01-01T12:00:00.000Z");
+  const row = card().querySelector('[id="sys-external-last-reset"]');
+  expect(row?.querySelector("[data-mono]")).toBeNull();
+  const fact = [...(row?.querySelectorAll("span") ?? [])].find((el) => /\bfact\b|_fact_/.test(String(el.getAttribute("class"))));
+  expect(fact?.textContent).toBe("5 · 2026-01-01T12:00:00.000Z");
 });

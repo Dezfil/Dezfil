@@ -1,0 +1,5 @@
+/* An engine's error, word for word, in the code face at the size of the
+   sentence around it. */
+.engine {
+  font-family: var(--font-mono);
+}

@@ -80,13 +80,19 @@ export function removeRun(
   return list.filter((h) => h.id !== id);
 }
 
+/** The card's title in its two parts: the first two recognized tables as
+ * the SQL wrote them, and the count of the rest. Both are null for a query
+ * that reads no recognized table. */
+export function titleParts(entry: Pick<HistoryEntry, "tables">): { names: string | null; rest: string | null } {
+  const t = entry.tables;
+  if (!t.length) return { names: null, rest: null };
+  return { names: t.slice(0, 2).join(" + "), rest: t.length > 2 ? ` + ${t.length - 2} more` : null };
+}
+
 /** The card's title: the recognized tables, or "Query". */
 export function titleOf(entry: Pick<HistoryEntry, "tables">): string {
-  const t = entry.tables;
-  if (!t.length) return "Query";
-  return (
-    t.slice(0, 2).join(" + ") + (t.length > 2 ? ` + ${t.length - 2} more` : "")
-  );
+  const { names, rest } = titleParts(entry);
+  return (names ?? "Query") + (rest ?? "");
 }
 
 /** Whether the card clamps the SQL and offers Show all. */

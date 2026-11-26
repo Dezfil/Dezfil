@@ -110,6 +110,7 @@
 
 .range {
   font: 400 10.5px var(--font-ui);
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
   flex: none;
 }
@@ -294,6 +295,7 @@
 
 .cnum {
   font: 400 10.5px var(--font-ui);
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
   text-align: right;
 }
@@ -377,6 +379,7 @@
   justify-content: space-between;
   margin-top: 6px;
   font: 400 10px var(--font-ui);
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
 }
 

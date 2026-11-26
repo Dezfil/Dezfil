@@ -103,7 +103,6 @@
   background: var(--accent);
   backdrop-filter: var(--surface-inner-card-blur);
   color: var(--on-accent);
-  font-family: var(--font-mono);
   font-size: 10.5px;
   font-weight: 600;
   line-height: 1;

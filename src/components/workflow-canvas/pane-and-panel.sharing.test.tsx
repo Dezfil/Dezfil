@@ -11,7 +11,8 @@ import { NodePanel } from "./NodePanel";
 /**
  * The pane and the node panel on Ada's workflow, read by Bo, an Editor
  * who owns datasets named like hers. His listing holds his own `roads`
- * and hers as `ada.roads`. The pane must tell the two apart and mark only
+ * and hers as `ada.roads`. The pane must tell the two apart, name each as
+ * her workflow's SQL writes it (hers `roads`, his `bo.roads`) and mark only
  * hers as on the canvas; the panel must read a field's columns from the
  * dataset the input names, and take an output name only in her home or
  * his own space.
@@ -61,9 +62,13 @@ describe("the pane on a workflow homed in someone else's space", () => {
             onAddData={() => {}} isOverCanvas={() => true} />
         </ReactFlowProvider>,
       );
-      expect(html).toContain('aria-label="ada.roads, on canvas: centre the view on it"');
-      expect(html).toContain('aria-label="Add roads to the canvas"');
-      expect(html).not.toContain('aria-label="roads, on canvas: centre the view on it"');
+      // Each row shows the name the workflow's SQL writes, which is the
+      // name a drop stores: hers plain, his own with his SQL name.
+      expect(html).toContain('aria-label="roads, on canvas: centre the view on it"');
+      expect(html).toContain('aria-label="Add bo.roads to the canvas"');
+      expect(html).not.toContain('aria-label="ada.roads, on canvas: centre the view on it"');
+      const shown = [...html.matchAll(/<span class="[^"]*rowName[^"]*">([^<]*)<\/span>/g)].map((m) => m[1]).sort();
+      expect(shown).toEqual(["bo.roads", "roads"]);
     });
   }
 });

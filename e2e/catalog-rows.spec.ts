@@ -186,7 +186,7 @@ test("the catalog row reads name left, count right", async ({
         `${source}: the facts end at the row's inner right edge`,
       ).toBeLessThanOrEqual(1);
       // No membership hint under the All scope: the row's whole visible
-      // text is the capsule's word — "point", known from the seeded
+      // text is the capsule's word — "Points", known from the seeded
       // geometry, never read off the row — the name and the count,
       // nothing else. The one-project table is the spec's first fixture
       // (red on main: "in A"); the shared table rides along (red on
@@ -196,7 +196,7 @@ test("the catalog row reads name left, count right", async ({
       await expect(one).toBeVisible();
       const om = await measure(one, ONE);
       expect.soft(om.reading, `${source}, All: the one-project row`).toBe(
-        `point ${ONE} 2 rows`,
+        `Points ${ONE} 2 rows`,
       );
       // The count at the edge for THIS fixture too: the claim is
       // conjunctive over all four cases.
@@ -205,7 +205,7 @@ test("the catalog row reads name left, count right", async ({
         `${source}, All: the one-project row's count ends at the inner right edge`,
       ).toBeLessThanOrEqual(1);
       expect.soft(m.reading, `${source}, All: the shared row`).toBe(
-        `point ${TABLE} 1,234 rows`,
+        `Points ${TABLE} 1,234 rows`,
       );
       const [capsule, name, , facts] = m.order as [
         number,
@@ -225,10 +225,10 @@ test("the catalog row reads name left, count right", async ({
       await expect(scoped).toBeVisible();
       const sm = await measure(scoped, TABLE);
       expect.soft(sm.reading, `${source}, ${PROJECT}: the shared row`).toBe(
-        `point ${TABLE} 1,234 rows`,
+        `Points ${TABLE} 1,234 rows`,
       );
       const oneScoped = dialog.getByRole("button", { name: ONE, exact: true });
-      await expect(oneScoped).toHaveText(`point${ONE}2 rows`);
+      await expect(oneScoped).toHaveText(`Points${ONE}2 rows`);
       const osm = await measure(oneScoped, ONE);
       expect(
         Math.abs(osm.factsRight - osm.rowInnerRight),

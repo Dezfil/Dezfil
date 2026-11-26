@@ -77,8 +77,8 @@
   backdrop-filter: var(--surface-overlay-panel-blur);
   border-radius: 999px;
   box-shadow: var(--surface-overlay-panel-shadow);
-  font-family: var(--font-mono);
   font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
   white-space: nowrap;
   max-width: calc(100% - 24px);

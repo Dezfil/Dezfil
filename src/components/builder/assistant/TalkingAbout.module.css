@@ -50,8 +50,8 @@
   white-space: nowrap;
 }
 
-.mono {
-  font-family: var(--font-mono);
+/* A layer's name: the reading face, at the regular weight. */
+.named {
   font-weight: 400;
 }
 

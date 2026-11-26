@@ -59,7 +59,7 @@ Click the **Filter rows** tile. Its panel opens at the right of the canvas.
 
 ![The Filter rows panel: Rows to filter set to world_cities, Field population, Comparison greater_than, Value 10000000, the dataset name world_cities_filter_rows, and Would make with 15 rows](../images/use/workflows-node-panel.webp)
 
-You should see **15 rows · POINT** under **Would make**. Dezfil tries the node on your data while you set it, so you see what it makes before you run it.
+You should see **15 rows · Points** under **Would make**. Dezfil tries the node on your data while you set it, so you see what it makes before you run it.
 
 Every change saves as you make it. **Dataset name** under **Output** is the name the result gets in **Data**. Change it before the first run: after that, the dataset keeps its name.
 

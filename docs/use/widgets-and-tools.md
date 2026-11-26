@@ -93,11 +93,11 @@ Hidden widgets never go out. A widget on a hidden layer still shows its numbers,
 3. Click **Filter rows**, under **Data**. You should see its form, with **Rows to filter** set to **world_cities** and the line **Pre-filled from the layer “world_cities”.**
 4. Set **Field** to **population**.
 5. Type `10000000` in **Value**.
-6. Set **Comparison** to **greater_than**. You should see **Dry run: 15 rows · POINT** above **Run**, and **Saved as a dataset and added to the map.** under **Result**.
+6. Set **Comparison** to **greater_than**. You should see **Dry run: 15 rows · Points** above **Run**, and **Saved as a dataset and added to the map.** under **Result**.
 7. Replace the text in **Table name** with `big_cities`.
-8. Click **Run**. You should see **world_cities (Filter rows)** and **reading big_cities · 15 rows · point** in the drawer, and the new layer at the top of the list.
+8. Click **Run**. You should see **world_cities (Filter rows)** and **reading big_cities · 15 rows · Points** in the drawer, and the new layer at the top of the list.
 
-![The Tools drawer on the Filter rows form: Rows to filter set to world_cities, Field population, Comparison greater_than, Value 10000000, Table name big_cities, the dry run line 15 rows · POINT and the Run button](../images/use/widgets-and-tools-tool-form.webp)
+![The Tools drawer on the Filter rows form: Rows to filter set to world_cities, Field population, Comparison greater_than, Value 10000000, Table name big_cities, the dry run line 15 rows · Points and the Run button](../images/use/widgets-and-tools-tool-form.webp)
 
 The new layer opens with its style panel, ready to style as [Build a map](build-a-map.md) shows. The layer and dataset you started from stay as they were.
 

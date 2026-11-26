@@ -43,6 +43,13 @@
   min-width: 72px;
 }
 
+/* The last reset's count and time: the reading face, at the size the
+   values written as code take beside it. */
+.fact {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+}
+
 .quiet {
   font-size: var(--text-label);
   line-height: 1.5;

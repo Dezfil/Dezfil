@@ -3946,6 +3946,11 @@
         "memory:src/lib/query/catalog-state.ts#relations"
       ]
     },
+    "memory:src/lib/query/engine-words.ts#OPENS": {
+      "stores": [
+        "memory:immutable-configuration"
+      ]
+    },
     "memory:src/lib/query/evaluation-inputs.ts#collecting": {
       "stores": [
         "memory:src/lib/query/evaluation-inputs.ts#collecting"

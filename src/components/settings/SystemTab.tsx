@@ -91,7 +91,7 @@ function AssistantCard({ read }: { read: InstanceRead }) {
 function ExternalSignInCard({ read }: { read: InstanceRead }) {
   return <SettingsCard id={EXTERNAL_SIGN_IN_CARD.id} title={EXTERNAL_SIGN_IN_CARD.title} headingId="system-external-sign-in-heading">
     <Rows>{externalSignInRows(read).map(row => <SettingRow key={row.id} id={row.id} label={row.label}>
-      {row.state ? <State state={row.state}>{row.value}</State> : <ValueText mono={row.mono}>{row.value}</ValueText>}
+      {row.state ? <State state={row.state}>{row.value}</State> : <ValueText mono={row.mono}>{row.fact ? <span className={styles.fact}>{row.value}</span> : row.value}</ValueText>}
     </SettingRow>)}</Rows>
   </SettingsCard>;
 }

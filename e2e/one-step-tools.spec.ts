@@ -562,7 +562,7 @@ test("a fresh table is offered without a reload, and an empty spatial result lan
   await page.locator("[data-output-name]").fill(`${fresh}_gone`);
   await expect(page.locator("[data-form-run]")).toBeEnabled({ timeout: 30_000 });
   await expect(page.locator("[data-dry-run]")).toContainText(
-    "0 rows · spatial, class undetermined: no geometries to classify",
+    "0 rows · Geometry: no geometries to classify",
   );
   const layersBefore = await page
     .locator('ul[class*="LayerList"] > li')

@@ -18,6 +18,7 @@ import { DeleteTableDialog, type DeletableTable } from "./DeleteTableDialog";
 import { BackLink } from "./BackLink";
 import { ExportMenu } from "./ExportMenu";
 import { datasetQueryHref } from "./dataset-doors";
+import { datasetSqlName } from "./dataset-sql-name";
 import { TablePreviewMap } from "./TablePreviewMap";
 import { Spinner } from "./Spinner";
 import { TablePreviewGrid } from "./TablePreviewGrid";
@@ -297,6 +298,10 @@ function TableDetail({
               updated {formatRelativeTime(table.importedAt ?? table.createdAt)}
             </span>
           </div>
+          {/* The name the SQL page opens this dataset by, one's own too. */}
+          <p className={styles.inSql} data-sql-name="">
+            In SQL: <code>{datasetSqlName(table)}</code>
+          </p>
         </div>
         <div className={styles.actions}>
           {table.geometryColumn ? (

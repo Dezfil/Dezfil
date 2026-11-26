@@ -88,7 +88,8 @@ function ListingPane({
   const listed = useMemo(() => tables.filter((t) => !liveOutputs.has(t.id)), [liveOutputs, tables]);
   // Each row by the dataset it is: the name its reader types, the name a
   // drop writes in the workflow's home, and the source holding this very
-  // dataset. Two people's same-named datasets are two rows, never one.
+  // dataset. Two people's same-named datasets are two rows, never one. A
+  // row shows the name a drop writes, as the canvas's sources show it.
   const rows = useMemo(() => new Map(listed.map((t) => [t.id, paneRow(t, graph)])), [graph, listed]);
   const sq = queries.sources.trim().toLowerCase();
   const tq = queries.tools.trim().toLowerCase();
@@ -96,11 +97,14 @@ function ListingPane({
   // workflows' outputs after (keeps the groups' names).
   const groups = useMemo(() => {
     const order = ["workspace", "outputs", "sketches"];
+    // A search finds a row by the name it shows or the name its reader types.
+    const found = (t: TableListing) =>
+      [rows.get(t.id)?.written ?? "", typedName(t)].some((n) => n.toLowerCase().includes(sq));
     return groupTables(
-      listed.filter((t) => !sq || typedName(t).toLowerCase().includes(sq)),
+      listed.filter((t) => !sq || found(t)),
       [],
     ).sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
-  }, [listed, sq]);
+  }, [listed, rows, sq]);
   const tools = useMemo(() => {
     const byGroup = new Map<string, OperationDef[]>();
     for (const op of operations) {
@@ -247,23 +251,23 @@ function ListingPane({
                 <p className={styles.eyebrow}>{g.label}</p>
                 {g.tables.map(({ table }) => {
                   const row = rows.get(table.id) ?? paneRow(table, graph);
-                  const { here, typed } = row;
+                  const { here, written } = row;
                   return (
                     <button
                       key={table.id}
                       type="button"
                       className={styles.tableRow}
                       data-on={here || undefined}
-                      data-table={typed}
+                      data-table={written}
                       disabled={lockReason !== null && !here}
                       aria-label={
                         here
-                          ? `${typed}, on canvas: centre the view on it`
+                          ? `${written}, on canvas: centre the view on it`
                           : lockReason
-                            ? `Add ${typed} to the canvas: ${lockReason}`
-                            : `Add ${typed} to the canvas`
+                            ? `Add ${written} to the canvas: ${lockReason}`
+                            : `Add ${written} to the canvas`
                       }
-                      onPointerDown={(e) => press(e, "table", table.id, typed)}
+                      onPointerDown={(e) => press(e, "table", table.id, written)}
                       onPointerMove={move}
                       onPointerUp={release}
                       onPointerCancel={cancel}
@@ -272,7 +276,7 @@ function ListingPane({
                       <span className={styles.rowGlyph} data-kind={table.geometryColumn !== null ? "spatial" : "none"}>
                         <GeometryGlyph geometryType={geometryGlyphType(table)} />
                       </span>
-                      <span className={styles.rowName}>{typed}</span>
+                      <span className={styles.rowName}>{written}</span>
                       {here ? (
                         <span className={styles.onCanvas}>on canvas</span>
                       ) : (

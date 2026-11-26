@@ -155,8 +155,7 @@
   white-space: nowrap;
 }
 
-.text b.mono {
-  font-family: var(--font-mono);
+.text b.dataset {
   font-weight: 500;
 }
 
@@ -166,6 +165,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .text small i {

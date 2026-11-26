@@ -388,7 +388,6 @@
 }
 
 .relationName,
-.relationRows,
 .field input {
   font-family: var(--font-mono);
 }
@@ -439,9 +438,12 @@
   font-style: italic;
 }
 
+/* The row estimate beside a remote table: a count, in the reading face
+   with digits of one width. */
 .relationRows {
   color: var(--fg-muted);
   font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -525,10 +527,14 @@
 }
 
 .qualified,
-.columnsToggle,
-.spatialFact,
 .columnList,
 .previewTable {
+  font-family: var(--font-mono);
+}
+
+/* A remote table's spatial facts read in the reading face, the kind as a
+   plain word; its column type and SRID stay as the schema has them. */
+.spatialFact code {
   font-family: var(--font-mono);
 }
 
@@ -538,6 +544,7 @@
   color: var(--fg-muted);
   font-size: var(--text-meta);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .spatialFact[data-geography] {
@@ -763,6 +770,13 @@
   font-size: var(--text-body);
 }
 
+/* The row limit is a number field: the reading face, digits of one width.
+   The Table name and the filter beside it stay mono. */
+.field input.limit {
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
 .primary {
   align-self: flex-start;
   height: var(--control-compact);
@@ -840,7 +854,14 @@
   font-weight: 600;
 }
 
-.doneCard h3 code,
+/* "Imported as" and "Added to the map as" name the new dataset and the
+   layer: names, in the reading face. */
+.doneCard h3 code {
+  font-family: var(--font-ui);
+  font-weight: 500;
+}
+
+/* The remote table a snapshot came from, as its schema names it. */
 .doneRelation {
   font-family: var(--font-mono);
   font-weight: 500;
@@ -850,6 +871,7 @@
   margin: 0;
   color: var(--fg-muted);
   font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
 }
 
 .doneCard .layerOutcome[data-kind="pending"] {

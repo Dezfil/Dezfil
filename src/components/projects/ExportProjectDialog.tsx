@@ -308,7 +308,8 @@ export function ExportProjectDialog({
       name: string;
       meta: string;
       sub?: string;
-      mono?: boolean;
+      /** A dataset's row: its name at the dataset's size and weight. */
+      dataset?: boolean;
       /** A row's own tile (a dataset's geometry kind); the group's
        * tile otherwise. */
       tile?: React.ReactNode;
@@ -349,7 +350,7 @@ export function ExportProjectDialog({
             <span className={styles.typeTile} data-kind={r.kind}>
               {r.tile ?? tile}
             </span>
-            <span className={r.mono ? styles.nameMono : styles.name}>
+            <span className={r.dataset ? styles.datasetName : styles.name}>
               {r.name}
             </span>
             <span className={styles.meta}>{r.meta}</span>
@@ -391,7 +392,7 @@ export function ExportProjectDialog({
         ready.datasets.map((d) => ({
           id: d.id,
           name: d.name,
-          mono: true,
+          dataset: true,
           meta:
             d.sizeBytes === null
               ? "size unknown"
