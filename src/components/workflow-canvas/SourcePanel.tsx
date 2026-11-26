@@ -124,7 +124,7 @@ export function SourcePanel({
               <ul className={styles.columns}>
                 {facts.columns.map((c) => (
                   <li key={c.name}>
-                    <span>{c.name}</span>
+                    <span className={styles.colName}>{c.name}</span>
                     <span className={styles.colType}>{c.type.toLowerCase()}</span>
                   </li>
                 ))}

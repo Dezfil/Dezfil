@@ -1422,7 +1422,10 @@ span.chip {
   min-width: 0;
 }
 
-.columns li span:first-child {
+/* A column's name, beside its type, as the table's structure shows them:
+   in the code face. */
+.colName {
+  font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

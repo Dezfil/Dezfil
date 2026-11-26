@@ -907,6 +907,14 @@
   },
   {
     "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .colName",
+    "kind": "structure",
+    "elements": [
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <span.colName> {c.name}"
+    ]
+  },
+  {
+    "layer": "mono",
     "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .colType",
     "kind": "structure",
     "elements": [
