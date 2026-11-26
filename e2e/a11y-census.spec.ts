@@ -582,13 +582,14 @@ test.describe("census checks", () => {
           "the histogram handle",
         );
         // The Label section's ways back to Automatic: reached by keyboard,
-        // and the ring drawn.
+        // the ring drawn, and the hit floor held.
         await ownLabelPaint(page, layerId);
         await page.goto(`/maps/${mapId}?layer=${layerId}`);
         for (const name of LABEL_PAINT_BACK) {
           const back = page.getByRole("button", { name, exact: true });
           await expect(back).toBeVisible({ timeout: 30_000 });
           await expectRing(page, back, `the ${name.toLowerCase()} button`);
+          await expectHitFloor(back, `the ${name.toLowerCase()} button`);
         }
         // Canvas-legend affordance: ring + floor.
         const legendTitle = page.getByRole("button", {
