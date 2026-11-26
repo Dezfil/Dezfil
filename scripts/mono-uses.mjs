@@ -121,10 +121,12 @@ const ruleId = (sel) => `${sel.file} :: ${sel.context ? sel.context + " { " + se
 /**
  * Every mono use, every code mark that falls back to the browser's own
  * monospace, and every use of digits of one width in a model. Returns
- * { uses, marks, ids, aliases, context }: `uses` maps a use's key
+ * { uses, marks, unread, ids, aliases, context }: `uses` maps a use's key
  * ("mono :: id" or "digits :: id") to the use, `marks` maps a code mark's
- * element identity to it, `ids` names every element, and `context` is what
- * a kind may ask of the model.
+ * element identity to it, `unread` maps a site whose classes cannot be
+ * read where they can carry mono or digits ("element :: expression") to
+ * it, `ids` names every element, and `context` is what a kind may ask of
+ * the model.
  */
 export function monoUses(model) {
   const aliases = monoAliases(model);
@@ -348,6 +350,27 @@ export function monoUses(model) {
 
   for (const u of uses.values()) u.shows = [...u.elements.values(), ...u.inherits.values()].map((e) => e.shows).filter(Boolean);
 
+  /* Elements whose classes cannot be read, where a module those classes
+   * can come from sets mono or digits of one width: the modules the
+   * expression names, or, when it names none, every module its file
+   * imports (and those of the file a constant it cannot read comes from).
+   * Such an element could wear a mono rule on a name, or lose its digits,
+   * where no other check can see it. */
+  const setting = new Set([...uses.values()].filter((u) => u.origin === "css").map((u) => u.file));
+  const sheetsOf = (file) => model.files.get(file)?.sheets ?? new Map();
+  const unread = new Map();
+  for (const u of model.unresolved) {
+    if (u.kind !== "class") continue;
+    const sheets = sheetsOf(u.file);
+    const named = [...sheets].filter(([name]) => new RegExp(`(?<![\\w$.])${name.replace(/\$/g, "\\$")}(?![\\w$])`).test(u.text)).map(([, f]) => f);
+    const from = /^imported (\S+)/.exec(u.text)?.[1];
+    const candidates = named.length ? named : [...sheets.values(), ...(from ? sheetsOf(from).values() : [])];
+    const modules = [...new Set(candidates)].filter((f) => setting.has(f)).sort();
+    if (!modules.length) continue;
+    const id = `${u.element ? ids.get(u.element.index) : u.file} :: ${u.text}`;
+    unread.set(id, { layer: "unread", id, file: u.file, line: u.line, text: u.text, modules });
+  }
+
   /** What the kinds may ask of the model. */
   const context = {
     aliases,
@@ -372,7 +395,7 @@ export function monoUses(model) {
     /** Whether a file loads fonts. */
     loadsFonts: (file) => /from\s+["']next\/font\//.test(model.sources.get(file) ?? ""),
   };
-  return { uses, marks, ids, aliases, context };
+  return { uses, marks, unread, ids, aliases, context };
 }
 
 /* ---- kinds ---- */
@@ -543,14 +566,19 @@ function unlisted(use) {
  * monospace on, with its kind; any other such mark fails, and a listed one
  * that gets a family, or is gone, is stale.
  *
- * Returns findings `{ check, key, message }`, `check` being one of
- * declaration, element, inheritance, kind, list, mark or digits.
+ * An unread row (`layer: "unread"`) names an element whose classes cannot
+ * be read where a module they can come from sets mono or digits, and says
+ * what the classes are (note); any other such site fails, and a listed one
+ * that is gone, or can be read now, is stale.
  *
- * @param {{ uses: Map<string, any>, marks: Map<string, any>, context: any }} found
+ * Returns findings `{ check, key, message }`, `check` being one of
+ * declaration, element, inheritance, kind, list, mark, digits or unread.
+ *
+ * @param {{ uses: Map<string, any>, marks: Map<string, any>, unread?: Map<string, any>, context: any }} found
  * @param {{ allowed?: any[] }} [lists]
  * @returns {{ check: string, key: string, message: string }[]}
  */
-export function judge({ uses, marks, context }, { allowed = [] } = {}) {
+export function judge({ uses, marks, unread = new Map(), context }, { allowed = [] } = {}) {
   const out = [];
   const add = (check, key, message) => out.push({ check, key, message: `${key}: ${message}` });
   const listed = new Set();
@@ -563,6 +591,9 @@ export function judge({ uses, marks, context }, { allowed = [] } = {}) {
   for (const [id, mark] of marks) {
     if (!listed.has("mark :: " + id)) add("mark", "mark :: " + id, `${described(mark)} has no family of its own, so the browser sets its own monospace on it, at its own size`);
   }
+  for (const [id, site] of unread) {
+    if (!listed.has("unread :: " + id)) add("unread", "unread :: " + id, `its classes cannot be read, and ${site.modules.join(", ")} sets mono or digits of one width; read them, or name the site (${site.file}:${site.line})`);
+  }
 
   const twoWay = (check, key, rows, found, verb) => {
     const named = new Set(rows);
@@ -571,6 +602,11 @@ export function judge({ uses, marks, context }, { allowed = [] } = {}) {
   };
   for (const row of allowed) {
     const key = keyOf(row);
+    if (row.layer === "unread") {
+      if (!unread.has(row.id)) add("unread", key, "the listed site is gone, can be read now, or draws from no module that sets mono or digits; drop its row");
+      else if (!row.note) add("unread", key, "a listed site whose classes cannot be read must say what they are (note)");
+      continue;
+    }
     if (row.layer === "mark") {
       if (!marks.has(row.id)) {
         add("mark", key, "the listed code mark is gone or has a family of its own now; drop its row");

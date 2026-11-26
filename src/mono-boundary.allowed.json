@@ -1003,6 +1003,11 @@
     "note": "Inline code in a workflow note, drawn by a function the note calls from another file; the note's code rule reaches it. Note widgets on maps never ask for inline code."
   },
   {
+    "layer": "unread",
+    "id": "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text} :: p.cls",
+    "note": "A highlighted SQL token in a history card or a provenance box: the highlighter picks one of the console's token classes (tkKw, tkFn, tkStr, tkNum, tkCm) at run time, and they set colour, weight and slant, never a family or digits."
+  },
+  {
     "layer": "digits",
     "id": "src/components/AddDataDialog.module.css :: .storageLine",
     "elements": [

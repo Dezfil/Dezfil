@@ -34,7 +34,10 @@ import { collect as collectPlain } from "../scripts/source-collector.mjs";
  *     row's `split` gives its other parts their kind, by identity;
  *   - code marks: a code, pre, kbd or samp element that nothing gives a
  *     family falls back to the browser's own monospace, at its own size;
- *   - digits: the numbers set in digits of one width, which must keep them.
+ *   - digits: the numbers set in digits of one width, which must keep them;
+ *   - unread: an element whose classes the collector cannot read, where a
+ *     module they can come from sets mono or digits, named with what its
+ *     classes are.
  *
  * Everything is compared both ways: a use, an element, inheriting text, a
  * code mark or a number that no row names fails as growth, and a row whose
@@ -42,7 +45,7 @@ import { collect as collectPlain } from "../scripts/source-collector.mjs";
  */
 
 type Row = {
-  layer: "mono" | "digits" | "mark";
+  layer: "mono" | "digits" | "mark" | "unread";
   id: string;
   kind?: string;
   note?: string;
@@ -54,7 +57,7 @@ type Row = {
 };
 type Finding = { check: string; key: string; message: string };
 type Use = { layer: string; id: string; origin: string; elements: Map<string, unknown>; inherits: Map<string, unknown> };
-type Uses = { uses: Map<string, Use>; marks: Map<string, { id: string }>; context: unknown };
+type Uses = { uses: Map<string, Use>; marks: Map<string, { id: string }>; unread: Map<string, unknown>; context: unknown };
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -121,6 +124,10 @@ describe("the mono boundary", () => {
 
   it("every number set in digits of one width keeps them (the numbers inventory)", () => {
     expect(failing("digits")).toEqual([]);
+  });
+
+  it("names every element whose classes it cannot read where mono or digits could reach it (unread)", () => {
+    expect(failing("unread")).toEqual([]);
   });
 
   it("counts the parts the work still moves", () => {
@@ -389,6 +396,27 @@ describe("the mono boundary on seeded trees", () => {
     expect(judge(uses, { allowed: reached(`${CSS} :: .note code`) })).toEqual([]);
     expect(message(judge(uses, { allowed: reached(`${CSS} :: .keys kbd`) }), "mark")).toContain("does not ask for <code>");
     expect(message(judge(uses, { allowed: reached(`${CSS} :: .missing code`) }), "mark")).toContain("rule names no rule");
+  });
+
+  /* Classes it cannot read, where a module they can come from sets mono or
+   * digits: named in the list, both ways. */
+  const UNREAD_SITE = `${TSX} :: Panel <h3> {table.name} :: styles[table.name]`;
+  const UNREAD_SEED = { extra: `\n      <h3 className={styles[table.name]}>{table.name}</h3>` };
+  it("fails on an element whose classes it cannot read where their module sets mono or digits, until the list names it", () => {
+    const f = judged(UNREAD_SEED);
+    expect(checks(f)).toEqual(["unread"]);
+    expect(message(f, "unread")).toContain(`unread :: ${UNREAD_SITE}: its classes cannot be read, and ${CSS} sets mono or digits of one width`);
+    const rows: Row[] = [...BASE, { layer: "unread", id: UNREAD_SITE, note: "A heading's class, picked at run time." }];
+    expect(judged(UNREAD_SEED, { allowed: rows })).toEqual([]);
+    expect(message(judged(UNREAD_SEED, { allowed: [...BASE, { layer: "unread", id: UNREAD_SITE }] }), "unread")).toContain("must say what they are (note)");
+    expect(message(judged({}, { allowed: rows }), "unread")).toContain("drop its row");
+  });
+
+  it("reads a class it cannot read against the modules it can come from: those it names, else every one its file imports", () => {
+    const top = `\nimport plain from "./plain.module.css";`;
+    const withPlain = (extra: string) => usesOf(tree({ top, extra }).set("src/fixture/plain.module.css", ".a { color: var(--fg); }\n"));
+    expect(judge(withPlain(`\n      <h3 className={plain[busy]}>{table.name}</h3>`), { allowed: BASE })).toEqual([]);
+    expect(checks(judge(withPlain(`\n      <h3 className={classFor(busy)}>{table.name}</h3>`), { allowed: BASE }))).toEqual(["unread"]);
   });
 
   /* The list, both ways. */
