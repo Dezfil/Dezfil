@@ -97,7 +97,7 @@ Hidden widgets never go out. A widget on a hidden layer still shows its numbers,
 7. Replace the text in **Table name** with `big_cities`.
 8. Click **Run**. You should see **world_cities (Filter rows)** and **reading big_cities · 15 rows · Points** in the drawer, and the new layer at the top of the list.
 
-![The Tools drawer on the Filter rows form: Rows to filter set to world_cities, Field population, Comparison greater_than, Value 10000000, Table name big_cities, the dry run line 15 rows · POINT and the Run button](../images/use/widgets-and-tools-tool-form.webp)
+![The Tools drawer on the Filter rows form: Rows to filter set to world_cities, Field population, Comparison greater_than, Value 10000000, Table name big_cities, the dry run line 15 rows · Points and the Run button](../images/use/widgets-and-tools-tool-form.webp)
 
 The new layer opens with its style panel, ready to style as [Build a map](build-a-map.md) shows. The layer and dataset you started from stay as they were.
 
