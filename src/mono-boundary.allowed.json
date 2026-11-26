@@ -730,6 +730,14 @@
   },
   {
     "layer": "mono",
+    "id": "src/components/ui/EngineWords.module.css :: .engine",
+    "kind": "engine-error",
+    "elements": [
+      "src/components/ui/EngineWords.tsx :: EngineWords <span.engine> {engine}"
+    ]
+  },
+  {
+    "layer": "mono",
     "id": "src/components/ui/ErrorNote.module.css :: @layer kit { .detailText }",
     "kind": "engine-error",
     "elements": [
