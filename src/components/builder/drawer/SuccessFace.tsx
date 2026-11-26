@@ -53,7 +53,7 @@ export function SuccessFace({
         )}
         {made.rows !== null && <> · {made.rows.toLocaleString()} rows</>}
         {" · "}
-        {resultKindWord(made.geometryType, made.spatial)}
+        {resultKindWord(!made.spatial ? "none" : made.geometryType ? "classified" : "undetermined", made.geometryType)}
       </p>
       <p className={styles.notice} data-run-notice role="status">
         {made.notice}

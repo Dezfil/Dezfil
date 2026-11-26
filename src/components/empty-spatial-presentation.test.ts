@@ -93,7 +93,7 @@ describe("zero-row and all-null agreement copy", () => {
   });
 
   it("says there are no geometries to classify, not no rows", () => {
-    expect(resultKindWord(null, true, { preview: true })).toBe("Geometry: no geometries to classify");
+    expect(resultKindWord("undetermined", null, { preview: true })).toBe("Geometry: no geometries to classify");
     const source = readFileSync(path.join(process.cwd(), "src/components/geometry-class.ts"), "utf8");
     expect(source.includes("no rows to classify")).toBe(false);
   });

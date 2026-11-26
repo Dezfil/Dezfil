@@ -360,13 +360,13 @@ test("adding, sources, linking through ports and the picker, the controls, the n
     await expect(panel(page).locator("[data-preview-warning]").first()).toContainText(/WGS84 was assumed/i);
     // The SQL node: a no-geometry result.
     await selectTile(page, `${stations}_named`);
-    await expect(panel(page).locator("[data-preview-line]")).toContainText("no geometry");
+    await expect(panel(page).locator("[data-preview-line]")).toContainText("No geometry: a table, not a layer");
     // Undetermined: spatial with no rows to classify.
     const sql = panel(page).getByLabel(/^sql/);
     await sql.fill(`SELECT * FROM ${stations} WHERE 1 = 0`);
-    await expect(panel(page).locator("[data-preview-line]")).toContainText("class undetermined");
+    await expect(panel(page).locator("[data-preview-line]")).toContainText("Geometry: no geometries to classify");
     await sql.fill(`SELECT name FROM ${stations}`);
-    await expect(panel(page).locator("[data-preview-line]")).toContainText("no geometry");
+    await expect(panel(page).locator("[data-preview-line]")).toContainText("No geometry: a table, not a layer");
     // An incomplete node: the cafés buffer has no input.
     const incomplete = (await readRecipe(page, id)).steps.find((s) => s.parameters.name === `${cafes}_buffer` || (s.operation === "buffer" && !s.parameters.input));
     if (incomplete) {

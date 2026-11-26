@@ -390,7 +390,7 @@ export function NodePanel({
                 <p className={styles.previewLine} role="status" data-preview-line>
                   <b>{gate.preview.rowCount.toLocaleString()} rows</b>
                   {" · "}
-                  {resultKindWord(gate.preview.geometry === "classified" ? gate.preview.geometryType : null, gate.preview.geometry !== "none", { preview: true })}
+                  {resultKindWord(gate.preview.geometry, gate.preview.geometryType, { preview: true })}
                 </p>
                 {gate.preview.warnings.map((w) => (
                   <p key={w} className={styles.help} role="status" data-preview-warning>

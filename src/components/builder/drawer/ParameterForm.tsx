@@ -402,7 +402,7 @@ export function ParameterForm({
         <p className={styles.dryline} data-dry-run role="status">
           Dry run: <strong>{shown.rowCount.toLocaleString()} rows</strong>
           {" · "}
-          {resultKindWord(shown.geometry === "classified" ? shown.geometryType : null, shown.geometry !== "none", { preview: true })}
+          {resultKindWord(shown.geometry, shown.geometryType, { preview: true })}
         </p>
       )}
       {shown?.warnings.map((warning) => (

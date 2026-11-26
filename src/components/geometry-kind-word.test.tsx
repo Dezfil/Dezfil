@@ -63,11 +63,12 @@ describe("one kind word", () => {
 
 describe("the kind of a table a tool or a step makes", () => {
   it("reads as the same words, with the one surprise a preview names", () => {
-    expect(resultKindWord("MULTIPOLYGON", true)).toBe("Polygons");
-    expect(resultKindWord(null, false)).toBe("No geometry");
-    expect(resultKindWord(null, false, { preview: true })).toBe("No geometry: a table, not a layer");
-    expect(resultKindWord(null, true)).toBe("Geometry: no geometries to classify");
-    expect(resultKindWord(null, true, { preview: true })).toBe("Geometry: no geometries to classify");
+    expect(resultKindWord("classified", "MULTIPOLYGON")).toBe("Polygons");
+    expect(resultKindWord("classified", null)).toBe("Geometry");
+    expect(resultKindWord("none", null)).toBe("No geometry");
+    expect(resultKindWord("none", null, { preview: true })).toBe("No geometry: a table, not a layer");
+    expect(resultKindWord("undetermined", null)).toBe("Geometry: no geometries to classify");
+    expect(resultKindWord("undetermined", null, { preview: true })).toBe("Geometry: no geometries to classify");
   });
 });
 
