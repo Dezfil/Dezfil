@@ -3,7 +3,7 @@ import { requireDocumentRevision } from "./metadata/revisions";
 import type { AccountScope } from "@/lib/auth/scope";
 import { ApiError } from "@/lib/api/errors";
 import { inspectLayerGeometry } from "@/lib/layer-geometry";
-import type { Layer } from "@/lib/metadata/maps";
+import { getMap, type Layer } from "@/lib/metadata/maps";
 import {
   normalizeStyle,
   styleProblem,
@@ -25,6 +25,7 @@ import {
 } from "@/lib/column-validation";
 import { requireLayerFor } from "./layer-access";
 import { requireMapFor } from "./map-access";
+import { labelStyleForWrite } from "@/lib/style/label-recipe";
 import { assertWritableRefs } from "./layer-write-refs";
 import { layerWriteChangesPublication, requireLivePublicationChange } from "./publication-settings";
 import { mapEvaluation } from "@/lib/query/context";
@@ -138,7 +139,9 @@ async function admitLayerUpdateWork(
   }
   if (fields.style !== undefined) {
     assertValidStyle(fields.style);
-    fields = { ...fields, style: normalizeStyle(fields.style) };
+    // The label's choices are resolved as sent, its automatic parts given
+    // the map's fallbacks, before the normaliser: a write infers nothing.
+    fields = { ...fields, style: normalizeStyle(labelStyleForWrite(fields.style, getMap(layer.mapId)!)) };
   }
 
   // Semantic validation: references this request introduces or changes

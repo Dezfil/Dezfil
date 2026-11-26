@@ -12,6 +12,7 @@ import { metadataDb } from "@/lib/metadata/db";
 import { insertLayer, updateMapFields, nextOrdinal, type Layer } from "@/lib/metadata/maps";
 import { recordStep } from "@/lib/metadata/history";
 import { normalizeStyle, type LayerStyle } from "@/lib/style/style";
+import { labelStyleForWrite } from "@/lib/style/label-recipe";
 import { defaultStyle } from "@/lib/style/defaults";
 import { instanceDefaults, newLayerLook } from "@/lib/settings/defaults";
 import { POINTS_VIZ } from "@/lib/viz";
@@ -51,6 +52,7 @@ export async function createLayer(
   // result can honor.
   requireDocumentRevision(scope, { kind: "map", id: mapId, expectedRevision: opts.expectedRevision });
   const { geometryType, saved } = await admitLayerCreate(scope, mapId, input, opts.signal);
+  const map = requireMapFor(scope, mapId, "edit");
   const now = new Date().toISOString();
   const ordinal = nextOrdinal(mapId);
   const layer: Layer = {
@@ -60,9 +62,10 @@ export async function createLayer(
     sql: input.sql,
     // Default colors cycle by creation order (kepler defaults), through the
     // instance's color cycle, with its opacities, line width and point
-    // radius. A given style is kept as given and reads no default.
+    // radius. A given style is kept as given and reads no default; its
+    // label's choices are resolved as sent before the normaliser reads it.
     style: input.style
-      ? normalizeStyle(input.style)
+      ? normalizeStyle(labelStyleForWrite(input.style, map))
       : defaultStyle(geometryType, ordinal, newLayerLook(instanceDefaults())),
     visible: true,
     tooltip: null,

@@ -62,6 +62,10 @@ export function LabelSection({
   const [advanced, setAdvanced] = useState(false);
   const set = (partial: Partial<LabelStyle>) =>
     label && patch({ label: { ...label, ...partial } });
+  // A colour or halo width set here is the label's own, so a label that
+  // follows the map keeps the value rather than having it overridden.
+  const owned = (key: string): Partial<LabelStyle> =>
+    key === "haloWidth" ? { haloPaint: "own" } : {};
 
   const mappedHandlers = (
     key:
@@ -77,18 +81,18 @@ export function LabelSection({
     map: (v: number) => number | null = (v) => v,
   ) => ({
     onChange: (value: number) => {
-      set({ [key]: map(value) });
+      set({ [key]: map(value), ...owned(key) });
     },
     onPreview: onStylePreview
       ? (value: number) => {
           if (label)
-            onStylePreview({ label: { ...label, [key]: map(value) } });
+            onStylePreview({ label: { ...label, [key]: map(value), ...owned(key) } });
         }
       : undefined,
     onCommit: onStyleCommit
       ? (value: number) =>
           label
-            ? onStyleCommit({ label: { ...label, [key]: map(value) } })
+            ? onStyleCommit({ label: { ...label, [key]: map(value), ...owned(key) } })
             : Promise.resolve(false)
       : undefined,
   });
@@ -135,7 +139,7 @@ export function LabelSection({
             label="Color"
             name="Label color"
             color={label.color}
-            onChange={(color) => set({ color })}
+            onChange={(color) => set({ color, textPaint: "own" })}
           />
           <SliderRow
             label="Halo width"
@@ -149,7 +153,7 @@ export function LabelSection({
             label="Halo color"
             name="Label halo color"
             color={label.haloColor}
-            onChange={(haloColor) => set({ haloColor })}
+            onChange={(haloColor) => set({ haloColor, haloPaint: "own" })}
           />
 
           <button

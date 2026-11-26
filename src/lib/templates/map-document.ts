@@ -11,6 +11,8 @@ import {
   requireWidgetsPublished,
 } from "@/lib/map-document-rules";
 import { styleProblem, type LayerStyle } from "@/lib/style/style";
+import { labelChoicesOnRead } from "@/lib/style/label-choices";
+import { fallbackLabelTone, withLabelFallbacks } from "@/lib/style/label-recipe";
 import type { LayerFilter, LayerViz, LegendAttrs } from "@/lib/viz";
 import type { MapWidget } from "@/lib/widgets";
 import { TEMPLATE_PART_ID } from "./format";
@@ -86,11 +88,16 @@ function layerOf(value: unknown, at: string): AdmittedLayer {
   }
   const problem = styleProblem(fields.style);
   if (problem) invalidDocument(`${at}: The style is not valid: ${problem}`);
+  // A template's label is read as a stored one is: made before the choices
+  // existed, it follows the map only with the whole old starting paint;
+  // made by this version, it keeps the choices it carries. The file itself
+  // is never rewritten.
+  const style = fields.style!;
   return {
     id: layer.id as string,
     name: fields.name!,
     sql: fields.sql!,
-    style: fields.style!,
+    style: style.label ? { ...style, label: labelChoicesOnRead(style.label) } : style,
     visible: fields.visible!,
     tooltip: fields.tooltip ?? null,
     popup: fields.popup ?? null,
@@ -122,7 +129,7 @@ export function admitMapDocument(value: unknown, file: string): AdmittedMap {
   const layers = (map.layers as unknown[]).map((l, i) => layerOf(l, `${at}, layer ${i + 1}`));
   const layerIds = layers.map((l) => l.id);
   if (new Set(layerIds).size !== layerIds.length) invalidDocument(`${at} names one layer id twice.`);
-  return underRule(at, () => ({
+  const admitted: AdmittedMap = underRule(at, () => ({
     id: map.id as string,
     name: (map.name as string).trim(),
     file,
@@ -138,4 +145,8 @@ export function admitMapDocument(value: unknown, file: string): AdmittedMap {
     widgetsPublished: requireWidgetsPublished(map.widgetsPublished ?? true),
     layers,
   }));
+  // Each automatic label part takes the map's fallbacks, as a save stores
+  // them, so every admitted label is complete for its view and its copy.
+  const tone = fallbackLabelTone({ basemap: admitted.basemap, customBasemap: null });
+  return { ...admitted, layers: admitted.layers.map((layer) => ({ ...layer, style: withLabelFallbacks(layer.style, tone) })) };
 }

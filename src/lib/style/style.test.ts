@@ -779,16 +779,22 @@ describe("the halo migration and label domains", () => {
       ...defaultStyle("POINT"),
       label: { ...base, halo: true },
     });
+    // A visible halo is not the old starting paint, so the label keeps its
+    // own paint once its choices are read.
     expect(migrated.label).toEqual({
       ...base,
       haloWidth: 1,
       haloColor: { r: 12, g: 16, b: 24, a: 0.8 },
+      textPaint: "own",
+      haloPaint: "own",
     });
     const off = normalizeStyle({
       ...defaultStyle("POINT"),
       label: { ...base, halo: false },
     });
     expect(off.label?.haloWidth).toBe(0);
+    // White with no halo in the old colour is the whole old starting paint.
+    expect(off.label).toMatchObject({ textPaint: "automatic", haloPaint: "automatic" });
     // Idempotent: the migrated shape passes through unchanged.
     expect(normalizeStyle(migrated).label).toEqual(migrated.label);
   });

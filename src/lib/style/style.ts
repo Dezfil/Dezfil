@@ -5,6 +5,13 @@
  * builder can render it identically.
  */
 
+import {
+  LABEL_PAINT_CHOICES,
+  LEGACY_HALO_COLOR,
+  labelChoicesOnRead,
+  type LabelPaintChoice,
+} from "./label-choices";
+
 export interface RgbaColor {
   r: number;
   g: number;
@@ -142,9 +149,7 @@ export type LabelCase = (typeof LABEL_CASES)[number];
  * never read as the lowest value or the first class. */
 export const NO_DATA_COLOR: RgbaColor = { r: 120, g: 130, b: 150, a: 0.55 };
 
-/** The historical halo color — what `halo: true` always painted; the
- * one-time read migration pins legacy maps to it exactly. */
-export const LEGACY_HALO_COLOR: RgbaColor = { r: 12, g: 16, b: 24, a: 0.8 };
+export { LEGACY_HALO_COLOR, LABEL_PAINT_CHOICES, type LabelPaintChoice } from "./label-choices";
 
 /** Domains for the label properties (validated field by field). */
 export const LABEL_OFFSET_MAX = 50;
@@ -161,7 +166,14 @@ export interface LabelStyle {
   attribute?: string;
   /** Text size in pixels. */
   size: number;
+  /** "automatic": the text follows the tone of the basemap drawn under
+   * the label, and `color` is a fixed fallback; "own": `color` is the
+   * label's own. Every label read from the store carries it (one stored
+   * before it existed is read by the normaliser); a write may omit it. */
+  textPaint?: LabelPaintChoice;
   color: RgbaColor;
+  /** The same choice for the halo, its width and colour together. */
+  haloPaint?: LabelPaintChoice;
   /** Halo rim width, 0 to LABEL_HALO_WIDTH_MAX (0 = none). Replaced the
    * legacy boolean: stored `halo: true` reads as 1 with the historical
    * color, `false` as 0. */
@@ -313,6 +325,11 @@ export function normalizeStyle(value: unknown): LayerStyle {
       haloColor: LEGACY_HALO_COLOR,
     };
   }
+  // Then the label's two choices, at the same boundary: a label stored
+  // before they existed follows the map only with the whole old starting
+  // paint. A write resolves its choices before it gets here, so nothing
+  // is inferred for it.
+  if (label) label = labelChoicesOnRead(label);
   return {
     ...s,
     fill,
@@ -393,20 +410,27 @@ function labelProblem(value: unknown): string | null {
     l.size > LABEL_SIZE_MAX_PX
   )
     return `label.size must be a number of pixels, 1 to ${LABEL_SIZE_MAX_PX}.`;
-  if (!isColor(l.color)) return "label needs a valid color.";
+  // Every value sent is checked first, even one an explicit "automatic"
+  // overrides; whether the paint is complete is asked last.
+  if (l.textPaint !== undefined && !isPaintChoice(l.textPaint))
+    return 'label.textPaint accepts "automatic" or "own".';
+  if (l.color !== undefined && !isColor(l.color)) return "label needs a valid color.";
   if (l.halo !== undefined)
     return (
       `label.halo has been replaced: send label.haloWidth (0 to ${LABEL_HALO_WIDTH_MAX}) and ` +
       "label.haloColor. Stored maps migrate on read."
     );
+  if (l.haloPaint !== undefined && !isPaintChoice(l.haloPaint))
+    return 'label.haloPaint accepts "automatic" or "own".';
   if (
-    typeof l.haloWidth !== "number" ||
-    !Number.isFinite(l.haloWidth) ||
-    l.haloWidth < 0 ||
-    l.haloWidth > LABEL_HALO_WIDTH_MAX
+    l.haloWidth !== undefined &&
+    (typeof l.haloWidth !== "number" ||
+      !Number.isFinite(l.haloWidth) ||
+      l.haloWidth < 0 ||
+      l.haloWidth > LABEL_HALO_WIDTH_MAX)
   )
     return `label.haloWidth must be a number, 0 to ${LABEL_HALO_WIDTH_MAX} (0 = no halo).`;
-  if (!isColor(l.haloColor)) return "label.haloColor must be a valid color.";
+  if (l.haloColor !== undefined && !isColor(l.haloColor)) return "label.haloColor must be a valid color.";
   if (
     l.weight !== undefined &&
     l.weight !== "normal" &&
@@ -481,7 +505,20 @@ function labelProblem(value: unknown): string | null {
       l.cap > LABEL_CAP.max)
   )
     return `label.cap must be a whole number, ${LABEL_CAP.min} to ${LABEL_CAP.max}, or null for no cap.`;
+  // An own text needs its colour; an own halo needs its width and colour
+  // together, and without a choice one of the two alone says neither.
+  if (l.textPaint === "own" && l.color === undefined) return "label needs a valid color.";
+  if (l.haloPaint !== "automatic" && (l.haloWidth === undefined) !== (l.haloColor === undefined))
+    return LABEL_HALO_INCOMPLETE;
+  if (l.haloPaint === "own" && l.haloWidth === undefined) return LABEL_HALO_INCOMPLETE;
   return null;
+}
+
+const LABEL_HALO_INCOMPLETE =
+  "label.haloWidth and label.haloColor go together: send both for a halo of the label's own, or neither for one that follows the map.";
+
+function isPaintChoice(value: unknown): value is LabelPaintChoice {
+  return (LABEL_PAINT_CHOICES as readonly unknown[]).includes(value);
 }
 
 function isUnit(v: unknown): boolean {
