@@ -2,12 +2,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
+import JSZip from "jszip";
 import { dispatchAssistantTestRoute } from "@/lib/assistant/testing/route-dispatch";
 import { socketRequest } from "@/lib/assistant/testing/socket-request";
 import { dataDir } from "@/lib/config";
 import { resetQueryInstance } from "@/lib/duckdb";
 import { testAccountScope } from "@/lib/test-support/accounts";
 import { instanceSettingsFixture } from "../../../test-support/instance-settings";
+import { labelProblem as releasedLabelProblem } from "../../../test-support/released-label-check";
 import { buildTemplate, writeShippedFolder, type BuiltTemplate } from "../../../test-support/templates/builder";
 import { installTemplateArchive } from "./install";
 import * as shippedIndex from "./shipped-index";
@@ -19,8 +21,10 @@ import * as shippedIndex from "./shipped-index";
  * this version keeps the choices it carries. The same on the three roads a
  * template's map takes after the upgrade (its view, its installation from
  * an archive, and its copy into a project), and its files are never
- * rewritten. The shipped Rwanda template keeps its label's colours and its
- * bold.
+ * rewritten. Every label the view answers, and every label of the copy's
+ * project export (the form a template is made from), passes the label
+ * check an earlier release holds. The shipped Rwanda template keeps its
+ * label's colours and its bold.
  */
 
 const ORIGIN = "http://instance.test";
@@ -82,15 +86,22 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function call(method: string, route: string, body?: unknown) {
+async function send(method: string, route: string, body?: unknown) {
   const response = await dispatchAssistantTestRoute(socketRequest(new Request(`${ORIGIN}${route}`, {
     method,
     headers: { cookie: `dezfil_session=${f.member.secret}`, origin: ORIGIN, ...(body === undefined ? {} : { "content-type": "application/json" }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })));
-  const json = await response.json();
-  expect(response.status, JSON.stringify(json)).toBeLessThan(300);
-  return json;
+  if (response.status >= 300) expect(response.status, await response.text()).toBeLessThan(300);
+  return response;
+}
+const call = async (method: string, route: string, body?: unknown) => (await send(method, route, body)).json();
+
+/** Every label in a map's layers passes the earlier release's check. */
+function expectReleasedCheck(layers: Layer[], where: string) {
+  const labels = layers.filter((layer) => layer.style.label);
+  expect(labels.length, where).toBe(FIXTURES.length);
+  for (const layer of labels) expect(releasedLabelProblem(layer.style.label), `${where}: ${layer.name}`).toBeNull();
 }
 
 const sha = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
@@ -122,6 +133,7 @@ async function viewAndCopy(template: BuiltTemplate, folder: string) {
   const mapId = `template.${id}.1.map`;
   const viewed = await call("GET", `/api/maps/${mapId}`);
   const viewId = (i: number) => `template.${id}.1.layer.${part(i)}`;
+  expectReleasedCheck(viewed.layers, "the view");
   expectFixtures(viewed.layers, viewId);
   for (let i = 0; i < FIXTURES.length; i++) {
     expect((await call("GET", `/api/layers/${viewId(i)}`)).style.label).toEqual(viewed.layers.find((l: Layer) => l.id === viewId(i)).style.label);
@@ -130,6 +142,9 @@ async function viewAndCopy(template: BuiltTemplate, folder: string) {
   const map = await call("GET", `/api/maps/${copied.members.maps[0].id}`);
   const byName = (i: number) => map.layers.find((layer: Layer) => layer.name === FIXTURES[i][0]).id;
   expectFixtures(map.layers, byName);
+  const exported = await JSZip.loadAsync(Buffer.from(await (await send("POST", `/api/projects/${copied.project.id}/export`, { file: "t", maps: [map.id] })).arrayBuffer()));
+  const [document] = exported.file(/^t\.dezfil\/maps\/[^/]+\.json$/);
+  expectReleasedCheck(JSON.parse(await document.async("string")).layers, "the copy's export");
   // The copy stores both choices; the template's files are as they were.
   for (let i = 0; i < FIXTURES.length; i++) {
     const row = f.db.prepare("SELECT style FROM layers WHERE id = ?").get(byName(i)) as { style: string };
