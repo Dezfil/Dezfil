@@ -12,6 +12,7 @@ import {
   isLong,
   removeRun,
   titleOf,
+  titleParts,
   type HistoryEntry,
 } from "./sql-history";
 import { SNIPPETS, SPATIAL_FUNCTIONS, renderSnippet } from "./sql-snippets";
@@ -68,6 +69,13 @@ describe("history", () => {
     expect(removeRun(list, list[0].id)).toEqual([]);
     expect(titleOf({ tables: [] })).toBe("Query");
     expect(titleOf({ tables: ["a", "b", "c", "d"] })).toBe("a + b + 2 more");
+    // The title's SQL names apart from the app's words around them: the
+    // names read as the SQL wrote them, the count of the rest and the
+    // stand-in for none are words.
+    expect(titleParts({ tables: [] })).toEqual({ names: null, rest: null });
+    expect(titleParts({ tables: ["parks"] })).toEqual({ names: "parks", rest: null });
+    expect(titleParts({ tables: ["parks", "jonas_weber.bike_racks"] })).toEqual({ names: "parks + jonas_weber.bike_racks", rest: null });
+    expect(titleParts({ tables: ["a", "b", "c", "d"] })).toEqual({ names: "a + b", rest: " + 2 more" });
     expect(isLong("SELECT 1")).toBe(false);
     expect(isLong("a\nb\nc\nd")).toBe(true);
     expect(isLong("x".repeat(151))).toBe(true);

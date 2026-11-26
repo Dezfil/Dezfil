@@ -586,6 +586,26 @@
   },
   {
     "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .cardSql",
+    "kind": "sql",
+    "elements": [
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <div.cardSql>"
+    ],
+    "inherits": [
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text}",
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text} #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .cardTitle",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/sql/HistoryList.tsx :: HistoryTitle <span.cardTitle> {names}"
+    ]
+  },
+  {
+    "layer": "mono",
     "id": "src/components/sql/SqlConsole.module.css :: .errorCode",
     "kind": "identifier",
     "elements": [
