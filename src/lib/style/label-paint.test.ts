@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { MVTLayer } from "@deck.gl/geo-layers";
 import type { LabeledFeature } from "@/lib/style/deck-style";
 import { layerOpacity } from "@/lib/style/deck-style";
 import { mvtRenderSubLayers, textSublayer } from "@/components/map/text-sublayer";
@@ -34,6 +33,9 @@ const label = (paint: Partial<LabelStyle>): LabelStyle => ({
   haloColor: OWN_HALO,
   ...paint,
 });
+
+/** A drawn sublayer, read only for its props. */
+type Drawn = { props: unknown };
 
 describe("a label's paint for a tone", () => {
   it("follows the map in both parts: the tone's recipe, opaque", () => {
@@ -105,7 +107,7 @@ describe("a partly transparent label on a partly transparent layer", () => {
   it("keeps them apart on a tile's labels, which take the tiled layer's opacity as it is", () => {
     const render = mvtRenderSubLayers(paintedLabel(own, "dark"), () => "marks");
     const drawn = render({ id: "tile-0", data: [feature], opacity } as Parameters<typeof render>[0]);
-    const [, labels] = drawn as [string, MVTLayer];
+    const [, labels] = drawn as [string, Drawn];
     const props = labels.props as unknown as TextProps;
     expect(props.getColor).toEqual([200, 40, 40, 128]);
     expect(props.outlineColor).toEqual([10, 20, 30, 64]);
@@ -119,7 +121,7 @@ describe("a partly transparent label on a partly transparent layer", () => {
     expect(simple.outlineColor).toEqual([0x0b, 0x0e, 0x14, 255]);
     expect(simple.opacity).toBe(opacity);
     const render = mvtRenderSubLayers(paintedLabel(automatic, "light"), () => "marks");
-    const [, labels] = render({ id: "tile-0", data: [feature], opacity } as Parameters<typeof render>[0]) as [string, MVTLayer];
+    const [, labels] = render({ id: "tile-0", data: [feature], opacity } as Parameters<typeof render>[0]) as [string, Drawn];
     const tiled = labels.props as unknown as TextProps;
     expect(tiled.getColor).toEqual([0x24, 0x32, 0x30, 255]);
     expect(tiled.outlineColor).toEqual([255, 255, 255, 255]);
