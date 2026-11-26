@@ -66,7 +66,7 @@ const ALLOWED: Row[] = JSON.parse(readFileSync(path.join(HERE, "mono-boundary.al
  * browser's monospace. Each move drops its parts from the list and lowers
  * this number with them; a new use that the rule moves is not added here.
  */
-const PENDING = 101;
+const PENDING = 99;
 
 const model = collect({ root: ROOT });
 const found: Uses = monoUses(model);

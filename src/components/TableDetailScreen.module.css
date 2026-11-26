@@ -61,6 +61,21 @@
   margin-top: 7px;
 }
 
+/* Under the chips, the name the SQL page opens the dataset by: the words
+   muted in the reading face, the name itself in mono. */
+.inSql {
+  margin-top: 6px;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inSql code {
+  font-family: var(--font-mono);
+}
+
 .actions {
   margin-left: auto;
   display: flex;

@@ -472,6 +472,14 @@
   },
   {
     "layer": "mono",
+    "id": "src/components/gallery.module.css :: .cardSql",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/data-cards.tsx :: TableCard <span.cardSql> {datasetSqlName(t)}"
+    ]
+  },
+  {
+    "layer": "mono",
     "id": "src/components/gallery.module.css :: .geomCell",
     "kind": "to-reading-face",
     "note": "The Data list's geometry column: a kind, as a plain word.",
@@ -598,16 +606,6 @@
     "note": "The Add items picker's dataset names.",
     "elements": [
       "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <b.mono> {item.name}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/projects/AddToProjectDialog.module.css :: .dsName",
-    "kind": "to-reading-face",
-    "note": "Add to project's dataset names (the plain name with its owner) and its workflow names.",
-    "elements": [
-      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.dsName> {d.qualifiedName ?? d.name}",
-      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.dsName> {p.name}"
     ]
   },
   {
@@ -960,6 +958,14 @@
   },
   {
     "layer": "mono",
+    "id": "src/components/TableDetailScreen.module.css :: .inSql code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <code> {datasetSqlName(table)}"
+    ]
+  },
+  {
+    "layer": "mono",
     "id": "src/components/TableDetailScreen.module.css :: .title h1",
     "kind": "to-reading-face",
     "note": "The table page's title: a dataset's name as a name. An \"In SQL:\" line under the chips takes the SQL name.",
@@ -1266,7 +1272,7 @@
     "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .rowName",
     "kind": "sql-name",
     "elements": [
-      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.rowName> {typed}"
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.rowName> {written}"
     ]
   },
   {

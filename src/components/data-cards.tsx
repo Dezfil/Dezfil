@@ -25,6 +25,7 @@ import {
   SourceChip,
 } from "./table-chips";
 import { updatedAt } from "./data-folders";
+import { datasetSqlName } from "./dataset-sql-name";
 import { escapeBelongsToMenu } from "./menu-escape";
 import { OwnerPill } from "./sharing/PeopleMarks";
 import type { PersonLabel } from "./sharing/people";
@@ -165,8 +166,14 @@ export function TableCard({
         <div className={gallery.cardBody}>
           <div className={gallery.cardTop}>
             {/* The card name reads in the UI face with the rest of
-                the card — mono stays in the list view's table (a field round). */}
-            <span className={gallery.cardName}>{t.name}</span>
+                the card; under it, the name the SQL page opens the
+                dataset by, in mono, one's own too. */}
+            <span className={gallery.cardNames}>
+              <span className={gallery.cardName}>{t.name}</span>
+              <span className={gallery.cardSql} data-sql-name="">
+                {datasetSqlName(t)}
+              </span>
+            </span>
             <span className={gallery.cardWhen}>
               {formatRelativeTime(updatedAt(t))}
             </span>

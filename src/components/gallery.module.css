@@ -480,6 +480,25 @@
   min-width: 0;
 }
 
+/* A dataset card's name with its SQL name under it: the pair is one item
+   of the top row, so the time still sits on the name's baseline. */
+.cardNames {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* The name the SQL page opens the dataset by: small, muted, in mono. */
+.cardSql {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .cardWhen {
   margin-left: auto;
   /* A card timestamp is a secondary fact, so it reads muted in the UI
