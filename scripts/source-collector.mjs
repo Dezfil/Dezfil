@@ -28,7 +28,9 @@
  *     them (the constants of the scopes around it, through the keys a
  *     destructuring takes, or one another file exports), and for an
  *     inline style, whether written, spread in or handed to a component,
- *     the colour each of its branches leaves the element with;
+ *     the colour each of its branches leaves the element with; asked for,
+ *     the font properties set in code as well (a family, the shorthand,
+ *     the numeric variants and the feature settings);
  *   - the styles set on an element by hand (`el.style.color = x`,
  *     `setProperty`, `cssText`, a style attribute, an object assigned into
  *     an element's style), which reach an element the source does not name,
@@ -603,6 +605,10 @@ const CLASS_PROP = /^(className|class)$|ClassName$/;
  * custom property, whatever the value (a constant from another file
  * included), or it styles an element by hand. */
 const CODE_STYLE_HINT = /fg-faint|#93a19c|#5d6880|#7f8d89|code-comment|\b(color|opacity|fill|WebkitTextFillColor)\b|\b(?:webkit-?)?filter["']?\s*[:=]|["'`]--[-\w]+["'`]|\.style\b|cssText|setProperty|setAttribute/i;
+/** The same for a font property, read when the model is asked for fonts. */
+const FONT_HINT = /\bfont(?:Family|VariantNumeric|Variant|FeatureSettings)?\b|font-(?:family|variant|feature-settings)/;
+/** The font properties set in code, as a style object spells them. */
+const FONT_PROPS = /^(fontFamily|font|fontVariant|fontVariantNumeric|fontFeatureSettings)$/;
 /** React's element makers, by the names React exports them under. A file
  * that may call one is read for the elements it makes, markup or not. */
 const MAKERS = new Set(["createElement", "cloneElement"]);
@@ -2319,7 +2325,7 @@ function readSource(file, text, env) {
     return { keys, jsx, made };
   };
   const WATCHED = /^(color|WebkitTextFillColor|opacity|fill|filter|WebkitFilter|webkitFilter|-webkit-filter)$/;
-  const watched = (name) => WATCHED.test(name) || name.startsWith("--");
+  const watched = (name) => WATCHED.test(name) || name.startsWith("--") || (env.fonts === true && FONT_PROPS.test(name));
   const ASSIGNS = new Set([ts.SyntaxKind.EqualsToken, ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken]);
   /** A site whose style cannot be read, named by its source text. */
   const unreadAt = (node, element = null) =>
@@ -2353,13 +2359,20 @@ function readSource(file, text, env) {
 
   /** The name a style property set by hand is recorded under, as an
    * element's style object or `setProperty` spells it: null for one that
-   * holds no colour, opacity, filter or custom property. */
+   * holds no colour, opacity, filter or custom property (or, asked for,
+   * font property). */
   const BY_HAND = new Map([
     ["color", "color"], ["opacity", "opacity"], ["fill", "fill"], ["filter", "filter"],
     ["webkitFilter", "WebkitFilter"], ["WebkitFilter", "WebkitFilter"], ["-webkit-filter", "WebkitFilter"],
     ["webkitTextFillColor", "WebkitTextFillColor"], ["WebkitTextFillColor", "WebkitTextFillColor"], ["-webkit-text-fill-color", "WebkitTextFillColor"],
   ]);
-  const byHandName = (name) => (name.startsWith("--") ? name : BY_HAND.get(name) ?? null);
+  const FONTS_BY_HAND = new Map([
+    ["fontFamily", "fontFamily"], ["font-family", "fontFamily"], ["font", "font"],
+    ["fontVariant", "fontVariant"], ["font-variant", "fontVariant"],
+    ["fontVariantNumeric", "fontVariantNumeric"], ["font-variant-numeric", "fontVariantNumeric"],
+    ["fontFeatureSettings", "fontFeatureSettings"], ["font-feature-settings", "fontFeatureSettings"],
+  ]);
+  const byHandName = (name) => (name.startsWith("--") ? name : BY_HAND.get(name) ?? (env.fonts === true ? FONTS_BY_HAND.get(name) : null) ?? null);
   /** Whether an expression is an element's own style (`el.style`, or a
    * constant that holds one) rather than a style object this file makes. */
   const isElementStyle = (expr, depth = 0) => {
@@ -2595,8 +2608,14 @@ export function loadSources(root) {
  * tree under `root` is read from disk. A TypeScript file without markup is
  * read only when it names a colour or an opacity, which keeps the walk
  * over the server code short.
+ *
+ * With `fonts`, the font properties set in code (a family, the `font`
+ * shorthand, the numeric variants and the feature settings) are recorded
+ * beside the colours and opacities, with the same reading, and a
+ * TypeScript file without markup is also read when it names one. Without
+ * it the model is the same as it always was.
  */
-export function collect({ root = process.cwd(), sources = loadSources(root) } = {}) {
+export function collect({ root = process.cwd(), sources = loadSources(root), fonts = false } = {}) {
   const exists = (file) => sources.has(file);
   const elements = [];
   const files = new Map();
@@ -2746,8 +2765,8 @@ export function collect({ root = process.cwd(), sources = loadSources(root) } = 
       readSheet(file, text, file.endsWith(".module.css"));
       continue;
     }
-    if (!file.endsWith(".tsx") && !CODE_STYLE_HINT.test(text) && !makesElements(text)) continue;
-    const info = readSource(file, text, { root, exists, base: elements.length, exported, returnedKeys });
+    if (!file.endsWith(".tsx") && !CODE_STYLE_HINT.test(text) && !(fonts && FONT_HINT.test(text)) && !makesElements(text)) continue;
+    const info = readSource(file, text, { root, exists, base: elements.length, exported, returnedKeys, fonts });
     elements.push(...info.elements);
     files.set(file, info);
     codeStyles.push(...info.codeStyles);

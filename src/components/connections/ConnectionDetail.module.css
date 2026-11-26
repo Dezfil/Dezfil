@@ -292,6 +292,7 @@
   color: var(--fg-muted);
   font-size: var(--text-meta);
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .snapshotMeta [data-failed],
@@ -336,6 +337,7 @@
   grid-template-columns: 92px minmax(0, 1fr);
   gap: 8px 12px;
   font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
 }
 
 .facts dt {

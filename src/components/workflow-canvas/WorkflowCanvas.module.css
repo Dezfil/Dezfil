@@ -290,13 +290,22 @@
 }
 
 .tOut {
-  font-family: var(--font-mono);
   font-size: var(--text-meta);
   color: var(--fg-muted);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* An operation's output, as the workflow's SQL reads it: mono. */
+.tOutName {
+  font-family: var(--font-mono);
+}
+
+/* A source's row count: the reading face, digits of one width. */
+.tOutCount {
+  font-variant-numeric: tabular-nums;
 }
 
 /* The disclosure: every condition true of it and its last run, shown on
@@ -1339,7 +1348,6 @@ button.tableRow {
 
 .kv dd {
   margin: 0;
-  font-family: var(--font-mono);
   font-size: var(--text-meta);
   color: var(--fg);
   font-variant-numeric: tabular-nums;
@@ -1347,6 +1355,11 @@ button.tableRow {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The Dataset cell: the output as the workflow's SQL reads it, in mono. */
+.kv dd.kvSql {
+  font-family: var(--font-mono);
 }
 
 .kv dd[data-plain] {
@@ -1409,7 +1422,10 @@ span.chip {
   min-width: 0;
 }
 
-.columns li span:first-child {
+/* A column's name, beside its type, as the table's structure shows them:
+   in the code face. */
+.colName {
+  font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1532,6 +1548,12 @@ span.chip {
   background: var(--bg-raised);
 }
 
+/* The name a typed dataset name is registered as, when the two differ: a
+   SQL name, in mono. */
+.registered {
+  font-family: var(--font-mono);
+}
+
 .nameInput[aria-invalid="true"] {
   border-color: var(--danger);
 }
@@ -1539,6 +1561,7 @@ span.chip {
 .previewLine {
   font-size: var(--text-label);
   color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 
 .previewLine b {

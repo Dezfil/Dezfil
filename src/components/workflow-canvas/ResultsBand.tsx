@@ -9,6 +9,7 @@ import { IconTable } from "../gallery-icons";
 import { RunInitiator } from "../sharing/RunInitiator";
 import { useOpeningDefaults } from "../screen-defaults";
 import { Button } from "../ui/Button";
+import { EngineWords } from "../ui/EngineWords";
 import { ExternalIcon } from "../ui/icons";
 import { BAND_DEFAULT, BAND_GAP, BAND_MIN, BAR_HEIGHT, COLLAPSE_BELOW, clampHeight, readBandChoice, writeBandChoice } from "./band-store";
 import { addToMapFor, availability, effectiveTab, leadFor, notesFor, resolveShown, SELECT_LEAD, STATUS, type BandTab, type Shown } from "./band-selection";
@@ -351,7 +352,9 @@ export function ResultsBand({
                           {e.node}
                         </button>
                       ) : null}
-                      {e.stepId && e.node && nodeExists(e.stepId) ? e.text.slice(e.node.length) : e.text}
+                      {/* The words after the node's name; an engine's error
+                          among them is shown as the engine wrote it. */}
+                      <EngineWords text={e.stepId && e.node && nodeExists(e.stepId) ? e.text.slice(e.node.length) : e.text} />
                     </span>
                   </li>
                 ))}

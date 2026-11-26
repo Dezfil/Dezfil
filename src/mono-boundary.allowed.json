@@ -1,0 +1,1963 @@
+[
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: const dmMono = DM_Mono({",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: const plexMono = IBM_Plex_Mono({",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: import { Archivo, DM_Mono, Gabarito, IBM_Plex_Mono, Inter } from \"next/font/google\";",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: variable: \"--font-dm-mono\",",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: variable: \"--font-plex-mono\",",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/globals.css :: :root",
+    "kind": "face",
+    "unseen": "Set on the page itself: it defines the workspace's mono token from DM Mono."
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/globals.css :: [data-published-view]",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .homeLine code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <code> {line.example}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .tableName",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <span.tableName> {dot >= 0 ? typed.slice(dot + 1) : typed"
+    ],
+    "inherits": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <i.tableQualifier> {typed.slice(0, dot + 1)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/assistant/ModelPicker.module.css :: .identity",
+    "kind": "identifier",
+    "elements": [
+      "src/components/builder/assistant/ModelMenu.tsx :: ModelMenu <span.identity> {model.id}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .checkId",
+    "kind": "identifier",
+    "note": "A map check's render identity and its state's digest; the counts beside the digest are in the reading face.",
+    "elements": [
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd.checkId> {check.renderId}",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <span.checkId> {check.stateDigest}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .code",
+    "kind": "code",
+    "elements": [
+      "src/components/builder/assistant/AssistantReply.tsx :: AssistantReply <pre.code> {segment.code}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .inspectionInput dd",
+    "kind": "identifier",
+    "note": "An action's argument values, as it sent them. A map check's facts are in the reading face, in rows of their own.",
+    "elements": [
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <dd> {value}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .inspectionInput dt",
+    "kind": "identifier",
+    "note": "An action's argument names. A map check's labels are in the reading face, in rows of their own.",
+    "elements": [
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <dt> {key}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .proposalSql",
+    "kind": "sql",
+    "elements": [
+      "src/components/builder/assistant/ProposalBlock.tsx :: ProposalBlock <pre.proposalSql> {sql}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .reply code",
+    "kind": "code",
+    "elements": [
+      "src/components/builder/assistant/reply-markdown.tsx :: renderInline <code> {node.text}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .sql",
+    "kind": "sql",
+    "elements": [
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <pre.sql> {entry.sql}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .toolId",
+    "kind": "identifier",
+    "elements": [
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <p.toolId> {entry.tool}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .outputName",
+    "kind": "new-dataset-name",
+    "note": "The tool drawer's Table name: the field that names the dataset a run makes.",
+    "elements": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <input.outputName.text>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .registered",
+    "kind": "sql-name",
+    "note": "The name a typed Table name is registered as, when the two differ.",
+    "elements": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <strong.registered> {registered}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .textarea",
+    "kind": "sql",
+    "elements": [
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <textarea.textarea>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/export/ExportComposition.module.css :: .composition",
+    "kind": "face",
+    "note": "Rebinds the mono token to the reading face inside an exported image, which shows no code."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/FilterSection.module.css :: .badge",
+    "kind": "keeps",
+    "note": "A filtered field's type badge (int, float, date, time, text).",
+    "elements": [
+      "src/components/builder/FilterSection.tsx :: AddFilterPicker <span.badge> {typeBadge(f)}",
+      "src/components/builder/FilterSection.tsx :: FilterSection <span.badge> {typeBadge(field)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/publish/PublishPopover.module.css :: .fieldName",
+    "kind": "structure",
+    "elements": [
+      "src/components/builder/publish/PublishPopover.tsx :: SharedFields <span.fieldName> {name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/publish/PublishPopover.module.css :: .snippet",
+    "kind": "code",
+    "elements": [
+      "src/components/builder/publish/PublishPopover.tsx :: EmbedView <Textarea.field.snippet>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/publish/PublishPopover.module.css :: .url",
+    "kind": "address",
+    "elements": [
+      "src/components/builder/publish/PublishPopover.tsx :: PublishPopover <div.url> {url.replace(/^https?:\\/\\//, \"\")}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/ConnectionDetail.module.css :: .snapshotMain code, .snapshotMain small span, .identifier",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <code> {schema && table ? `${schema}.${table}` ",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd.identifier> {connection.id}",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"LIMIT\" {formatCount(limit)}",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"WHERE\" {filter}"
+    ],
+    "split": {
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"WHERE\" {filter}": "sql",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"LIMIT\" {formatCount(limit)}": "sql",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd.identifier> {connection.id}": "identifier"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/ConnectionForm.module.css :: .mono",
+    "kind": "address",
+    "elements": [
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono>",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #2",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #3",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> placeholder \"db.example.org\"",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> placeholder \"postgres://user:password@ho"
+    ],
+    "split": {
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #2": "identifier",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #3": "identifier"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .doneRelation",
+    "kind": "sql-name",
+    "note": "The remote table a snapshot came from. The dataset it was imported as and the layer it was added as are named in the reading face.",
+    "elements": [
+      "src/components/connections/PostgisDataDone.tsx :: PostgisCompletionFacts <span.doneRelation> {relationKey(relation)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .importTitle code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {relationKey(relation)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .qualified, .columnList, .previewTable",
+    "kind": "sql-name",
+    "note": "The remote table's qualified name, and its columns and preview as the source has them. The columns toggle, a count, is in the reading face.",
+    "elements": [
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <table.previewTable>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <div.columnList>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <h3.qualified> {relationKey(relation)}"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <small> {column.type}",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <td> {previewCell(row[column.name])}",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <th> {column.name}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.name}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.type}"
+    ],
+    "split": {
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.name}": "structure",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.type}": "structure",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <th> {column.name}": "structure",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <td> {previewCell(row[column.name])}": "structure",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <small> {column.type}": "structure"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .relationName, .field input",
+    "kind": "sql-name",
+    "note": "A remote table as its schema names it, and the import box's Table name (a new dataset's name) and filter (SQL). The row estimate and the row limit beside them are in the reading face.",
+    "elements": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationName>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"updated_at &gt; now() - int"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationLabel> {relation.table}"
+    ],
+    "split": {
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input>": "new-dataset-name",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"updated_at &gt; now() - int": "sql"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .spatialFact code",
+    "kind": "structure",
+    "note": "A remote table's column type (geometry or geography) and its SRID, beside the kind's plain word: schema facts as the schema has them.",
+    "elements": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.srid}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.type}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .server",
+    "kind": "address",
+    "elements": [
+      "src/components/connections/PostgisPicker.tsx :: PostgisPicker <span.server> {serverAddress(connection)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .errorTable code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <code> {code}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .opDesc code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <code> {parameter.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .path",
+    "kind": "identifier",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <code.path> {operation.id}",
+      "src/components/DocsScreen.tsx :: DocsScreen <code.path> {path}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .sectionDesc code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <code> \"GET /api/operations\"",
+      "src/components/DocsScreen.tsx :: DocsScreen <code> \"POST /api/operations/run\"",
+      "src/components/DocsScreen.tsx :: DocsScreen <code> \"code\"",
+      "src/components/DocsScreen.tsx :: DocsScreen <code> \"message\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .verb",
+    "kind": "identifier",
+    "note": "An HTTP method. The same pill in the operations list shows a category, a word in the reading face.",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <span.method.verb> {method.toUpperCase()}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/gallery.module.css :: .cardSql",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/data-cards.tsx :: TableCard <span.cardSql> {datasetSqlName(t)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/GeometryProvenance.module.css :: .record b",
+    "kind": "structure",
+    "elements": [
+      "src/components/GeometryProvenance.tsx :: GeometryProvenance <b> {record.columns.join(\", \")}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OsmPane.module.css :: .chip",
+    "kind": "keeps",
+    "note": "An OpenStreetMap tag filter, key=value as typed, with its remove mark.",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <span.chip> {entry}"
+    ],
+    "inherits": [
+      "src/components/OsmPane.tsx :: OsmPane <button> \"×\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OsmPane.module.css :: .chips input",
+    "kind": "keeps",
+    "note": "The field a tag filter is typed into, key=value.",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <input> placeholder \"key=value ⏎\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OsmPane.module.css :: .hint code",
+    "kind": "structure",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <code> \"tags\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OsmPane.module.css :: .mono",
+    "kind": "new-dataset-name",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <input.mono>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OverturePane.module.css :: .mono",
+    "kind": "new-dataset-name",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <input.mono>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .ext",
+    "kind": "address",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.ext> \".zip\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .fileIn input",
+    "kind": "address",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <input> #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .tree",
+    "kind": "address",
+    "note": "The archive's paths. The notes beside them, what each holds with its counts and sizes, are in the reading face.",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <div.tree>"
+    ],
+    "inherits": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeDir.treeFile> {row.label}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/ResultGrid.module.css :: .grid",
+    "kind": "structure",
+    "elements": [
+      "src/components/ResultGrid.tsx :: ResultGrid <table.grid>"
+    ],
+    "inherits": [
+      "src/components/ResultGrid.tsx :: ResultGrid <span.colName> {c.name}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span.colType> {c.type}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span.nullCell> \"∅\"",
+      "src/components/ResultGrid.tsx :: ResultGrid <td> {value === null || value === undefined ?"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/SaveResultAsDataset.module.css :: .field input",
+    "kind": "new-dataset-name",
+    "elements": [
+      "src/components/SaveResultAsDataset.tsx :: SaveResultAsDataset <input>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/SaveResultAsDataset.module.css :: .storedAs code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/SaveResultAsDataset.tsx :: SaveResultAsDataset <code> {stored}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/set-geometry/ProposalStrip.module.css :: .strip code",
+    "kind": "structure",
+    "elements": [
+      "src/components/set-geometry/ProposalStrip.tsx :: ProposalStrip <code> {pair.columns[0]}",
+      "src/components/set-geometry/ProposalStrip.tsx :: ProposalStrip <code> {pair.columns[1]}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .mono",
+    "kind": "identifier",
+    "note": "The Other EPSG code field: a code typed as digits. The column pickers beside it are in the reading face.",
+    "elements": [
+      "src/components/set-geometry/SetGeometryControls.tsx :: OtherCodeField <TextInput.field.mono> placeholder \"EPSG code, for example 3146"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/DataTab.module.css :: .addressField",
+    "kind": "address",
+    "elements": [
+      "src/components/settings/BasemapsCard.tsx :: AddStyleForm <TextInput.addressField.field> placeholder \"https://tiles.example.org/s",
+      "src/components/settings/ServiceAddressRow.tsx :: ServiceAddressRow <TextInput.addressField.field>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/McpCard.module.css :: .configuration",
+    "kind": "code",
+    "elements": [
+      "src/components/settings/McpCard.tsx :: McpCard <pre.configuration>",
+      "src/components/settings/McpCard.tsx :: McpCard <pre.configuration> #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/McpCard.module.css :: .configuration code",
+    "kind": "code",
+    "elements": [
+      "src/components/settings/McpCard.tsx :: McpCard <code> {endpoint ? guide.code : '/api/mcp'}",
+      "src/components/settings/McpCard.tsx :: McpCard <code> {guide.alternate}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/McpCard.module.css :: .endpoint",
+    "kind": "address",
+    "elements": [
+      "src/components/settings/McpCard.tsx :: McpCard <code.endpoint> {endpoint || '/api/mcp'}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/RuleCard.module.css :: .sites",
+    "kind": "address",
+    "elements": [
+      "src/components/settings/RuleCard.tsx :: SitesRow <Textarea.field.sites> placeholder \"https://www.stadtwerke.exam"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingRows.module.css :: .lockedField [data-mono]",
+    "kind": "address",
+    "elements": [
+      "src/components/ui/Field.tsx :: TextInput <input.field>",
+      "src/components/ui/Field.tsx :: Textarea <textarea.field>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingRows.module.css :: .lockedNote code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/settings/SettingRows.tsx :: Sentence <code> {state.variable}",
+      "src/components/settings/SettingRows.tsx :: Sentence <code> {state.variable} #2",
+      "src/components/settings/SettingRows.tsx :: Sentence <code> {state.variable} #3"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingRows.module.css :: .value[data-mono]",
+    "kind": "address",
+    "note": "A read-only value: a path, a file name, an address, an environment variable. The last reset's count and time, in the same rows, have an element of their own in the reading face.",
+    "elements": [
+      "src/components/settings/SettingRows.tsx :: ValueText <span.value> {children}"
+    ],
+    "inherits": [
+      "src/components/settings/AssistantKeyCard.tsx :: AssistantKeyCard <span.mono> {key.lastFour}",
+      "src/components/settings/SystemTab.tsx :: VariableName <Fragment> \"_\" {part}"
+    ],
+    "split": {
+      "src/components/settings/AssistantKeyCard.tsx :: AssistantKeyCard <span.mono> {key.lastFour}": "identifier",
+      "src/components/settings/SystemTab.tsx :: VariableName <Fragment> \"_\" {part}": "identifier"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingsCard.module.css :: .note code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/settings/McpCard.tsx :: McpCard <code> \"DEZFIL_API_TOKEN\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingsCard.module.css :: .sqlName code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/settings/AccountCard.tsx :: AccountCard <code> {account.sqlName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/WorkflowsTab.module.css :: .editor",
+    "kind": "sql",
+    "elements": [
+      "src/components/settings/WorkflowsTab.tsx :: EditorSample <div.editor>"
+    ],
+    "inherits": [
+      "src/components/settings/WorkflowsTab.tsx :: EditorSample <span.gutter> {index + 1}",
+      "src/components/settings/WorkflowsTab.tsx :: EditorSample <span> {text}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sharing/ShareDialog.module.css :: .sqlName",
+    "kind": "identifier",
+    "elements": [
+      "src/components/sharing/ShareDialog.tsx :: Who <span.sqlName> {person.sqlName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql-editor-extensions.ts :: completionLook > \".cm-tooltip.cm-tooltip-autocomplete\" > font",
+    "kind": "sql",
+    "unseen": "The SQL editor's completion list, drawn by the editor itself."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .cardSql",
+    "kind": "sql",
+    "elements": [
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <div.cardSql>"
+    ],
+    "inherits": [
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text}",
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text} #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .cardTitle",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/sql/HistoryList.tsx :: HistoryTitle <span.cardTitle> {names}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .errorCode",
+    "kind": "identifier",
+    "elements": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span.errorCode> {shown.code}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .eyebrowSql",
+    "kind": "identifier",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <code.eyebrowSql> \"·\" {group.sqlName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .grid",
+    "kind": "structure",
+    "elements": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <table.grid>"
+    ],
+    "inherits": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <span.thType> {c.type}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <td.rn> {i + 1}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <td> {f.text.length > 120 ? f.text.slice(0, 1",
+      "src/components/sql/ResultTable.tsx :: ResultTable <th> {c.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .lead b",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <b> {shown.table.qualifiedName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .mapTip",
+    "kind": "structure",
+    "elements": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <div.mapTip>"
+    ],
+    "inherits": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <div> {String(v)}",
+      "src/components/sql/ResultMap.tsx :: ResultMap <span.mapTipKey> {k}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .peekValue",
+    "kind": "structure",
+    "elements": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <pre.peekValue> {peek.value}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .readoutColumn",
+    "kind": "structure",
+    "note": "The geometry column's name inside the SQL result map's readout; the counts beside it are in the reading face.",
+    "elements": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <span.readoutColumn> {geometryColumn}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .resNotes code",
+    "kind": "sql-name",
+    "unseen": "The SQL page's \"Saved as\" name: the note's markup is held in a list the collector does not follow."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .rowName",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.rowName> {t.name}"
+    ],
+    "inherits": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <i.rowQualifier> \".\" {qualifier}",
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.colHit> \"·\" {hit}"
+    ],
+    "split": {
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.colHit> \"·\" {hit}": "structure"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/SqlEditor.tsx :: editorTheme > \".cm-scroller\" > fontFamily",
+    "kind": "sql",
+    "unseen": "The SQL editor's theme: the editor draws the elements it styles itself."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/TableDetailScreen.module.css :: .inSql code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <code> {datasetSqlName(table)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/TablePreviewGrid.module.css :: .grid",
+    "kind": "structure",
+    "elements": [
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <table.grid>"
+    ],
+    "inherits": [
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <span.colName> {c.name}",
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <span.colType> {c.type}",
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <span.nullCell> \"∅\"",
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <td> {value === null || value === undefined ?"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/templates/TemplateView.module.css :: .sql",
+    "kind": "sql",
+    "elements": [
+      "src/components/templates/HowItsMade.tsx :: HowItsMade <pre.sql> {layer.sql}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/ui/EngineWords.module.css :: .engine",
+    "kind": "engine-error",
+    "elements": [
+      "src/components/ui/EngineWords.tsx :: EngineWords <span.engine> {engine}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/ui/ErrorNote.module.css :: @layer kit { .detailText }",
+    "kind": "engine-error",
+    "elements": [
+      "src/components/ui/ErrorNote.tsx :: ErrorNote <div.detailText> {detail}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/UrlImportPane.module.css :: .mono",
+    "kind": "address",
+    "elements": [
+      "src/components/UrlImportPane.tsx :: UrlImportPane <input.mono> placeholder \"derived from the URL\"",
+      "src/components/UrlImportPane.tsx :: UrlImportPane <input.mono> placeholder \"https://… · s3://… · gs://…"
+    ],
+    "split": {
+      "src/components/UrlImportPane.tsx :: UrlImportPane <input.mono> placeholder \"derived from the URL\"": "new-dataset-name"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/users/DeleteAccountDialog.module.css :: .field b, .field input",
+    "kind": "address",
+    "elements": [
+      "src/components/ui/Field.tsx :: TextInput <input.field>",
+      "src/components/users/DeleteAccountDialog.tsx :: DeleteAccountDialog <b> {preview.account.email}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/users/UsersScreen.module.css :: .facts .sql",
+    "kind": "identifier",
+    "elements": [
+      "src/components/users/UserRow.tsx :: UserRow <span.sql> {account.sqlName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/users/UsersScreen.module.css :: .field input",
+    "kind": "address",
+    "elements": [
+      "src/components/ui/Field.tsx :: TextInput <input.field>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/InputPicker.module.css :: .name",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> {chosen.label}",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> {o.label}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/NoteNode.module.css :: .body code",
+    "kind": "code",
+    "unseen": "A note's inline code on the workflow canvas: the note's Markdown is drawn by a function another file calls."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/NoteNode.module.css :: .edit",
+    "kind": "code",
+    "elements": [
+      "src/components/workflow-canvas/NoteNode.tsx :: NoteEditor <textarea.edit.nodrag.nopan.nowheel>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/NoteNode.module.css :: .placeholder",
+    "kind": "code",
+    "elements": [
+      "src/components/workflow-canvas/NoteNode.tsx :: NoteEditor <pre.placeholder> {placeholder.lead + PLACEHOLDER}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .disclosure dd",
+    "kind": "address",
+    "note": "A provider's recorded request: its address, and its parameter values as they were sent, which the rule does not name and which keep their face.",
+    "elements": [
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <dd> {f.value}",
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <dd> {p.body.endpoint ?? NO_ENDPOINT}"
+    ],
+    "split": {
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <dd> {f.value}": "keeps"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .lead b",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <b> {lead.dataset}",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <b> {lead.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .provFacts code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <code> {i.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .sqlText",
+    "kind": "sql",
+    "elements": [
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <SqlExcerpt.sqlText>"
+    ],
+    "inherits": [
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text}",
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text} #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .callout .mono",
+    "kind": "engine-error",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.mono> {c.mono}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .changeRow .now",
+    "kind": "keeps",
+    "note": "A workflow step's parameter value after an edit, as written.",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.now> {ch.now}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .changeRow .was",
+    "kind": "keeps",
+    "note": "A workflow step's parameter value before an edit, as written.",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.was> {ch.was}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .colName",
+    "kind": "structure",
+    "elements": [
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <span.colName> {c.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .colType",
+    "kind": "structure",
+    "elements": [
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <span.colType> {c.type.toLowerCase()}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .kv dd.kvSql",
+    "kind": "sql-name",
+    "note": "The node panel's Dataset: the output as the workflow's SQL reads it. The Rows beside it are in the reading face.",
+    "elements": [
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd.kvSql> {step.output?.name ?? outputName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .nameInput",
+    "kind": "new-dataset-name",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <input.nameInput>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .pLabel",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/BadgeNode.tsx :: BadgeNode <i.pLabel> {p.label} {p.value ? ` · ${p.value}` : \""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .planList code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/RunConfirmDialog.tsx :: RunConfirmDialog <code> {r.dataset || \"unnamed\"}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .registered",
+    "kind": "sql-name",
+    "note": "The name a typed dataset name is registered as, under the node panel's Dataset name field, when the two differ.",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.registered> {registeredName(typedName)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .rowName",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.rowName> {written}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .srcName",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.srcName> {m.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .tOutName",
+    "kind": "sql-name",
+    "note": "An operation node's output under its label, as the workflow's SQL reads it. A source node's row count in the same place is in the reading face.",
+    "elements": [
+      "src/components/workflow-canvas/BadgeNode.tsx :: BadgeNode <span.tOut.tOutName> {m.outputName}"
+    ]
+  },
+  {
+    "layer": "mark",
+    "id": "src/components/sql/ResultsPane.tsx :: ResultsPane <code> {savedAs}",
+    "kind": "reached",
+    "rule": "src/components/sql/SqlConsole.module.css :: .resNotes code",
+    "in": "src/components/sql/ResultsPane.tsx :: ResultsPane <span.why> {n.text}",
+    "note": "The SQL page's \"Saved as\" note: its markup is held in a list the collector does not follow; the note's code rule reaches it in the page."
+  },
+  {
+    "layer": "mark",
+    "id": "src/lib/note-markdown.tsx :: renderInline <code> {m[1]}",
+    "kind": "reached",
+    "rule": "src/components/workflow-canvas/NoteNode.module.css :: .body code",
+    "in": "src/components/workflow-canvas/NoteNode.tsx :: NoteNode <div.body> {renderNoteBody(body, MARKDOWN)}",
+    "note": "Inline code in a workflow note, drawn by a function the note calls from another file; the note's code rule reaches it. Note widgets on maps never ask for inline code."
+  },
+  {
+    "layer": "unread",
+    "id": "src/app/document.tsx :: DezfilDocument <html> :: spread :: look",
+    "note": "The person's look as data-look-* attributes on the page root. The stylesheet rules that read them are read as rules; the Typeface pick among them moves the reading face, never mono or digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/assistant/AssistantDoor.tsx :: AssistantDoor <button> :: spread :: triggerProps",
+    "note": "A trigger's aria state, title and hint attributes, typed as such: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/BuilderRecovery.tsx :: withBuilderRecovery <Editor> :: spread :: props",
+    "note": "A recovery wrapper hands the props it is given on to the editor component it wraps, which takes no class and no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/filters/RangeBrush.tsx :: RangeBrush <span.knob> :: style :: {seat(lo)}",
+    "note": "A range handle's position, written as the --p custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/filters/RangeBrush.tsx :: RangeBrush <span.knob> #2 :: style :: {seat(hi)}",
+    "note": "A range handle's position, written as the --p custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/LayerList.tsx :: LayerList <button.grip.hint> :: spread :: handle.attributes",
+    "note": "A drag handle's role, tab index and aria attributes, from the drag-and-drop library: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/LegendTab.tsx :: LegendTab <button.grip.hint> :: spread :: handle?.attributes",
+    "note": "A drag handle's role, tab index and aria attributes, from the drag-and-drop library: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/style-panel/ContinuousBrush.tsx :: ContinuousBrush <input.slider> :: style :: {sliderFill(shown.center, clampLo, clampHi) as CSSProperties}",
+    "note": "A slider's fill, written as the --fill custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/style-panel/rows.tsx :: SliderRow <input.slider> :: style :: {sliderFill(shown, min, max)}",
+    "note": "A slider's fill, written as the --fill custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/style-panel/size-rows.tsx :: CellSizeRow <input.slider> :: style :: {sliderFill(positionFor(shown, min, max), 0, TRACK_STEPS)}",
+    "note": "A slider's fill, written as the --fill custom property: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/builder/WidgetsTab.tsx :: WidgetsTab <button.grip.hint> :: spread :: handle?.attributes",
+    "note": "A drag handle's role, tab index and aria attributes, from the drag-and-drop library: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/look/panel-lens.ts :: style :: el.style.setProperty(name, value)",
+    "note": "The panel lens's backdrop blur, set by hand under a custom property named per surface role: no family, no digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text} :: p.cls",
+    "note": "A highlighted SQL token in a history card or a provenance box: the highlighter picks one of the console's token classes (tkKw, tkFn, tkStr, tkNum, tkCm) at run time, and they set colour, weight and slant, never a family or digits."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/ui/Menu.tsx :: Menu <button.trigger> {trigger} :: spread :: triggerProps",
+    "note": "A trigger's aria state, title and hint attributes, typed as such: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.tsx :: Canvas <div.flowArea> :: spread :: notesCtl.pane",
+    "note": "The note tool's pointer handlers on the canvas pane, from the canvas's notes hook: no class, no style."
+  },
+  {
+    "layer": "unread",
+    "id": "src/components/workflow-canvas/WorkflowRecovery.tsx :: withWorkflowRecovery <Editor> :: spread :: props",
+    "note": "A recovery wrapper hands the props it is given on to the editor component it wraps, which takes no class and no style."
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/AddDataDialog.module.css :: .storageLine",
+    "elements": [
+      "src/components/AddDataDialog.tsx :: AddDataDialogBody <p.storageLine> {storageLine}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/AddToMapDialog.module.css :: .metaVal",
+    "elements": [
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <span.metaVal> {formatRelativeTime(m.updatedAt)}",
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <span.metaVal> {m.layerCount}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .tableMeta",
+    "elements": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <span.tableMeta> \"rows\" {formatCount(t.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/AssistantPanel.module.css :: .elapsed",
+    "elements": [
+      "src/components/builder/assistant/CheckNote.tsx :: CheckNote <span.elapsed> {entry.elapsed}",
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <span.elapsed> {entry.elapsed}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/draw/draw.module.css :: .draftLabel",
+    "elements": [
+      "src/components/builder/draw/DrawOverlay.tsx :: DrawOverlay <text.draftLabel> \"r ≈\" {formatDistanceKm(radiusKm)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .dryline",
+    "elements": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <p.dryline> \"Dry run:\" {\" · \"} {resultKindWord(shown"
+    ],
+    "inherits": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <strong> \"rows\" {shown.rowCount.toLocaleString()}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .number",
+    "elements": [
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberControl <input.number>",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberListControl <input.number> placeholder \"—\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .tableMeta",
+    "elements": [
+      "src/components/builder/drawer/TablePicker.tsx :: TablePicker <span.tableMeta> \"features ·\" {formatCount(chosen.rowCoun",
+      "src/components/builder/drawer/TablePicker.tsx :: TableRows <span.tableMeta> \"features\" {formatCount(table.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/drawer/SuccessFace.module.css :: .table",
+    "elements": [
+      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <p.table> \"reading\" \"·\" \"rows\" {made.rows.toLocale"
+    ],
+    "inherits": [
+      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <code> {made.table}",
+      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <code> {made.table} #2"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/FilterSection.module.css :: .bound",
+    "elements": [
+      "src/components/builder/FilterSection.tsx :: TimeControl <input.bound>",
+      "src/components/builder/FilterSection.tsx :: TimeControl <input.bound> #2",
+      "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound>",
+      "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound> #2"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/LayerList.module.css :: .meta",
+    "elements": [
+      "src/components/builder/LayerList.tsx :: LayerMeta <span.meta> {render && !render.ok ? ( <span classNam"
+    ],
+    "inherits": [
+      "src/components/builder/LayerList.tsx :: LayerMeta <span.errBadge> \"error\"",
+      "src/components/builder/LayerList.tsx :: LayerMeta <span.tileBadge> \"preparing tiles…\"",
+      "src/components/builder/UnsavedFields.tsx :: UnsavedMark <span.mark> {children}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/PaletteControl.module.css :: .stopPos",
+    "elements": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <NumberInput.field.stopPos>"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/StatusBar.module.css :: .val",
+    "elements": [
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> \"unavailable\"",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> \"°\" {status?.pitch}",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {records.count < records.total ? `${reco",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {status ? formatZoom(status.zoom) : \"—\"}",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {text ?? \"—\"}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/StylePanel.module.css :: .breakInput",
+    "elements": [
+      "src/components/builder/style-panel/rows.tsx :: BreakInput <input.breakInput>"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/StylePanel.module.css :: .num",
+    "elements": [
+      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <input.num>",
+      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <input.num> #2",
+      "src/components/builder/style-panel/size-rows.tsx :: CellSizeRow <input.num>"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/ConnectionDetail.module.css :: .facts",
+    "elements": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dl.facts>"
+    ],
+    "inherits": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd.identifier> {connection.id}",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {connection.lastCheckedAt ? `${new Date(",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {connection.postgisVersion ?? (connectio",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {connection.ssl ? \"SSL required\" : \"SSL ",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {new Date(connection.createdAt).toLocale",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {shortServerVersion(connection.serverVer",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Created\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Encryption\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Id\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Last check\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"PostGIS\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Server\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/ConnectionDetail.module.css :: .snapshotMeta",
+    "elements": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span.snapshotMeta> \"rows · refreshed\" {formatCount(snapshot"
+    ],
+    "inherits": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span.rowBusy> \"refreshing…\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"refresh failed\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/ConnectionsLedger.module.css :: .count",
+    "elements": [
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <span.count> {snapshots.length ? formatCount(snapshot"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/PostgisPane.module.css :: .doneCard p",
+    "elements": [
+      "src/components/connections/PostgisDataDone.tsx :: PostgisCompletionFacts <p> \"rows ·\" {formatCount(table.rowCount)} {",
+      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <p.layerOutcome> \"Adding to the map…\"",
+      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <p.layerOutcome> {completion.outcome.message}"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisDataDone.tsx :: PostgisCompletionFacts <span.doneRelation> {relationKey(relation)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/PostgisPane.module.css :: .field input.limit",
+    "elements": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input.limit> placeholder \"all rows\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/PostgisPane.module.css :: .relationRows",
+    "elements": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationRows> {estimateLabel(relation)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/PostgisPane.module.css :: .spatialFact, .estimateFact",
+    "elements": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span.estimateFact> {estimateLabel(relation)}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span.spatialFact> \"·\" {fact ? ( <> <code>{fact.type}</code"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.srid}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.type}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .cardChips",
+    "elements": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <div.cardChips.cardInfo>",
+      "src/components/WorkflowFolder.tsx :: FolderCard <div.cardChips.cardInfo>",
+      "src/components/data-cards.tsx :: TableCard <div.cardChips.cardInfo>",
+      "src/components/home/HomeLead.tsx :: TemplateLead <div.cardChips.cardInfo>",
+      "src/components/projects/HomeSections.tsx :: DatasetCard <div.cardChips.cardInfo>",
+      "src/components/projects/ItemCards.tsx :: MapCard <div.cardChips.cardInfo>",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <div.cardChips.cardInfo>",
+      "src/components/projects/ProjectCollection.tsx :: ProjectCard <div.cardChips.cardInfo> {mark}",
+      "src/components/templates/TemplateCard.tsx :: TemplateCard <div.cardChips.cardInfo.tags>"
+    ],
+    "inherits": [
+      "src/components/LayerCount.tsx :: LayerCount <span> \"layer\" {count === 1 ? \"\" : \"s\"}",
+      "src/components/TableDetailScreen.tsx :: TableDetail <span.chip> \"updated\" {formatRelativeTime(table.impo",
+      "src/components/WorkflowFolder.tsx :: FolderCard <span.chip.chipGeo.see> {open ? \"Close\" : `See ${folder.outputs.",
+      "src/components/WorkflowFolder.tsx :: FolderCard <span.chip> \"Workflow\"",
+      "src/components/WorkflowStatusChip.tsx :: WorkflowStatusChip <span.chip.stateChip> {chip.label}",
+      "src/components/home/HomeLead.tsx :: TemplateLead <span.chip> {tag}",
+      "src/components/projects/ItemCards.tsx :: MapCard <span.chip> {m.published ? \"Published\" : \"Draft\"}",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <span.chip> {lastRunLabel(lastRun === \"pending\" ? \"u",
+      "src/components/projects/ProjectCollection.tsx :: PublishedChip <span.chip> \"published\" {n}",
+      "src/components/sharing/PeopleMarks.tsx :: PeopleChip <span.chip.peopleChip> \"by\" \"·\" {mark.owner} {mark.role}",
+      "src/components/sharing/PeopleMarks.tsx :: PeopleChip <span> {mark.count}",
+      "src/components/table-chips.tsx :: CrsChip <button.chip.chipDoor.chipWarn> \"WGS84 assumed\"",
+      "src/components/table-chips.tsx :: CrsChip <small> {CRS_DOOR_TIP_ACTION}",
+      "src/components/table-chips.tsx :: CrsChip <span.chip.chipWarn> \"WGS84 assumed\"",
+      "src/components/table-chips.tsx :: CrsChip <span.tip> {CRS_DOOR_TIP}",
+      "src/components/table-chips.tsx :: GeometryChip <span.chip.chipGeo> {label}",
+      "src/components/table-chips.tsx :: HeaderChip <span.chip.chipWarn> \"Header looks broken\"",
+      "src/components/table-chips.tsx :: SourceChip <span.chip> {sourceLabel(table)}",
+      "src/components/templates/TemplateCard.tsx :: TemplateCard <span.chip> {tag}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .cardWhen",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <span.cardWhen>",
+      "src/components/WorkflowFolder.tsx :: FolderCard <span.cardWhen> {formatRelativeTime(folder.updatedAt)}",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.cardWhen>",
+      "src/components/data-cards.tsx :: TableCard <span.cardWhen> {formatRelativeTime(updatedAt(t))}",
+      "src/components/projects/HomeSections.tsx :: DatasetCard <span.cardWhen> {formatRelativeTime(t.importedAt ?? t.cr",
+      "src/components/projects/ItemCards.tsx :: MapCard <span.cardWhen>",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <span.cardWhen>",
+      "src/components/projects/ProjectCollection.tsx :: ProjectCard <span.cardWhen> {formatRelativeTime(p.updatedAt)}",
+      "src/components/templates/TemplateCard.tsx :: TemplateCard <span.cardWhen>"
+    ],
+    "inherits": [
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.fact.head> {head ? <span className={styles.headText",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.headText> {label}",
+      "src/components/templates/TemplateCard.tsx :: TemplateCard <span> {date}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .chipCount",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <span.chipCount> \"·\" {counts.all}",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.chipCount> \"·\" {counts.drafts}",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.chipCount> \"·\" {counts.published}",
+      "src/components/TablesScreen.tsx :: TablesScreen <span.chipCount> \"·\" {sourceCounts.get(s)}",
+      "src/components/TablesScreen.tsx :: TablesScreen <span.chipCount> \"·\" {tables.length}",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.chipCount> \"·\" {counts[key]}",
+      "src/components/templates/TemplatesScreen.tsx :: TemplatesScreen <span.chipCount> \"·\" {chip.count}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .colWhen",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <span.colWhen.num>",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.colWhen> \"Last edited\"",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.colWhen.num>",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.colWhen> \"Last edited\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen>",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> \"Last edited\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> \"Last edited\" #2",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> \"Last run\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> \"Last updated\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> #2",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> {cell.text}",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> {formatRelativeTime(t.importedAt ?? t.cr",
+      "src/components/projects/ProjectCollection.tsx :: ProjectRow <span.colWhen> {formatRelativeTime(p.updatedAt)}",
+      "src/components/projects/ProjectCollection.tsx :: ProjectsListHead <span.colWhen> \"Updated\""
+    ],
+    "inherits": [
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.fact.head> {head ? <span className={styles.headText",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.headText> {label}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .limitMark",
+    "elements": [
+      "src/components/ListHeading.tsx :: ListHeading <span.limitMark> {mark}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .manifest b",
+    "elements": [
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {formatBytes(manifest.bytes)}",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {formatCompactCount(manifest.rows)}",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {manifest.crsAssumed}",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {manifest.refreshable}",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {manifest.tables}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .num",
+    "elements": [
+      "src/components/LayerCount.tsx :: LayerCount <span.num> {count}",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.colWhen.num>",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.num> {m.layerCount}",
+      "src/components/WorkflowFolder.tsx :: FolderCard <span.num> {formatBytes(folder.bytes)}",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.colWhen.num>",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.num> {w.summary.nodes}",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.num> {w.summary.nodes} #2",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.num> {w.summary.sources}",
+      "src/components/data-cards.tsx :: TableCard <span.num> {formatBytes(t.sizeBytes)}",
+      "src/components/projects/HomeSections.tsx :: DatasetCard <span.num> {formatBytes(t.sizeBytes)}",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <span.num> {w.summary.nodes}",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <span.num> {w.summary.sources}"
+    ],
+    "inherits": [
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.fact.head> {head ? <span className={styles.headText",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.headText> {label}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .numCell",
+    "elements": [
+      "src/components/TablesScreen.tsx :: TablesScreen <th.numCell> \"Last updated\"",
+      "src/components/TablesScreen.tsx :: TablesScreen <th.numCell> \"Rows\"",
+      "src/components/TablesScreen.tsx :: TablesScreen <th.numCell> \"Size\"",
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatBytes(folder.bytes)}",
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatCount(folder.rows)}",
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatRelativeTime(folder.updatedAt)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatBytes(t.sizeBytes)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatCount(t.rowCount)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatRelativeTime(updatedAt(t))}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .overlayData b",
+    "elements": [
+      "src/components/WorkflowFolder.tsx :: FolderCard <b> {folder.outputs.length}",
+      "src/components/data-cards.tsx :: TableCard <b> {formatCompactCount(t.rowCount)}",
+      "src/components/projects/HomeSections.tsx :: DatasetCard <b> {formatCompactCount(t.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .subLine",
+    "elements": [
+      "src/app/(workspace)/not-found.tsx :: WorkspaceNotFound <p.subLine> \"Nothing is at this address.\"",
+      "src/components/ListHeading.tsx :: ListHeading <p.subLine> {line}",
+      "src/components/ListHeading.tsx :: ListHeading <p.subLine> {note}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/home/Home.module.css :: .cnt",
+    "elements": [
+      "src/components/home/HomeShelf.tsx :: HomeShelfSection <span.cnt> {shelf.countLine}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/map/TimelineBar.module.css :: .extent",
+    "elements": [
+      "src/components/map/TimelineBar.tsx :: TimelineBar <div.extent>"
+    ],
+    "inherits": [
+      "src/components/map/TimelineBar.tsx :: TimelineBar <span> {formatTimeMs(hi0, granularity)}",
+      "src/components/map/TimelineBar.tsx :: TimelineBar <span> {formatTimeMs(lo0, granularity)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/map/TimelineBar.module.css :: .readout",
+    "elements": [
+      "src/components/map/TimelineBar.tsx :: TimelineBar <span.readout> \"–\" {formatTimeMs(win[0], granularity)} "
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/map/TimelineBar.module.css :: .speedBtn",
+    "elements": [
+      "src/components/map/TimelineBar.tsx :: TimelineBar <button.speedBtn> \"×\" {speed}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/OsmPane.module.css :: .runStats",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <div.runStats> \"Showing\" \"features on the map\" {runResu"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/OverturePane.module.css :: .levelHead i",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <i> {l.count.toLocaleString()}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/OverturePane.module.css :: .runStats",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <div.runStats> \"Showing\" \"features on the map\" {runResu"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/AddItemsDialog.module.css :: .status",
+    "elements": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <span.status> {pickerStatus(composed.summary)} {pendin"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/AddItemsDialog.module.css :: .text small",
+    "elements": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <small.sub> {sub}",
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <small> {item.fact}"
+    ],
+    "inherits": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <i> \"·\"",
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <span> {whereLine(item.where)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/AddToProjectDialog.module.css :: .dsMeta",
+    "elements": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.dsMeta> \"Workflow\"",
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.dsMeta> \"·\" \"row\" {SOURCE_WORDS[d.source] ?? d.s"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/AddToProjectDialog.module.css :: .pMeta",
+    "elements": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.pMeta> {current ? \"current project\" : contentsW"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .meta",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.meta> {r.meta}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .selHead small",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <small> {small}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .status",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.status> {ready ? status : \"\"}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .stepPill b",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <b> \"2\"",
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <b> {step === 1 ? \"1\" : <CheckIcon />}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .treeNote",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeNote> {row.note}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/HomeSections.module.css :: .cnt",
+    "elements": [
+      "src/components/projects/HomeSections.tsx :: SectionHead <span.cnt> {count}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/HomeSections.module.css :: .colRows",
+    "elements": [
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colRows> \"Rows\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colRows> {t.rowCount.toLocaleString(\"en-US\")}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/HomeSections.module.css :: .colSize",
+    "elements": [
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colSize> \"Size\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colSize> {formatBytes(t.sizeBytes)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ProjectHome.module.css :: .exportNote",
+    "elements": [
+      "src/components/projects/ProjectHomeScreen.tsx :: ProjectHomeVisit <p.exportNote> {exportNote}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/RecentList.module.css :: .text small",
+    "elements": [
+      "src/components/projects/RecentList.tsx :: RowContent <small> {it.fact} {it.kind === \"dataset\" ? forma"
+    ],
+    "inherits": [
+      "src/components/projects/RecentList.tsx :: RowContent <i> \"·\"",
+      "src/components/projects/RecentList.tsx :: RowContent <i> \"·\" #2",
+      "src/components/projects/RecentList.tsx :: RowContent <span> {whereLine(it.where)}",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.fact.head> {head ? <span className={styles.headText",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.headText> {label}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/ProjectsScreen.module.css :: .exportNote",
+    "elements": [
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <p.exportNote> {exportNote}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/ResultGrid.module.css :: .resultMeta",
+    "elements": [
+      "src/components/ResultGrid.tsx :: ResultGrid <div.resultMeta>"
+    ],
+    "inherits": [
+      "src/components/ResultGrid.tsx :: ResultGrid <span.truncated> \"showing first\" {formatCount(rows.length",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"columns\" {result.columns.length}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"ms\" {result.runtimeMs}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"rows\"",
+      "src/components/ResultGrid.tsx :: ResultGrid <strong> {formatCount(result.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/scope/ScopeFilter.module.css :: .faceCount",
+    "elements": [
+      "src/components/scope/ScopeFilter.tsx :: ScopeFilter <span.faceCount> \"·\" {faceCount}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/scope/ScopeFilter.module.css :: .rowCount",
+    "elements": [
+      "src/components/scope/ScopeFilter.tsx :: ScopeMenuRows <span.rowCount> {count}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .count b",
+    "elements": [
+      "src/components/set-geometry/SetGeometryControls.tsx :: SetGeometryControls <b> \"0\"",
+      "src/components/set-geometry/SetGeometryControls.tsx :: SetGeometryControls <b> {count.readable}",
+      "src/components/set-geometry/SetGeometryControls.tsx :: SetGeometryControls <b> {count.unreadable}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/AppearancePreview.module.css :: .bar em",
+    "elements": [
+      "src/components/settings/AppearancePreview.tsx :: Bar <em> {value}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/AppearancePreview.module.css :: .widget > b",
+    "elements": [
+      "src/components/settings/AppearancePreview.tsx :: AppearancePreview <b> \"18,930\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/LookPictures.module.css :: .art .ctField",
+    "elements": [
+      "src/components/settings/LookPictures.tsx :: ContrastPicture <span.ctField> \"1,000\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/LookPictures.module.css :: .fnDigits",
+    "elements": [
+      "src/components/settings/LookPictures.tsx :: FontPicture <span.fnDigits> \"0123456789\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/SettingRows.module.css :: .number",
+    "elements": [
+      "src/components/settings/SettingRows.tsx :: NumberField <NumberInput.field.number>"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/SettingRows.module.css :: .value",
+    "elements": [
+      "src/components/settings/SettingRows.tsx :: ValueText <span.value> {children}"
+    ],
+    "inherits": [
+      "src/components/settings/AssistantKeyCard.tsx :: AssistantKeyCard <span.mono> {key.lastFour}",
+      "src/components/settings/SystemTab.tsx :: ExternalSignInCard <span.fact> {row.value}",
+      "src/components/settings/SystemTab.tsx :: VariableName <Fragment> \"_\" {part}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .cardMeta",
+    "elements": [
+      "src/components/sql/HistoryList.tsx :: HistoryList <div.cardMeta>"
+    ],
+    "inherits": [
+      "src/components/sql/HistoryList.tsx :: HistoryList <button.linkBtn> {isOpen ? \"Show less\" : \"Show all\"}",
+      "src/components/sql/HistoryList.tsx :: HistoryList <span.cardFailed> \"failed ·\" {h.code}",
+      "src/components/sql/HistoryList.tsx :: HistoryList <span> \"ms\" {h.ms}",
+      "src/components/sql/HistoryList.tsx :: HistoryList <span> \"rows\" {formatCount(h.rows)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .cardWhen",
+    "elements": [
+      "src/components/sql/HistoryList.tsx :: HistoryList <span.cardWhen> {timeOf(h.at)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .grid td[data-kind=\"number\"]",
+    "elements": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <td> {f.text.length > 120 ? f.text.slice(0, 1"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .mapReadout",
+    "elements": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <div.mapReadout>",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.mapReadout>"
+    ],
+    "inherits": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <span.readoutColumn> {geometryColumn}",
+      "src/components/sql/ResultMap.tsx :: ResultMap <span> \"features\" {formatCount(drawn)} {rowCoun",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {featureCountReadout(features.state.valu",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {geometryKindWord(features.state.value.g"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .resMeta",
+    "elements": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.resMeta>",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.resMeta> #2"
+    ],
+    "inherits": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <b> {formatCount(shown.run.rowCount)}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <b> {formatCount(shown.table.rowCount)}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"columns\" {shown.run.columns.length}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"columns\" {shown.schema.schema.columns.l",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"ms\" {shown.run.runtimeMs}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"rows\"",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"rows\" #2",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {formatBytes(shown.table.sizeBytes)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .rowMeta",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.rowMeta> {formatCount(t.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/TableDetailScreen.module.css :: .previewNote",
+    "elements": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <p.previewNote> \"Showing the first\" \"of\" \"rows ·\" \"colum"
+    ],
+    "inherits": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <Link.sqlLink> \"Open in SQL workspace\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/TablePreviewMap.module.css :: .readout",
+    "elements": [
+      "src/components/TablePreviewMap.tsx :: TablePreviewMap <div.readout>",
+      "src/components/set-geometry/ChoicePreviewMap.tsx :: ChoicePreviewMap <div.readout>"
+    ],
+    "inherits": [
+      "src/components/TablePreviewMap.tsx :: TablePreviewMap <span> {part}",
+      "src/components/set-geometry/ChoicePreviewMap.tsx :: ChoicePreviewMap <span> {part}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/TablesScreen.module.css :: .storageLine",
+    "elements": [
+      "src/components/TablesScreen.tsx :: TablesScreen <p.storageLine> {storageLine}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/users/UsersScreen.module.css :: .facts b",
+    "elements": [
+      "src/components/users/UserRow.tsx :: UserRow <b> {day(account.createdAt)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/users/UsersScreen.module.css :: .seen",
+    "elements": [
+      "src/components/users/UserRow.tsx :: UserRow <span.seen> {account.lastSignInAt ? day(account.last"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/viewer/CursorReadout.module.css :: .readout",
+    "elements": [
+      "src/components/viewer/CursorReadout.tsx :: CursorReadout <button.readout> {flash ? ( <span className={styles.flash"
+    ],
+    "inherits": [
+      "src/components/viewer/CursorReadout.tsx :: CursorReadout <span.flash> {flash === \"ok\" ? \"copied\" : \"couldn't c"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/widgets/Widgets.module.css :: .axis",
+    "elements": [
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <div.axis>"
+    ],
+    "inherits": [
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <span> {formatCount(domain.max)}",
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <span> {formatCount(domain.min)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/widgets/Widgets.module.css :: .cnum",
+    "elements": [
+      "src/components/widgets/WidgetRail.tsx :: CategoryCard <span.cnum> {formatCount(row.n)}",
+      "src/components/widgets/WidgetRail.tsx :: CategoryCard <span.cnum> {formatCount(value.other)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/widgets/Widgets.module.css :: .range",
+    "elements": [
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <span.range> \"–\" {formatCount(lo)} {formatCount(hi)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/InputPicker.module.css :: .fact",
+    "elements": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact>",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> #2",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> {chosen.node ? <span className={styles.n",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> {o.node ? <span className={styles.nodeTa"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.nodeTag> \"node\"",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.nodeTag> {o.fact === \"not named\" ? \"not named\" : "
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .facts",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span.facts>"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <b> {facts.columns.length}",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <b> {formatCount(facts.rowCount)}",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span> \"columns\"",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span> \"rows\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .readout",
+    "elements": [
+      "src/components/workflow-canvas/MapTab.tsx :: MapTab <div.readout>"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/MapTab.tsx :: MapTab <span> {part}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .ts",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span.ts> \"·\" {fmt.format(new Date(e.time))}"
+    ],
+    "inherits": [
+      "src/components/sharing/RunInitiator.tsx :: RunInitiator <span> {deleted ? \"Deleted account\" : actor ? f"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .kv dd",
+    "elements": [
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd.kvSql> {step.output?.name ?? outputName}",
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {lastRun(step, template)}",
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {table ? formatCount(table.rowCount) : \"",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {geometry}",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {template ? \"this template\" : facts ? fa"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .previewLine",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.previewLine> {\" · \"} {resultKindWord(gate.preview.geo"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <b> \"rows\" {gate.preview.rowCount.toLocaleSt"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .rowMeta",
+    "elements": [
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.rowMeta> {formatCount(table.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .runDock",
+    "elements": [
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> \"Cancelling…\"",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> \"running ·\" \"node\" {active.members.lengt",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> {outcomeLine(active)}",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> {outcomeLine(ended)}",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> {readFailure.message}",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> {refusal.message}"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <b> \"of\" {settledCount(active)} {active.memb",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <button.dockAction> \"Retry\"",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <button.dockAction> \"Retry\" #2"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .tOutCount",
+    "elements": [
+      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.tOut.tOutCount> {m.missing ? \"missing\" : m.table ? `${fo"
+    ]
+  }
+]

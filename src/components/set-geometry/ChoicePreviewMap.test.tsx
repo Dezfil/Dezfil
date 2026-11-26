@@ -41,14 +41,14 @@ describe("the page's Map preview while the panel is open", () => {
   });
   it("the readout carries the sampled count, the type and the projection; the unreadable rows are not drawn", () => {
     const html = render(answer([[10, 20], null, [11, 21]]));
-    expect(html.replace(/<[^>]+>/g, " ")).toMatch(/2 of 3 sampled rows\s+POINT\s+WGS 84/);
+    expect(html.replace(/<[^>]+>/g, " ")).toMatch(/2 of 3 sampled rows\s+Points\s+WGS 84/);
     expect(html).toContain('data-mock-map="features"');
     expect(sampleCollection(answer([[10, 20], null])).features).toHaveLength(1);
   });
   it("the readout names the projection the answer was read under; the map takes no draft choice", () => {
     const utm33 = answer([[13.405, 52.52]], { choice: { format: "pair", columns: ["a", "b"], epsg: 25833 } });
     const html = render(utm33);
-    expect(html.replace(/<[^>]+>/g, " ")).toMatch(/1 of 1 sampled rows\s+POINT\s+ETRS89 \/ UTM 33N/);
+    expect(html.replace(/<[^>]+>/g, " ")).toMatch(/1 of 1 sampled rows\s+Points\s+ETRS89 \/ UTM 33N/);
     expect(html).not.toContain("UTM 32N");
   });
   it("no readable row draws nothing, shows the drawn notice and no inset; the not-degrees issue shows its own notice", () => {

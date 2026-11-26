@@ -19,8 +19,8 @@
 .resultMeta {
   display: flex;
   gap: 18px;
-  font-family: var(--font-mono);
   font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
 }
 

@@ -19,8 +19,8 @@ export interface TalkingChip {
   icon: ChipIcon;
   /** The failure tone, for a failed execution or run. */
   tone?: "bad";
-  /** The value is an identifier, set in the mono face. */
-  mono?: boolean;
+  /** The value names a layer, set at the regular weight. */
+  named?: boolean;
 }
 
 export type SqlExecutionFact =
@@ -85,7 +85,7 @@ export function outcomeWord(outcome: string): string {
 export function talkingAbout(facts: PageFacts, now: number = Date.now()): TalkingChip[] {
   if (facts.page === "builder") {
     const chips: TalkingChip[] = [{ key: "map", label: "Map", value: facts.mapName, icon: "map" }];
-    if (facts.selectedLayerName !== null) chips.push({ key: "layer", label: "Layer", value: facts.selectedLayerName, icon: "layer", mono: true });
+    if (facts.selectedLayerName !== null) chips.push({ key: "layer", label: "Layer", value: facts.selectedLayerName, icon: "layer", named: true });
     return chips;
   }
   if (facts.page === "sql") {

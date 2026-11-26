@@ -13,7 +13,7 @@ describe("the builder's chips", () => {
   it("name the map, and the selected layer only with a selection", () => {
     expect(talkingAbout({ page: "builder", mapName: "Parks near stations", selectedLayerName: "parks" })).toEqual([
       { key: "map", label: "Map", value: "Parks near stations", icon: "map" },
-      { key: "layer", label: "Layer", value: "parks", icon: "layer", mono: true },
+      { key: "layer", label: "Layer", value: "parks", icon: "layer", named: true },
     ]);
     expect(talkingAbout({ page: "builder", mapName: "Parks near stations", selectedLayerName: null }).map((c) => c.key)).toEqual(["map"]);
   });

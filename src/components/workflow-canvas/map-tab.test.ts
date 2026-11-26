@@ -8,13 +8,14 @@ import { readoutOf } from "./MapTab";
  * proved here rather than live.
  */
 describe("the map readout", () => {
-  it("says the drawn count, the rows when sampled, the geometry type and the assumption", () => {
-    expect(readoutOf({ ok: true, name: "t", geometryType: "POINT", featureCount: 3, sampled: false }, false)).toEqual(["3 features", "POINT"]);
-    expect(readoutOf({ ok: true, name: "t", geometryType: "POINT", featureCount: 2000, sampled: true, totalCount: 2100 }, true)).toEqual([
+  it("says the drawn count, the rows when sampled, the geometry kind as a word and the assumption", () => {
+    expect(readoutOf({ ok: true, name: "t", geometryType: "POINT", featureCount: 3, sampled: false }, false)).toEqual(["3 features", "Points"]);
+    expect(readoutOf({ ok: true, name: "t", geometryType: "MULTIPOLYGON", featureCount: 2000, sampled: true, totalCount: 2100 }, true)).toEqual([
       "2,000 features drawn, of 2,100 rows",
-      "POINT",
+      "Polygons",
       "WGS84 assumed",
     ]);
+    expect(readoutOf({ ok: true, name: "t", geometryType: "POINT+LINESTRING", featureCount: 2, sampled: false }, false)).toEqual(["2 features", "Mixed"]);
   });
 
   it("a spatial dataset with nothing drawable reads zero, never a refusal", () => {

@@ -10,17 +10,32 @@ import {
   groupByDay,
   isLong,
   timeOf,
-  titleOf,
+  titleParts,
   type HistoryEntry,
 } from "./sql-history";
 import styles from "./SqlConsole.module.css";
+
+/** A card's title: the tables the query reads, written as its SQL wrote
+ * them, in the code face; the count of the rest, and "Query" where no
+ * table was recognized, are the app's words in the reading face. */
+function HistoryTitle({ entry }: { entry: HistoryEntry }) {
+  const { names, rest } = titleParts(entry);
+  if (names === null) return <span className={styles.cardTitle} data-plain="">Query</span>;
+  return (
+    <span className={styles.cardTitle}>
+      {names}
+      {rest === null ? null : <span className={styles.cardRest}>{rest}</span>}
+    </span>
+  );
+}
 
 /**
  * The History tab: cards newest first, grouped by day — a ran/failed
  * mark, the recognized tables as the title, the SQL as a clamped excerpt
  * with Show all, the time, rows and duration or the failure code; Load
  * (the card), Run again and Remove on hover and by keyboard; Clear
- * history at the foot.
+ * history at the foot. The title's tables and the SQL are in the code
+ * face, as the editor shows SQL.
  */
 export function HistoryList({
   entries,
@@ -95,7 +110,7 @@ export function HistoryList({
                       <GeometryIcon kind={geometryKind(geometry.geometryType, geometry.geometryColumn)} />
                     </span>
                   )}
-                  <span className={styles.cardTitle}>{titleOf(h)}</span>
+                  <HistoryTitle entry={h} />
                   <span className={styles.cardWhen}>{timeOf(h.at)}</span>
                 </div>
                 <SqlExcerpt sql={h.sql.trim()} clamped={!isOpen} />

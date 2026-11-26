@@ -2,6 +2,7 @@
 
 import type { TableFeaturesResult } from "@/lib/table-service";
 import { featureCountReadout } from "../feature-readout";
+import { geometryKindWord } from "../geometry-class";
 import { ErrorNote } from "../ui/ErrorNote";
 import { FeaturePreviewMap } from "../map/FeaturePreviewMap";
 import type { ReadState } from "./use-dataset-reads";
@@ -9,11 +10,12 @@ import styles from "./ResultsBand.module.css";
 
 /** The readout's words: what the features read
  * warrants, the drawn count against the table's rows when sampled (the
- * count sentence shared with the shipped previews). */
+ * count sentence shared with the shipped previews), and the kind as a
+ * plain word when the read names one. */
 export function readoutOf(r: TableFeaturesResult, crsAssumed: boolean): string[] {
   return [
     featureCountReadout(r),
-    r.geometryType ?? "",
+    r.geometryType ? geometryKindWord(r.geometryType) : "",
     crsAssumed ? "WGS84 assumed" : "",
   ].filter(Boolean);
 }

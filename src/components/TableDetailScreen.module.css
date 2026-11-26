@@ -48,8 +48,8 @@
 }
 
 .title h1 {
-  font-family: var(--font-mono);
-  /* The title role — mono stays: this renders a table identifier. */
+  /* The title role, in the reading face: the dataset's name read as a
+     name. The "In SQL:" line under the chips carries the SQL name. */
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -59,6 +59,21 @@
 
 .title > div {
   margin-top: 7px;
+}
+
+/* Under the chips, the name the SQL page opens the dataset by: the words
+   muted in the reading face, the name itself in mono. */
+.inSql {
+  margin-top: 6px;
+  font-size: var(--text-meta);
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inSql code {
+  font-family: var(--font-mono);
 }
 
 .actions {
@@ -202,6 +217,7 @@
   margin-top: 9px;
   font-size: 12px;
   color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .loading {

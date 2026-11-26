@@ -16,11 +16,13 @@ import {
 } from "../query-promote";
 import { SaveResultAsDataset } from "../SaveResultAsDataset";
 import { Button } from "../ui/Button";
+import { EngineWords } from "../ui/EngineWords";
 import { ErrorNote } from "../ui/ErrorNote";
 import { LayersIcon } from "../ui/icons";
 import { IconDownload, IconMap, IconTable } from "../gallery-icons";
 import { serverUnreachable } from "../failure-copy";
 import { featureCountReadout } from "../feature-readout";
+import { geometryKindWord } from "../geometry-class";
 import { ResultMap } from "./ResultMap";
 import { ResultTable } from "./ResultTable";
 import { useAnchored } from "./use-anchored";
@@ -400,7 +402,7 @@ export function ResultsPane(p: Props) {
               message={
                 <>
                   <span className={styles.errorCode}>{shown.code}</span>
-                  {shown.message}
+                  <EngineWords text={shown.message} />
                 </>
               }
               onDismiss={p.onDismissError}
@@ -479,7 +481,7 @@ export function ResultsPane(p: Props) {
               {features.state.status === "ready" && features.state.value.ok && (
                 <div className={styles.mapReadout}>
                   <span>{featureCountReadout(features.state.value)}</span>
-                  {features.state.value.geometryType && <span>{features.state.value.geometryType}</span>}
+                  {features.state.value.geometryType && <span>{geometryKindWord(features.state.value.geometryType)}</span>}
                 </div>
               )}
             </FeaturePreviewMap>

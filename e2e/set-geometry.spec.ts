@@ -289,7 +289,7 @@ test.describe("set geometry", () => {
     await page.getByRole("tab", { name: "Map preview" }).click();
     await expectInk(page, "light", [TRIP_MID]);
     await expect(page.locator("[data-choice-readout]")).toContainText("3 of 4 sampled rows");
-    await expect(page.locator("[data-choice-readout]")).toContainText("LINESTRING");
+    await expect(page.locator("[data-choice-readout]")).toContainText("Lines");
     await attach(page, info, "panel-lines-light");
     await setTheme(page, "dark");
     await expectInk(page, "dark", [TRIP_MID]);
