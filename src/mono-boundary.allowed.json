@@ -1,0 +1,1783 @@
+[
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: const dmMono = DM_Mono({",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: const plexMono = IBM_Plex_Mono({",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: import { Archivo, DM_Mono, Gabarito, IBM_Plex_Mono, Inter } from \"next/font/google\";",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: variable: \"--font-dm-mono\",",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/document.tsx :: variable: \"--font-plex-mono\",",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/globals.css :: :root",
+    "kind": "face",
+    "unseen": "Set on the page itself: it defines the workspace's mono token from DM Mono."
+  },
+  {
+    "layer": "mono",
+    "id": "src/app/globals.css :: [data-published-view]",
+    "kind": "face"
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/AddToMapDialog.module.css :: .nameField input",
+    "kind": "to-reading-face",
+    "note": "The Add to a map dialog's layer-name field: a layer's name.",
+    "elements": [
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <input>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .homeLine code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <code> {line.example}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .tableName",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <span.tableName> {dot >= 0 ? typed.slice(dot + 1) : typed"
+    ],
+    "inherits": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <i.tableQualifier> {typed.slice(0, dot + 1)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/assistant/ModelPicker.module.css :: .identity",
+    "kind": "identifier",
+    "elements": [
+      "src/components/builder/assistant/ModelMenu.tsx :: ModelMenu <span.identity> {model.id}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/assistant/TalkingAbout.module.css :: .mono",
+    "kind": "to-reading-face",
+    "note": "The assistant's chip that names a layer.",
+    "elements": [
+      "src/components/builder/assistant/TalkingAbout.tsx :: TalkingAbout <span.mono.value> {chip.value}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .code",
+    "kind": "code",
+    "elements": [
+      "src/components/builder/assistant/AssistantReply.tsx :: AssistantReply <pre.code> {segment.code}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .inspectionInput dd",
+    "kind": "identifier",
+    "note": "A map check's facts (sizes, counts, the appearance, the credit, what failed) move to the reading face; its render identity stays mono, and so does the state's digest beside the counts. An action's argument values stay mono.",
+    "elements": [
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {`${check.abandoned.length} request${che",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {`${check.source.width} by ${check.sourc",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.appearance}",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.attribution}",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.failures.join(\"; \")}",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.image ? `${check.image.width} by ",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.renderId}",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.stateDigest} {check.layers !== un",
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <dd> {value}"
+    ],
+    "split": {
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.stateDigest} {check.layers !== un": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.appearance}": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.image ? `${check.image.width} by ": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {`${check.source.width} by ${check.sourc": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.attribution}": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.failures.join(\"; \")}": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {`${check.abandoned.length} request${che": "to-reading-face"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .inspectionInput dt",
+    "kind": "identifier",
+    "note": "A map check's labels (render, state, image and the rest) are words: they move to the reading face. An action's argument names stay mono.",
+    "elements": [
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"appearance\"",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"credit\"",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"image\"",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"in the picture\"",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"not answered\"",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"render\"",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"rendered at\"",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"state\"",
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <dt> {key}"
+    ],
+    "split": {
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"appearance\"": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"credit\"": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"image\"": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"in the picture\"": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"not answered\"": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"render\"": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"rendered at\"": "to-reading-face",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"state\"": "to-reading-face"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .proposalSql",
+    "kind": "sql",
+    "elements": [
+      "src/components/builder/assistant/ProposalBlock.tsx :: ProposalBlock <pre.proposalSql> {sql}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .reply code",
+    "kind": "code",
+    "elements": [
+      "src/components/builder/assistant/reply-markdown.tsx :: renderInline <code> {node.text}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .sql",
+    "kind": "sql",
+    "elements": [
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <pre.sql> {entry.sql}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .tool",
+    "kind": "unused",
+    "note": "No element wears it: a later change deletes the rule."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/AssistantPanel.module.css :: .toolId",
+    "kind": "identifier",
+    "elements": [
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <p.toolId> {entry.tool}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/draw/draw.module.css :: .draftLabel",
+    "kind": "to-reading-face",
+    "note": "The radius while drawing a circle: a measure.",
+    "elements": [
+      "src/components/builder/draw/DrawOverlay.tsx :: DrawOverlay <text.draftLabel> \"r ≈\" {formatDistanceKm(radiusKm)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .number",
+    "kind": "to-reading-face",
+    "note": "The tool drawer's number fields.",
+    "elements": [
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberControl <input.number>",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberListControl <input.number> placeholder \"—\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .textarea",
+    "kind": "sql",
+    "elements": [
+      "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <textarea.textarea>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/drawer/SuccessFace.module.css :: .table code",
+    "kind": "to-reading-face",
+    "note": "The dataset a tool made, named as a name.",
+    "elements": [
+      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <code> {made.table}",
+      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <code> {made.table} #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/export/ExportComposition.module.css :: .composition",
+    "kind": "face",
+    "note": "Rebinds the mono token to the reading face inside an exported image, which shows no code."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/FilterSection.module.css :: .badge",
+    "kind": "keeps",
+    "note": "A filtered field's type badge (int, float, date, time, text).",
+    "elements": [
+      "src/components/builder/FilterSection.tsx :: AddFilterPicker <span.badge> {typeBadge(f)}",
+      "src/components/builder/FilterSection.tsx :: FilterSection <span.badge> {typeBadge(field)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/FilterSection.module.css :: .bound",
+    "kind": "to-reading-face",
+    "note": "A filter's typed bounds: number fields.",
+    "elements": [
+      "src/components/builder/FilterSection.tsx :: TimeControl <input.bound>",
+      "src/components/builder/FilterSection.tsx :: TimeControl <input.bound> #2",
+      "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound>",
+      "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound> #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/FilterSection.module.css :: .fieldName",
+    "kind": "to-reading-face",
+    "note": "A filter's field name, shown to the map's reader.",
+    "elements": [
+      "src/components/builder/FilterSection.tsx :: FilterSection <span.fieldName> {f.field}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/LegendTab.module.css :: .attrInput",
+    "kind": "to-reading-face",
+    "note": "The legend's display label: text the legend shows.",
+    "elements": [
+      "src/components/builder/LegendTab.tsx :: LegendEditor <input.attrInput>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/PaletteControl.module.css :: .stopPos",
+    "kind": "to-reading-face",
+    "note": "A colour stop's position: a number field.",
+    "elements": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <NumberInput.field.stopPos>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/publish/PublishPopover.module.css :: .fieldName",
+    "kind": "structure",
+    "elements": [
+      "src/components/builder/publish/PublishPopover.tsx :: SharedFields <span.fieldName> {name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/publish/PublishPopover.module.css :: .snippet",
+    "kind": "code",
+    "elements": [
+      "src/components/builder/publish/PublishPopover.tsx :: EmbedView <Textarea.field.snippet>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/publish/PublishPopover.module.css :: .url",
+    "kind": "address",
+    "elements": [
+      "src/components/builder/publish/PublishPopover.tsx :: PublishPopover <div.url> {url.replace(/^https?:\\/\\//, \"\")}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/StylePanel.module.css :: .breakInput",
+    "kind": "to-reading-face",
+    "note": "A class boundary: a number field.",
+    "elements": [
+      "src/components/builder/style-panel/rows.tsx :: BreakInput <input.breakInput>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/StylePanel.module.css :: .num",
+    "kind": "to-reading-face",
+    "note": "Radius and cell size: number fields.",
+    "elements": [
+      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <input.num>",
+      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <input.num> #2",
+      "src/components/builder/style-panel/size-rows.tsx :: CellSizeRow <input.num>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/ConnectionDetail.module.css :: .snapshotMain code, .snapshotMain small span, .identifier",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <code> {schema && table ? `${schema}.${table}` ",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd.identifier> {connection.id}",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"LIMIT\" {formatCount(limit)}",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"WHERE\" {filter}"
+    ],
+    "split": {
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"WHERE\" {filter}": "sql",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"LIMIT\" {formatCount(limit)}": "sql",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd.identifier> {connection.id}": "identifier"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/ConnectionForm.module.css :: .mono",
+    "kind": "address",
+    "elements": [
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono>",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #2",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #3",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> placeholder \"db.example.org\"",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> placeholder \"postgres://user:password@ho"
+    ],
+    "split": {
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #2": "identifier",
+      "src/components/connections/ConnectionForm.tsx :: ConnectionForm <input.mono> #3": "identifier"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .doneCard h3 code, .doneRelation",
+    "kind": "sql-name",
+    "note": "\"Imported as\" names the new dataset and \"Added to the map as\" names the layer, both as names: they move to the reading face.",
+    "elements": [
+      "src/components/connections/PostgisDataDone.tsx :: PostgisCompletionFacts <span.doneRelation> {relationKey(relation)}",
+      "src/components/connections/PostgisDataDone.tsx :: PostgisDataDone <code> {table.name}",
+      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <code> {heading.name}"
+    ],
+    "split": {
+      "src/components/connections/PostgisDataDone.tsx :: PostgisDataDone <code> {table.name}": "to-reading-face",
+      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <code> {heading.name}": "to-reading-face"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .importTitle code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {relationKey(relation)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .qualified, .columnsToggle, .spatialFact, .columnList, .previewTable",
+    "kind": "sql-name",
+    "note": "The columns toggle is a count, and the spatial fact names a geometry kind: they move to the reading face, the kind as a plain word, with the column type and the SRID staying mono beside it.",
+    "elements": [
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <table.previewTable>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <button.columnsToggle> {preview.data ? `${preview.data.columns.",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <div.columnList>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <h3.qualified> {relationKey(relation)}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span.spatialFact> {spatialLabel(relation)}"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <small> {column.type}",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <td> {previewCell(row[column.name])}",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <th> {column.name}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.name}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.type}"
+    ],
+    "split": {
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <button.columnsToggle> {preview.data ? `${preview.data.columns.": "to-reading-face",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span.spatialFact> {spatialLabel(relation)}": "to-reading-face",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.name}": "structure",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.type}": "structure",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <th> {column.name}": "structure",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <td> {previewCell(row[column.name])}": "structure",
+      "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <small> {column.type}": "structure"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .relationName, .relationRows, .field input",
+    "kind": "sql-name",
+    "note": "The row estimate beside a remote table and the import box's row limit are a count and a number field: they move to the reading face with digits of one width.",
+    "elements": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationName>",
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationRows> {estimateLabel(relation)}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"all rows\"",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"updated_at &gt; now() - int"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationLabel> {relation.table}"
+    ],
+    "split": {
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationRows> {estimateLabel(relation)}": "to-reading-face",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input>": "new-dataset-name",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"all rows\"": "to-reading-face",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"updated_at &gt; now() - int": "sql"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .server",
+    "kind": "address",
+    "elements": [
+      "src/components/connections/PostgisPicker.tsx :: PostgisPicker <span.server> {serverAddress(connection)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .errorTable code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <code> {code}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .method",
+    "kind": "identifier",
+    "note": "In the operations list the pill shows an operation's category, a kind: it moves to the reading face, and the class splits from the HTTP methods.",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <span.method> {method.toUpperCase()}",
+      "src/components/DocsScreen.tsx :: DocsScreen <span.method> {operation.group}"
+    ],
+    "split": {
+      "src/components/DocsScreen.tsx :: DocsScreen <span.method> {operation.group}": "to-reading-face"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .path",
+    "kind": "identifier",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <code.path> {operation.id}",
+      "src/components/DocsScreen.tsx :: DocsScreen <code.path> {path}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .sectionDesc code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <code> \"GET /api/operations\"",
+      "src/components/DocsScreen.tsx :: DocsScreen <code> \"POST /api/operations/run\"",
+      "src/components/DocsScreen.tsx :: DocsScreen <code> \"code\"",
+      "src/components/DocsScreen.tsx :: DocsScreen <code> \"message\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/gallery.module.css :: .geomCell",
+    "kind": "to-reading-face",
+    "note": "The Data list's geometry column: a kind, as a plain word.",
+    "elements": [
+      "src/components/data-cards.tsx :: TableRow <td.geomCell> {geometry}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/gallery.module.css :: .numCell",
+    "kind": "to-reading-face",
+    "note": "The Data list's rows, size and last updated, and the folder rows' totals: counts, sizes and times, keeping digits of one width.",
+    "elements": [
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatBytes(folder.bytes)}",
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatCount(folder.rows)}",
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatRelativeTime(folder.updatedAt)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatBytes(t.sizeBytes)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatCount(t.rowCount)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatRelativeTime(updatedAt(t))}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/GeometryBadge.module.css :: .badge",
+    "kind": "to-reading-face",
+    "note": "The Add layer catalog's kind capsule: a kind, as a plain word.",
+    "elements": [
+      "src/components/GeometryBadge.tsx :: GeometryBadge <span.badge> {geometryLabel(table)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/GeometryProvenance.module.css :: .record b",
+    "kind": "structure",
+    "elements": [
+      "src/components/GeometryProvenance.tsx :: GeometryProvenance <b> {record.columns.join(\", \")}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/map/MapCanvas.module.css :: .popup",
+    "kind": "to-reading-face",
+    "note": "A map's pop-up: field names and values shown to a reader.",
+    "elements": [
+      "src/components/map/MapPopup.tsx :: MapPopup <div.popup>"
+    ],
+    "inherits": [
+      "src/components/map/MapPopup.tsx :: Rows <span.tipKey> {k}",
+      "src/components/map/MapPopup.tsx :: Rows <span.tipVal> {String(v)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/map/MapCanvas.module.css :: .tooltip",
+    "kind": "to-reading-face",
+    "note": "A map's hover: field names and values shown to a reader.",
+    "elements": [
+      "src/components/map/MapPopup.tsx :: MapTooltip <div.tooltip>"
+    ],
+    "inherits": [
+      "src/components/map/MapPopup.tsx :: Rows <span.tipKey> {k}",
+      "src/components/map/MapPopup.tsx :: Rows <span.tipVal> {String(v)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/MiniMap.module.css :: .measure",
+    "kind": "to-reading-face",
+    "note": "Distances and areas while drawing on the area picker: measures.",
+    "elements": [
+      "src/components/MiniMap.tsx :: MiniMap <span.areaBadge.measure> {areaBadge.text}",
+      "src/components/MiniMap.tsx :: MiniMap <span.measure> {l.text}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OsmPane.module.css :: .chip",
+    "kind": "keeps",
+    "note": "An OpenStreetMap tag filter, key=value as typed, with its remove mark.",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <span.chip> {entry}"
+    ],
+    "inherits": [
+      "src/components/OsmPane.tsx :: OsmPane <button> \"×\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OsmPane.module.css :: .chips input",
+    "kind": "keeps",
+    "note": "The field a tag filter is typed into, key=value.",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <input> placeholder \"key=value ⏎\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OsmPane.module.css :: .hint code",
+    "kind": "structure",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <code> \"tags\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OsmPane.module.css :: .mono",
+    "kind": "new-dataset-name",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <input.mono>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/OverturePane.module.css :: .mono",
+    "kind": "new-dataset-name",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <input.mono>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/AddItemsDialog.module.css :: .text b.mono",
+    "kind": "to-reading-face",
+    "note": "The Add items picker's dataset names.",
+    "elements": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <b.mono> {item.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/AddToProjectDialog.module.css :: .dsName",
+    "kind": "to-reading-face",
+    "note": "Add to project's dataset names (the plain name with its owner) and its workflow names.",
+    "elements": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.dsName> {d.qualifiedName ?? d.name}",
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.dsName> {p.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .ext",
+    "kind": "address",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.ext> \".zip\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .fileIn input",
+    "kind": "address",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <input> #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .nameMono",
+    "kind": "to-reading-face",
+    "note": "The export picker's dataset names.",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.name.nameMono> {r.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .tree",
+    "kind": "address",
+    "note": "The notes beside the archive's paths (what each holds, counts and sizes) move to the reading face; the paths stay mono.",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <div.tree>"
+    ],
+    "inherits": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeDir.treeFile> {row.label}",
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeNote> {row.note}"
+    ],
+    "split": {
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeNote> {row.note}": "to-reading-face"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/HomeSections.module.css :: .monoName",
+    "kind": "to-reading-face",
+    "note": "The project page's dataset names, in list mode.",
+    "elements": [
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.monoName> {t.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/projects/RecentList.module.css :: .text b.mono",
+    "kind": "to-reading-face",
+    "note": "A dataset's name in Home's recent rows and an empty project's filing list.",
+    "elements": [
+      "src/components/projects/RecentList.tsx :: RowContent <b.mono> {it.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/ResultGrid.module.css :: .grid",
+    "kind": "structure",
+    "elements": [
+      "src/components/ResultGrid.tsx :: ResultGrid <table.grid>"
+    ],
+    "inherits": [
+      "src/components/ResultGrid.tsx :: ResultGrid <span.colName> {c.name}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span.colType> {c.type}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span.nullCell> \"∅\"",
+      "src/components/ResultGrid.tsx :: ResultGrid <td> {value === null || value === undefined ?"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/ResultGrid.module.css :: .resultMeta",
+    "kind": "to-reading-face",
+    "note": "The Add layer preview's rows, columns and time: counts and a time.",
+    "elements": [
+      "src/components/ResultGrid.tsx :: ResultGrid <div.resultMeta>"
+    ],
+    "inherits": [
+      "src/components/ResultGrid.tsx :: ResultGrid <span.truncated> \"showing first\" {formatCount(rows.length",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"columns\" {result.columns.length}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"ms\" {result.runtimeMs}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"rows\"",
+      "src/components/ResultGrid.tsx :: ResultGrid <strong> {formatCount(result.rowCount)}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/SaveResultAsDataset.module.css :: .field input",
+    "kind": "new-dataset-name",
+    "elements": [
+      "src/components/SaveResultAsDataset.tsx :: SaveResultAsDataset <input>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/SaveResultAsDataset.module.css :: .storedAs code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/SaveResultAsDataset.tsx :: SaveResultAsDataset <code> {stored}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/set-geometry/ProposalStrip.module.css :: .strip code",
+    "kind": "structure",
+    "elements": [
+      "src/components/set-geometry/ProposalStrip.tsx :: ProposalStrip <code> {pair.columns[0]}",
+      "src/components/set-geometry/ProposalStrip.tsx :: ProposalStrip <code> {pair.columns[1]}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .head small",
+    "kind": "to-reading-face",
+    "note": "The Set geometry header's dataset name, a name.",
+    "elements": [
+      "src/components/set-geometry/SetGeometryPanel.tsx :: SetGeometryPanel <small> {name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .mono",
+    "kind": "identifier",
+    "note": "The column pickers are pickers shown to a reader: they move to the reading face. The Other EPSG code field stays mono.",
+    "elements": [
+      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <Select.field.mono>",
+      "src/components/set-geometry/SetGeometryControls.tsx :: OtherCodeField <TextInput.field.mono> placeholder \"EPSG code, for example 3146"
+    ],
+    "inherits": [
+      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <option> \"·\" {c.name} {c.type}"
+    ],
+    "split": {
+      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <Select.field.mono>": "to-reading-face",
+      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <option> \"·\" {c.name} {c.type}": "to-reading-face"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/DataTab.module.css :: .addressField",
+    "kind": "address",
+    "elements": [
+      "src/components/settings/BasemapsCard.tsx :: AddStyleForm <TextInput.addressField.field> placeholder \"https://tiles.example.org/s",
+      "src/components/settings/ServiceAddressRow.tsx :: ServiceAddressRow <TextInput.addressField.field>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/McpCard.module.css :: .configuration",
+    "kind": "code",
+    "elements": [
+      "src/components/settings/McpCard.tsx :: McpCard <pre.configuration>",
+      "src/components/settings/McpCard.tsx :: McpCard <pre.configuration> #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/McpCard.module.css :: .endpoint",
+    "kind": "address",
+    "elements": [
+      "src/components/settings/McpCard.tsx :: McpCard <code.endpoint> {endpoint || '/api/mcp'}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/RuleCard.module.css :: .sites",
+    "kind": "address",
+    "elements": [
+      "src/components/settings/RuleCard.tsx :: SitesRow <Textarea.field.sites> placeholder \"https://www.stadtwerke.exam"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingRows.module.css :: .lockedField [data-mono]",
+    "kind": "address",
+    "elements": [
+      "src/components/ui/Field.tsx :: TextInput <input.field>",
+      "src/components/ui/Field.tsx :: Textarea <textarea.field>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingRows.module.css :: .lockedNote code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/settings/SettingRows.tsx :: Sentence <code> {state.variable}",
+      "src/components/settings/SettingRows.tsx :: Sentence <code> {state.variable} #2",
+      "src/components/settings/SettingRows.tsx :: Sentence <code> {state.variable} #3"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingRows.module.css :: .value[data-mono]",
+    "kind": "address",
+    "note": "A read-only value: a path, a file name, an address, an environment variable. The last reset's value, a count and a time, reaches the same element through its children and moves to the reading face.",
+    "elements": [
+      "src/components/settings/SettingRows.tsx :: ValueText <span.value> {children}"
+    ],
+    "inherits": [
+      "src/components/settings/AssistantKeyCard.tsx :: AssistantKeyCard <span.mono> {key.lastFour}",
+      "src/components/settings/SystemTab.tsx :: VariableName <Fragment> \"_\" {part}"
+    ],
+    "split": {
+      "src/components/settings/AssistantKeyCard.tsx :: AssistantKeyCard <span.mono> {key.lastFour}": "identifier",
+      "src/components/settings/SystemTab.tsx :: VariableName <Fragment> \"_\" {part}": "identifier"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/SettingsCard.module.css :: .sqlName code",
+    "kind": "identifier",
+    "elements": [
+      "src/components/settings/AccountCard.tsx :: AccountCard <code> {account.sqlName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/settings/WorkflowsTab.module.css :: .editor",
+    "kind": "sql",
+    "elements": [
+      "src/components/settings/WorkflowsTab.tsx :: EditorSample <div.editor>"
+    ],
+    "inherits": [
+      "src/components/settings/WorkflowsTab.tsx :: EditorSample <span.gutter> {index + 1}",
+      "src/components/settings/WorkflowsTab.tsx :: EditorSample <span> {text}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sharing/ShareDialog.module.css :: .sqlName",
+    "kind": "identifier",
+    "elements": [
+      "src/components/sharing/ShareDialog.tsx :: Who <span.sqlName> {person.sqlName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql-editor-extensions.ts :: completionLook > \".cm-tooltip.cm-tooltip-autocomplete\" > font",
+    "kind": "sql",
+    "unseen": "The SQL editor's completion list, drawn by the editor itself."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .errorCode",
+    "kind": "identifier",
+    "elements": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span.errorCode> {shown.code}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .eyebrowSql",
+    "kind": "identifier",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <code.eyebrowSql> \"·\" {group.sqlName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .grid",
+    "kind": "structure",
+    "elements": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <table.grid>"
+    ],
+    "inherits": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <span.thType> {c.type}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <td.rn> {i + 1}",
+      "src/components/sql/ResultTable.tsx :: ResultTable <td> {f.text.length > 120 ? f.text.slice(0, 1",
+      "src/components/sql/ResultTable.tsx :: ResultTable <th> {c.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .lead b",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <b> {shown.table.qualifiedName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .mapReadout",
+    "kind": "to-reading-face",
+    "note": "The SQL page's map readouts: counts and a kind. A column name inside a readout stays mono.",
+    "elements": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <div.mapReadout>",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.mapReadout>"
+    ],
+    "inherits": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <span> \"features\" {formatCount(drawn)} {rowCoun",
+      "src/components/sql/ResultMap.tsx :: ResultMap <span> {geometryColumn}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {featureCountReadout(features.state.valu",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {features.state.value.geometryType}"
+    ],
+    "split": {
+      "src/components/sql/ResultMap.tsx :: ResultMap <span> {geometryColumn}": "structure"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .mapTip",
+    "kind": "structure",
+    "elements": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <div.mapTip>"
+    ],
+    "inherits": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <div> {String(v)}",
+      "src/components/sql/ResultMap.tsx :: ResultMap <span.mapTipKey> {k}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .peekValue",
+    "kind": "structure",
+    "elements": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <pre.peekValue> {peek.value}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .resNotes code",
+    "kind": "sql-name",
+    "unseen": "The SQL page's \"Saved as\" name: the note's markup is held in a list the collector does not follow."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .rowName",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.rowName> {t.name}"
+    ],
+    "inherits": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <i.rowQualifier> \".\" {qualifier}",
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.colHit> \"·\" {hit}"
+    ],
+    "split": {
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.colHit> \"·\" {hit}": "structure"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/SqlEditor.tsx :: editorTheme > \".cm-scroller\" > fontFamily",
+    "kind": "sql",
+    "unseen": "The SQL editor's theme: the editor draws the elements it styles itself."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/TableDetailScreen.module.css :: .title h1",
+    "kind": "to-reading-face",
+    "note": "The table page's title: a dataset's name as a name. An \"In SQL:\" line under the chips takes the SQL name.",
+    "elements": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <h1> {table.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/TablePreviewGrid.module.css :: .grid",
+    "kind": "structure",
+    "elements": [
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <table.grid>"
+    ],
+    "inherits": [
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <span.colName> {c.name}",
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <span.colType> {c.type}",
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <span.nullCell> \"∅\"",
+      "src/components/TablePreviewGrid.tsx :: TablePreviewGrid <td> {value === null || value === undefined ?"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/TablePreviewMap.module.css :: .readout",
+    "kind": "to-reading-face",
+    "note": "The readout under the table page's map preview and in Set geometry: a count, a kind and a projection.",
+    "elements": [
+      "src/components/TablePreviewMap.tsx :: TablePreviewMap <div.readout>",
+      "src/components/set-geometry/ChoicePreviewMap.tsx :: ChoicePreviewMap <div.readout>"
+    ],
+    "inherits": [
+      "src/components/TablePreviewMap.tsx :: TablePreviewMap <span> {part}",
+      "src/components/set-geometry/ChoicePreviewMap.tsx :: ChoicePreviewMap <span> {part}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/TablesScreen.module.css :: .nameCell",
+    "kind": "to-reading-face",
+    "note": "The Data list's name column, and the owner's initials drawn in it: names.",
+    "elements": [
+      "src/components/TablesScreen.tsx :: TablesScreen <FolderRow.nameCell.rowName> {folder.name}",
+      "src/components/data-cards.tsx :: TableRow <td.nameCell> {leading} {t.name}"
+    ],
+    "inherits": [
+      "src/components/sharing/PeopleMarks.tsx :: OwnerPill <Face.face.initials> {!settled && letters}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/templates/TemplateView.module.css :: .dataTop b",
+    "kind": "to-reading-face",
+    "note": "A template's dataset names, on a reading page.",
+    "elements": [
+      "src/components/templates/HowItsMade.tsx :: HowItsMade <b> {row.dataset}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/templates/TemplateView.module.css :: .sql",
+    "kind": "sql",
+    "elements": [
+      "src/components/templates/HowItsMade.tsx :: HowItsMade <pre.sql> {layer.sql}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/templates/TemplateView.module.css :: .steps code",
+    "kind": "to-reading-face",
+    "note": "A template's workflow steps' output names, on a reading page.",
+    "elements": [
+      "src/components/templates/HowItsMade.tsx :: HowItsMade <code> \"→\" {step.output}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/ui/ErrorNote.module.css :: @layer kit { .detailText }",
+    "kind": "engine-error",
+    "elements": [
+      "src/components/ui/ErrorNote.tsx :: ErrorNote <div.detailText> {detail}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/UrlImportPane.module.css :: .mono",
+    "kind": "address",
+    "elements": [
+      "src/components/UrlImportPane.tsx :: UrlImportPane <input.mono> placeholder \"derived from the URL\"",
+      "src/components/UrlImportPane.tsx :: UrlImportPane <input.mono> placeholder \"https://… · s3://… · gs://…"
+    ],
+    "split": {
+      "src/components/UrlImportPane.tsx :: UrlImportPane <input.mono> placeholder \"derived from the URL\"": "new-dataset-name"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/users/DeleteAccountDialog.module.css :: .field b, .field input",
+    "kind": "address",
+    "elements": [
+      "src/components/ui/Field.tsx :: TextInput <input.field>",
+      "src/components/users/DeleteAccountDialog.tsx :: DeleteAccountDialog <b> {preview.account.email}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/users/UsersScreen.module.css :: .facts .sql",
+    "kind": "identifier",
+    "elements": [
+      "src/components/users/UserRow.tsx :: UserRow <span.sql> {account.sqlName}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/users/UsersScreen.module.css :: .field input",
+    "kind": "address",
+    "elements": [
+      "src/components/ui/Field.tsx :: TextInput <input.field>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/InputPicker.module.css :: .name",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> {chosen.label}",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.name> {o.label}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/NoteNode.module.css :: .body code",
+    "kind": "code",
+    "unseen": "A note's inline code on the workflow canvas: the note's Markdown is drawn by a function another file calls."
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/NoteNode.module.css :: .edit",
+    "kind": "code",
+    "elements": [
+      "src/components/workflow-canvas/NoteNode.tsx :: NoteEditor <textarea.edit.nodrag.nopan.nowheel>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/NoteNode.module.css :: .label",
+    "kind": "to-reading-face",
+    "note": "A note's label on the workflow canvas, and the unsaved mark drawn in it.",
+    "elements": [
+      "src/components/workflow-canvas/NoteNode.tsx :: NoteNode <span.label> {label}"
+    ],
+    "inherits": [
+      "src/components/builder/UnsavedFields.tsx :: UnsavedMark <span.mark> {children}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/NoteNode.module.css :: .placeholder",
+    "kind": "code",
+    "elements": [
+      "src/components/workflow-canvas/NoteNode.tsx :: NoteEditor <pre.placeholder> {placeholder.lead + PLACEHOLDER}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .disclosure dd",
+    "kind": "address",
+    "note": "A provider's recorded request: its address, and its parameter values as they were sent, which the rule does not name and which keep their face.",
+    "elements": [
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <dd> {f.value}",
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <dd> {p.body.endpoint ?? NO_ENDPOINT}"
+    ],
+    "split": {
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <dd> {f.value}": "keeps"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .lead b",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <b> {lead.dataset}",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <b> {lead.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .provFacts code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <code> {i.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .readout",
+    "kind": "to-reading-face",
+    "note": "The workflow results band's map readout: a count, a kind and a projection.",
+    "elements": [
+      "src/components/workflow-canvas/MapTab.tsx :: MapTab <div.readout>"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/MapTab.tsx :: MapTab <span> {part}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .sqlText",
+    "kind": "sql",
+    "elements": [
+      "src/components/workflow-canvas/ProvenanceTab.tsx :: ProvenanceTab <SqlExcerpt.sqlText>"
+    ],
+    "inherits": [
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text}",
+      "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text} #2"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .ts",
+    "kind": "to-reading-face",
+    "note": "The Messages log's clock times and who ran a step: times and people, keeping digits of one width.",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span.ts> \"·\" {fmt.format(new Date(e.time))}"
+    ],
+    "inherits": [
+      "src/components/sharing/RunInitiator.tsx :: RunInitiator <span> {deleted ? \"Deleted account\" : actor ? f"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .callout .mono",
+    "kind": "engine-error",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.mono> {c.mono}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .changeRow .now",
+    "kind": "keeps",
+    "note": "A workflow step's parameter value after an edit, as written.",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.now> {ch.now}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .changeRow .was",
+    "kind": "keeps",
+    "note": "A workflow step's parameter value before an edit, as written.",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.was> {ch.was}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .colType",
+    "kind": "structure",
+    "elements": [
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <span.colType> {c.type.toLowerCase()}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .kv dd",
+    "kind": "sql-name",
+    "note": "The panels' Rows are counts: they move to the reading face, keeping digits of one width.",
+    "elements": [
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {step.output?.name ?? outputName}",
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {table ? formatCount(table.rowCount) : \"",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m"
+    ],
+    "split": {
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {table ? formatCount(table.rowCount) : \"": "to-reading-face",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m": "to-reading-face"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .nameInput",
+    "kind": "new-dataset-name",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <input.nameInput>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .pLabel",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/BadgeNode.tsx :: BadgeNode <i.pLabel> {p.label} {p.value ? ` · ${p.value}` : \""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .planList code",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/RunConfirmDialog.tsx :: RunConfirmDialog <code> {r.dataset || \"unnamed\"}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .rowName",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.rowName> {typed}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .srcName",
+    "kind": "sql-name",
+    "elements": [
+      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.srcName> {m.name}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .tOut",
+    "kind": "sql-name",
+    "note": "On a source node the sub-label is the row count: it moves to the reading face with digits of one width, and the class splits from the operation's output name.",
+    "elements": [
+      "src/components/workflow-canvas/BadgeNode.tsx :: BadgeNode <span.tOut> {m.outputName}",
+      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.tOut> {m.missing ? \"missing\" : m.table ? `${fo"
+    ],
+    "split": {
+      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.tOut> {m.missing ? \"missing\" : m.table ? `${fo": "to-reading-face"
+    }
+  },
+  {
+    "layer": "mark",
+    "id": "src/components/DocsScreen.tsx :: DocsScreen <code> {parameter.name}",
+    "kind": "to-mono",
+    "note": "The Developer page's parameter names: a later change gives them the mono face at the size of the sentence around them."
+  },
+  {
+    "layer": "mark",
+    "id": "src/components/settings/McpCard.tsx :: McpCard <code> \"DEZFIL_API_TOKEN\"",
+    "kind": "to-mono",
+    "note": "The MCP card's note names a variable: a later change gives it the mono face at the size of the sentence around it."
+  },
+  {
+    "layer": "mark",
+    "id": "src/components/settings/McpCard.tsx :: McpCard <code> {endpoint ? guide.code : '/api/mcp'}",
+    "kind": "to-mono",
+    "note": "The client configuration inside the MCP card's mono block: the browser sets its monospace on the code element itself, so the block's face does not reach it. A later change gives it the mono face."
+  },
+  {
+    "layer": "mark",
+    "id": "src/components/settings/McpCard.tsx :: McpCard <code> {guide.alternate}",
+    "kind": "to-mono",
+    "note": "The second client configuration block, as above."
+  },
+  {
+    "layer": "mark",
+    "id": "src/components/sql/ResultsPane.tsx :: ResultsPane <code> {savedAs}",
+    "kind": "reached",
+    "rule": "src/components/sql/SqlConsole.module.css :: .resNotes code",
+    "note": "The SQL page's \"Saved as\" note: its markup is held in a list the collector does not follow; the note's code rule reaches it in the page."
+  },
+  {
+    "layer": "mark",
+    "id": "src/lib/note-markdown.tsx :: renderInline <code> {m[1]}",
+    "kind": "reached",
+    "rule": "src/components/workflow-canvas/NoteNode.module.css :: .body code",
+    "note": "Inline code in a workflow note, drawn by a function the note calls from another file; the note's code rule reaches it. Note widgets on maps never ask for inline code."
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/AddDataDialog.module.css :: .storageLine",
+    "elements": [
+      "src/components/AddDataDialog.tsx :: AddDataDialogBody <p.storageLine> {storageLine}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .tableMeta",
+    "elements": [
+      "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <span.tableMeta> \"rows\" {formatCount(t.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/AssistantPanel.module.css :: .elapsed",
+    "elements": [
+      "src/components/builder/assistant/CheckNote.tsx :: CheckNote <span.elapsed> {entry.elapsed}",
+      "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <span.elapsed> {entry.elapsed}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/StatusBar.module.css :: .val",
+    "elements": [
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> \"unavailable\"",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> \"°\" {status?.pitch}",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {records.count < records.total ? `${reco",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {status ? formatZoom(status.zoom) : \"—\"}",
+      "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {text ?? \"—\"}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/ConnectionsLedger.module.css :: .count",
+    "elements": [
+      "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <span.count> {snapshots.length ? formatCount(snapshot"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .chipCount",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <span.chipCount> \"·\" {counts.all}",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.chipCount> \"·\" {counts.drafts}",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.chipCount> \"·\" {counts.published}",
+      "src/components/TablesScreen.tsx :: TablesScreen <span.chipCount> \"·\" {sourceCounts.get(s)}",
+      "src/components/TablesScreen.tsx :: TablesScreen <span.chipCount> \"·\" {tables.length}",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.chipCount> \"·\" {counts[key]}",
+      "src/components/templates/TemplatesScreen.tsx :: TemplatesScreen <span.chipCount> \"·\" {chip.count}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .limitMark",
+    "elements": [
+      "src/components/ListHeading.tsx :: ListHeading <span.limitMark> {mark}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .num",
+    "elements": [
+      "src/components/LayerCount.tsx :: LayerCount <span.num> {count}",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.colWhen.num>",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.num> {m.layerCount}",
+      "src/components/WorkflowFolder.tsx :: FolderCard <span.num> {formatBytes(folder.bytes)}",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.colWhen.num>",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.num> {w.summary.nodes}",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.num> {w.summary.nodes} #2",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.num> {w.summary.sources}",
+      "src/components/data-cards.tsx :: TableCard <span.num> {formatBytes(t.sizeBytes)}",
+      "src/components/projects/HomeSections.tsx :: DatasetCard <span.num> {formatBytes(t.sizeBytes)}",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <span.num> {w.summary.nodes}",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <span.num> {w.summary.sources}"
+    ],
+    "inherits": [
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.fact.head> {head ? <span className={styles.headText",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.headText> {label}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .numCell",
+    "elements": [
+      "src/components/TablesScreen.tsx :: TablesScreen <th.numCell> \"Last updated\"",
+      "src/components/TablesScreen.tsx :: TablesScreen <th.numCell> \"Rows\"",
+      "src/components/TablesScreen.tsx :: TablesScreen <th.numCell> \"Size\"",
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatBytes(folder.bytes)}",
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatCount(folder.rows)}",
+      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatRelativeTime(folder.updatedAt)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatBytes(t.sizeBytes)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatCount(t.rowCount)}",
+      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatRelativeTime(updatedAt(t))}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .overlayData b",
+    "elements": [
+      "src/components/WorkflowFolder.tsx :: FolderCard <b> {folder.outputs.length}",
+      "src/components/data-cards.tsx :: TableCard <b> {formatCompactCount(t.rowCount)}",
+      "src/components/projects/HomeSections.tsx :: DatasetCard <b> {formatCompactCount(t.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .subLine",
+    "elements": [
+      "src/app/(workspace)/not-found.tsx :: WorkspaceNotFound <p.subLine> \"Nothing is at this address.\"",
+      "src/components/ListHeading.tsx :: ListHeading <p.subLine> {line}",
+      "src/components/ListHeading.tsx :: ListHeading <p.subLine> {note}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/home/Home.module.css :: .cnt",
+    "elements": [
+      "src/components/home/HomeShelf.tsx :: HomeShelfSection <span.cnt> {shelf.countLine}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/map/TimelineBar.module.css :: .extent",
+    "elements": [
+      "src/components/map/TimelineBar.tsx :: TimelineBar <div.extent>"
+    ],
+    "inherits": [
+      "src/components/map/TimelineBar.tsx :: TimelineBar <span> {formatTimeMs(hi0, granularity)}",
+      "src/components/map/TimelineBar.tsx :: TimelineBar <span> {formatTimeMs(lo0, granularity)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/map/TimelineBar.module.css :: .readout",
+    "elements": [
+      "src/components/map/TimelineBar.tsx :: TimelineBar <span.readout> \"–\" {formatTimeMs(win[0], granularity)} "
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/map/TimelineBar.module.css :: .speedBtn",
+    "elements": [
+      "src/components/map/TimelineBar.tsx :: TimelineBar <button.speedBtn> \"×\" {speed}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/AddItemsDialog.module.css :: .status",
+    "elements": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <span.status> {pickerStatus(composed.summary)} {pendin"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/AddToProjectDialog.module.css :: .pMeta",
+    "elements": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.pMeta> {current ? \"current project\" : contentsW"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .meta",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.meta> {r.meta}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .selHead small",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <small> {small}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .status",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.status> {ready ? status : \"\"}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .stepPill b",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <b> \"2\"",
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <b> {step === 1 ? \"1\" : <CheckIcon />}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/HomeSections.module.css :: .cnt",
+    "elements": [
+      "src/components/projects/HomeSections.tsx :: SectionHead <span.cnt> {count}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/HomeSections.module.css :: .colRows",
+    "elements": [
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colRows> \"Rows\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colRows> {t.rowCount.toLocaleString(\"en-US\")}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/HomeSections.module.css :: .colSize",
+    "elements": [
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colSize> \"Size\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colSize> {formatBytes(t.sizeBytes)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/ProjectHome.module.css :: .exportNote",
+    "elements": [
+      "src/components/projects/ProjectHomeScreen.tsx :: ProjectHomeVisit <p.exportNote> {exportNote}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/ProjectsScreen.module.css :: .exportNote",
+    "elements": [
+      "src/components/ProjectsScreen.tsx :: ProjectsScreen <p.exportNote> {exportNote}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/scope/ScopeFilter.module.css :: .faceCount",
+    "elements": [
+      "src/components/scope/ScopeFilter.tsx :: ScopeFilter <span.faceCount> \"·\" {faceCount}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/scope/ScopeFilter.module.css :: .rowCount",
+    "elements": [
+      "src/components/scope/ScopeFilter.tsx :: ScopeMenuRows <span.rowCount> {count}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .count b",
+    "elements": [
+      "src/components/set-geometry/SetGeometryControls.tsx :: SetGeometryControls <b> \"0\"",
+      "src/components/set-geometry/SetGeometryControls.tsx :: SetGeometryControls <b> {count.readable}",
+      "src/components/set-geometry/SetGeometryControls.tsx :: SetGeometryControls <b> {count.unreadable}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/AppearancePreview.module.css :: .bar em",
+    "elements": [
+      "src/components/settings/AppearancePreview.tsx :: Bar <em> {value}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/AppearancePreview.module.css :: .widget > b",
+    "elements": [
+      "src/components/settings/AppearancePreview.tsx :: AppearancePreview <b> \"18,930\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/LookPictures.module.css :: .art .ctField",
+    "elements": [
+      "src/components/settings/LookPictures.tsx :: ContrastPicture <span.ctField> \"1,000\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/LookPictures.module.css :: .fnDigits",
+    "elements": [
+      "src/components/settings/LookPictures.tsx :: FontPicture <span.fnDigits> \"0123456789\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/SettingRows.module.css :: .number",
+    "elements": [
+      "src/components/settings/SettingRows.tsx :: NumberField <NumberInput.field.number>"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/settings/SettingRows.module.css :: .value",
+    "elements": [
+      "src/components/settings/SettingRows.tsx :: ValueText <span.value> {children}"
+    ],
+    "inherits": [
+      "src/components/settings/AssistantKeyCard.tsx :: AssistantKeyCard <span.mono> {key.lastFour}",
+      "src/components/settings/SystemTab.tsx :: VariableName <Fragment> \"_\" {part}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .cardMeta",
+    "elements": [
+      "src/components/sql/HistoryList.tsx :: HistoryList <div.cardMeta>"
+    ],
+    "inherits": [
+      "src/components/sql/HistoryList.tsx :: HistoryList <button.linkBtn> {isOpen ? \"Show less\" : \"Show all\"}",
+      "src/components/sql/HistoryList.tsx :: HistoryList <span.cardFailed> \"failed ·\" {h.code}",
+      "src/components/sql/HistoryList.tsx :: HistoryList <span> \"ms\" {h.ms}",
+      "src/components/sql/HistoryList.tsx :: HistoryList <span> \"rows\" {formatCount(h.rows)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .cardWhen",
+    "elements": [
+      "src/components/sql/HistoryList.tsx :: HistoryList <span.cardWhen> {timeOf(h.at)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .grid td[data-kind=\"number\"]",
+    "elements": [
+      "src/components/sql/ResultTable.tsx :: ResultTable <td> {f.text.length > 120 ? f.text.slice(0, 1"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .resMeta",
+    "elements": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.resMeta>",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.resMeta> #2"
+    ],
+    "inherits": [
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <b> {formatCount(shown.run.rowCount)}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <b> {formatCount(shown.table.rowCount)}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"columns\" {shown.run.columns.length}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"columns\" {shown.schema.schema.columns.l",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"ms\" {shown.run.runtimeMs}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"rows\"",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> \"rows\" #2",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {formatBytes(shown.table.sizeBytes)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .rowMeta",
+    "elements": [
+      "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.rowMeta> {formatCount(t.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/TablesScreen.module.css :: .storageLine",
+    "elements": [
+      "src/components/TablesScreen.tsx :: TablesScreen <p.storageLine> {storageLine}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/users/UsersScreen.module.css :: .facts b",
+    "elements": [
+      "src/components/users/UserRow.tsx :: UserRow <b> {day(account.createdAt)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/users/UsersScreen.module.css :: .seen",
+    "elements": [
+      "src/components/users/UserRow.tsx :: UserRow <span.seen> {account.lastSignInAt ? day(account.last"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/viewer/CursorReadout.module.css :: .readout",
+    "elements": [
+      "src/components/viewer/CursorReadout.tsx :: CursorReadout <button.readout> {flash ? ( <span className={styles.flash"
+    ],
+    "inherits": [
+      "src/components/viewer/CursorReadout.tsx :: CursorReadout <span.flash> {flash === \"ok\" ? \"copied\" : \"couldn't c"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/InputPicker.module.css :: .fact",
+    "elements": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact>",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> #2",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> {chosen.node ? <span className={styles.n",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.fact> {o.node ? <span className={styles.nodeTa"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.nodeTag> \"node\"",
+      "src/components/workflow-canvas/InputPicker.tsx :: InputPicker <span.nodeTag> {o.fact === \"not named\" ? \"not named\" : "
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .facts",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span.facts>"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <b> {facts.columns.length}",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <b> {formatCount(facts.rowCount)}",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span> \"columns\"",
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span> \"rows\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .ts",
+    "elements": [
+      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span.ts> \"·\" {fmt.format(new Date(e.time))}"
+    ],
+    "inherits": [
+      "src/components/sharing/RunInitiator.tsx :: RunInitiator <span> {deleted ? \"Deleted account\" : actor ? f"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .kv dd",
+    "elements": [
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {lastRun(step, template)}",
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {step.output?.name ?? outputName}",
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {table ? formatCount(table.rowCount) : \"",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {geometry.toLowerCase().replace(/_/g, \" ",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {template ? \"this template\" : facts ? fa"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .rowMeta",
+    "elements": [
+      "src/components/workflow-canvas/CanvasPane.tsx :: ListingPane <span.rowMeta> {formatCount(table.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .runDock",
+    "elements": [
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> \"Cancelling…\"",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> \"running ·\" \"node\" {active.members.lengt",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> {outcomeLine(active)}",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> {outcomeLine(ended)}",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> {readFailure.message}",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <span.runDock> {refusal.message}"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <b> \"of\" {settledCount(active)} {active.memb",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <button.dockAction> \"Retry\"",
+      "src/components/workflow-canvas/RunDock.tsx :: RunDock <button.dockAction> \"Retry\" #2"
+    ]
+  }
+]
