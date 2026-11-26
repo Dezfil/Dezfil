@@ -981,9 +981,8 @@
   color: var(--fg);
 }
 
-/* The header shares the cell class for alignment only — a column label
-   is UI-face, muted (the smoke caught the shared class dragging headers
-   into mono). */
+/* The header shares the cell class for alignment only: a column label
+   is the reading face, muted, never the cells' full ink. */
 .dataTable th.numCell {
   font-family: var(--font-ui);
   color: var(--fg-muted);
@@ -1068,7 +1067,7 @@
 
 /* Inline value fragments inside prose: counts, sizes and times read the
    UI face with tabular figures (contextual rule, narrowing for chrome
-   counts — dataset cells keep mono). */
+   counts). */
 .num {
   font-variant-numeric: tabular-nums;
   /* A value reads in full ink even inside muted prose. */
