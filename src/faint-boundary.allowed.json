@@ -1803,7 +1803,7 @@
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> {input.description}",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> {missing.length ? `Choose ${missing.join",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> {w}",
-      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.previewLine> {\" · \"} {gate.preview.geometry === \"none",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.previewLine> {\" · \"} {resultKindWord(gate.preview.geo",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {gate.message}",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {nameIssue}",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {refusals.name}",
