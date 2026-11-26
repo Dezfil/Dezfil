@@ -1050,7 +1050,7 @@
     "layer": "digits",
     "id": "src/components/builder/drawer/ParameterForm.module.css :: .dryline",
     "elements": [
-      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <p.dryline> \"Dry run:\" {\" · \"} {shown.geometry === \""
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <p.dryline> \"Dry run:\" {\" · \"} {resultKindWord(shown"
     ],
     "inherits": [
       "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <strong> \"rows\" {shown.rowCount.toLocaleString()}"
@@ -1848,7 +1848,7 @@
     "layer": "digits",
     "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .previewLine",
     "elements": [
-      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.previewLine> {\" · \"} {gate.preview.geometry === \"none"
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.previewLine> {\" · \"} {resultKindWord(gate.preview.geo"
     ],
     "inherits": [
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <b> \"rows\" {gate.preview.rowCount.toLocaleSt"
