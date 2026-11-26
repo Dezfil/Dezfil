@@ -3,7 +3,7 @@ import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import { recordDocumentChanges } from "@/lib/metadata/revisions";
 import { mapEvaluation, type DatasetScope } from "@/lib/query/access";
 import type { AccountScope } from "@/lib/auth/scope";
-import { requireLayerFor } from "./layer-access";
+import { answeredLayer, requireLayerFor } from "./layer-access";
 import {
   admitLayerCommit,
   admitLayerUpdate,
@@ -317,7 +317,9 @@ export async function deriveAndCommitUpdate(
         groupId: opts.groupId,
       }, metadataDb(), scope);
     }
-    return { ...fresh, ...documentFacts({ kind: "map", id: layer.mapId }) };
+    // The answer carries the label's fallbacks for the map's basemap; the
+    // history above compared the stored layer, never this.
+    return { ...answeredLayer(fresh), ...documentFacts({ kind: "map", id: layer.mapId }) };
   })();
   notifyPicture(layer.mapId);
   return committed;

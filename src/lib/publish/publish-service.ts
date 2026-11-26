@@ -29,6 +29,7 @@ import {
   resolveBasemapAttribution,
 } from "@/lib/basemap-offer";
 import type { LayerStyle } from "@/lib/style/style";
+import { fallbackLabelTone, withLabelFallbacks } from "@/lib/style/label-recipe";
 import {
   effectiveStyle,
   isAggregated,
@@ -155,6 +156,9 @@ async function assemblePublishedView(
     widgets: map.widgets,
     widgetsPublished: map.widgetsPublished,
   };
+  // Every label carries the fallbacks of the basemap the map has saved,
+  // as every other answer does; the page paints by the basemap it draws.
+  const labelTone = fallbackLabelTone(map);
   // A hidden layer contributes no feature data to the published payload:
   // the viewer offers readers no way to see it, so its rows have no
   // reader. Widgets bound to it still ship and compute — hide the
@@ -196,7 +200,7 @@ async function assemblePublishedView(
         return {
           id: l.id,
           name: l.name,
-          style: effectiveStyle(l.style, l.viz),
+          style: effectiveStyle(withLabelFallbacks(l.style, labelTone), l.viz),
           visible: l.visible,
           tooltip: shipped(l.tooltip),
           popup: shipped(l.popup),

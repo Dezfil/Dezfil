@@ -74,3 +74,15 @@ export function labelStyleForWrite(style: LayerStyle, map: SavedBasemap): LayerS
   if (!style.label) return style;
   return withLabelFallbacks({ ...style, label: resolveLabelChoices(style.label) }, fallbackLabelTone(map));
 }
+
+/** Layers as they leave the server: each style with its map's fallbacks,
+ * read for the basemap the map has saved now. It writes nothing, so it
+ * stays out of the store, of history and of every revision: apply it to an
+ * answer, never to a layer about to be written or compared. */
+export function layersWithLabelFallbacks<T extends { style: LayerStyle }>(map: SavedBasemap, layers: T[]): T[] {
+  const tone = fallbackLabelTone(map);
+  return layers.map((layer) => {
+    const style = withLabelFallbacks(layer.style, tone);
+    return style === layer.style ? layer : { ...layer, style };
+  });
+}

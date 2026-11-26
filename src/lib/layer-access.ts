@@ -2,7 +2,8 @@ import { metadataDb } from "./metadata/db";
 import { documentFacts, type DocumentFacts } from "./metadata/document-facts";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requirePermitted, requireReachable, type ActionOf } from "@/lib/auth/reach";
-import { getLayer, type Layer } from "@/lib/metadata/maps";
+import { getLayer, getMap, type Layer } from "@/lib/metadata/maps";
+import { layersWithLabelFallbacks } from "@/lib/style/label-recipe";
 import { isTemplateDocumentId } from "@/lib/templates/ids";
 import { readTemplateLayer } from "@/lib/templates/map-read";
 
@@ -26,6 +27,13 @@ export function readLayer(scope: AccountScope, id: string): Layer & DocumentFact
   if (isTemplateDocumentId(id)) return readTemplateLayer(scope, id);
   return metadataDb().transaction(() => {
     const layer = requireLayer(scope, id);
-    return { ...layer, ...documentFacts({ kind: "map", id: layer.mapId }) };
+    return { ...answeredLayer(layer), ...documentFacts({ kind: "map", id: layer.mapId }) };
   })();
+}
+
+/** A stored layer as an answer carries it: its label with the fallbacks of
+ * the basemap its map, read by id, has saved now. */
+export function answeredLayer<T extends Layer>(layer: T): T {
+  const map = getMap(layer.mapId);
+  return map ? layersWithLabelFallbacks(map, [layer])[0] : layer;
 }

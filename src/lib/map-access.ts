@@ -8,6 +8,7 @@ import { mapPresence, type Presence } from "@/lib/reach-presence";
 import { resourceAbsent } from "@/lib/auth/owned-resource";
 import { isTemplateDocumentId } from "@/lib/templates/ids";
 import { readTemplateMap } from "@/lib/templates/map-read";
+import { layersWithLabelFallbacks } from "@/lib/style/label-recipe";
 
 /** A map read: the map when the acting account reaches it (its own, or one
  * filed in a project it owns or belongs to), else the absent refusal. */
@@ -18,12 +19,18 @@ export function requireMap(scope: AccountScope, id: string): MapRecord {
   return getMap(id)!;
 }
 
+/** A map's layers as an answer carries them: each with the map's document
+ * facts and its label's fallbacks for the basemap the map has saved. */
+function answeredLayers(map: MapRecord, id: string, facts: DocumentFacts) {
+  return layersWithLabelFallbacks(map, listLayers(id)).map(layer => ({ ...layer, ...facts }));
+}
+
 export function mapWithLayers(scope: AccountScope, id: string): MapWithLayers & DocumentFacts {
   if (isTemplateDocumentId(id)) return readTemplateMap(scope, id);
   return metadataDb().transaction(() => {
   const map = requireMap(scope, id);
   const facts = documentFacts({ kind: "map", id });
-  return { ...map, ...facts, layers: listLayers(id).map(layer => ({ ...layer, ...facts })) };
+  return { ...map, ...facts, layers: answeredLayers(map, id, facts) };
   })();
 }
 
@@ -55,7 +62,7 @@ export function ownMapWithLayers(scope: AccountScope, id: string): MapWithLayers
   return metadataDb().transaction(() => {
   const map = requireOwnMap(scope, id);
   const facts = documentFacts({ kind: "map", id });
-  return { ...map, ...facts, layers: listLayers(id).map(layer => ({ ...layer, ...facts })) };
+  return { ...map, ...facts, layers: answeredLayers(map, id, facts) };
   })();
 }
 
@@ -76,6 +83,6 @@ export function mapWithLayersFor(scope: AccountScope, id: string, action: Action
   return metadataDb().transaction(() => {
   const map = requireMapFor(scope, id, action);
   const facts = documentFacts({ kind: "map", id });
-  return { ...map, ...facts, layers: listLayers(id).map(layer => ({ ...layer, ...facts })) };
+  return { ...map, ...facts, layers: answeredLayers(map, id, facts) };
   })();
 }

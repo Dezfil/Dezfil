@@ -4,7 +4,7 @@ import { recordDocumentChanges, requireDocumentRevision } from "@/lib/metadata/r
 import { randomUUID } from "node:crypto";
 import type { AccountScope } from "@/lib/auth/scope";
 import { requireMapFor } from "./map-access";
-import { requireLayerFor } from "./layer-access";
+import { answeredLayer, requireLayerFor } from "./layer-access";
 import { admitLayerCreate } from "./layer-admission";
 import { recheckSaved } from "./save-admission";
 import { layerImage } from "./layer-history-image";
@@ -101,7 +101,7 @@ export async function createLayer(
       groupId,
     }, metadataDb(), scope);
     if (arrangement) enterArrangement(scope, mapId, layer.id, arrangement, groupId);
-    return { ...layer, ...documentFacts({ kind: "map", id: mapId }) };
+    return { ...answeredLayer(layer), ...documentFacts({ kind: "map", id: mapId }) };
   })();
   notifyPicture(committed.mapId);
   return committed;
@@ -143,7 +143,7 @@ export function duplicateLayer(
     }, metadataDb(), scope);
     if (arrangement)
       enterArrangement(scope, source.mapId, copy.id, arrangement, groupId);
-    return { ...copy, ...documentFacts({ kind: "map", id: source.mapId }) };
+    return { ...answeredLayer(copy), ...documentFacts({ kind: "map", id: source.mapId }) };
   })();
   notifyPicture(committed.mapId);
   return committed;

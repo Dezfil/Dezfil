@@ -6,6 +6,7 @@ import type { MapPresence } from "@/lib/reach-presence";
 import { isTemplateDocumentId, parseTemplateDocumentId, templateDocumentId } from "./ids";
 import { residentTemplate, type ResidentTemplate } from "./resident";
 import type { AdmittedMap } from "./map-document";
+import { layersWithLabelFallbacks } from "@/lib/style/label-recipe";
 
 /**
  * A template's map and its layers as the map and layer reads answer them,
@@ -57,7 +58,10 @@ export function templateMapAnswer(resident: ResidentTemplate): TemplateMapRead {
     templateMapLayers(template, version, map, { createdAt: resident.createdAt, updatedAt: resident.updatedAt });
   const layerId = (part: string) => templateDocumentId({ template, version, kind: "layer", part });
   const facts = factsOf(resident);
-  const layers: (Layer & DocumentFacts)[] = read.map((layer) => ({ ...layer, ...facts }));
+  // A template's map has no custom style; its labels answer the fallbacks
+  // of the basemap it is on, as every map read answers them.
+  const layers: (Layer & DocumentFacts)[] = layersWithLabelFallbacks({ basemap: map.basemap, customBasemap: null }, read)
+    .map((layer) => ({ ...layer, ...facts }));
   return {
     id: mapId,
     name: map.name,
