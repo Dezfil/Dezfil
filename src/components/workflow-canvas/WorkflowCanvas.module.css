@@ -1545,6 +1545,12 @@ span.chip {
   background: var(--bg-raised);
 }
 
+/* The name a typed dataset name is registered as, when the two differ: a
+   SQL name, in mono. */
+.registered {
+  font-family: var(--font-mono);
+}
+
 .nameInput[aria-invalid="true"] {
   border-color: var(--danger);
 }

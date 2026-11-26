@@ -347,7 +347,7 @@ export function ParameterForm({
           <div className={styles.control}>
             <input
               id="recipe-output-name"
-              className={styles.text}
+              className={`${styles.text} ${styles.outputName}`}
               data-output-name
               value={name}
               onChange={(e) => {
@@ -358,7 +358,7 @@ export function ParameterForm({
             />
             {registered !== name.trim() && registered !== "" && (
               <p className={styles.help}>
-                Registered as <strong>{registered}</strong>.
+                Registered as <strong className={styles.registered}>{registered}</strong>.
               </p>
             )}
             {problem && (

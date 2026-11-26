@@ -83,6 +83,17 @@
   resize: vertical;
 }
 
+/* The Result's Table name names a new dataset: typed as SQL will read it,
+   in mono. */
+.outputName {
+  font-family: var(--font-mono);
+}
+
+/* The name it is registered as, when that differs: a SQL name. */
+.registered {
+  font-family: var(--font-mono);
+}
+
 /* The boolean switch (field round): a native checkbox drawn as a track
    and thumb — off is quiet, on is the accent, and the input underneath
    stays real. The input is the 36x24 hit box (the Wheelhouse 24px floor,

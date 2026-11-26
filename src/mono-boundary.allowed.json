@@ -132,6 +132,24 @@
   },
   {
     "layer": "mono",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .outputName",
+    "kind": "new-dataset-name",
+    "note": "The tool drawer's Table name: the field that names the dataset a run makes.",
+    "elements": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <input.outputName.text>"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .registered",
+    "kind": "sql-name",
+    "note": "The name a typed Table name is registered as, when the two differ.",
+    "elements": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <strong.registered> {registered}"
+    ]
+  },
+  {
+    "layer": "mono",
     "id": "src/components/builder/drawer/ParameterForm.module.css :: .textarea",
     "kind": "sql",
     "elements": [
@@ -889,6 +907,15 @@
     "kind": "sql-name",
     "elements": [
       "src/components/workflow-canvas/RunConfirmDialog.tsx :: RunConfirmDialog <code> {r.dataset || \"unnamed\"}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .registered",
+    "kind": "sql-name",
+    "note": "The name a typed dataset name is registered as, under the node panel's Dataset name field, when the two differ.",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.registered> {registeredName(typedName)}"
     ]
   },
   {

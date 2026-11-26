@@ -1796,7 +1796,7 @@
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Geometry:\" \".\" {expected === \"none\" ? \"",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Nothing to set.\"",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Nothing yet.\"",
-      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Registered as\" \".\" {registeredName(type",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Registered as\" \".\"",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"Taken from the query. Change the query ",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"The dataset keeps its name after the fi",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.help> \"The preview comes after\" \"is produced.\"",
@@ -1810,7 +1810,8 @@
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {refusals[input.name]}",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.problem> {refusals[parameter.name]}",
       "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.chip> {r}",
-      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.cnt> {step.reads.length}"
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.cnt> {step.reads.length}",
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <span.registered> {registeredName(typedName)}"
     ]
   },
   {

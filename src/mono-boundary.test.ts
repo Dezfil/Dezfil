@@ -82,8 +82,8 @@ describe("the mono boundary", () => {
     const uses = [...found.uses.values()];
     const mono = uses.filter((u) => u.layer === "mono");
     const digits = uses.filter((u) => u.layer === "digits");
-    expect(mono.length).toBeGreaterThanOrEqual(84);
-    expect(mono.reduce((n, u) => n + u.elements.size, 0)).toBeGreaterThanOrEqual(103);
+    expect(mono.length).toBeGreaterThanOrEqual(86);
+    expect(mono.reduce((n, u) => n + u.elements.size, 0)).toBeGreaterThanOrEqual(106);
     expect(mono.reduce((n, u) => n + u.inherits.size, 0)).toBeGreaterThanOrEqual(26);
     expect(mono.filter((u) => u.origin === "code").length).toBeGreaterThanOrEqual(2);
     expect(digits.length).toBeGreaterThanOrEqual(51);

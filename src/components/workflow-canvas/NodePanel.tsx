@@ -347,7 +347,7 @@ export function NodePanel({
               </p>
             ) : null}
             {!produced && !nameIssue && typedName && registeredName(typedName) !== typedName.trim() ? (
-              <p className={styles.help}>Registered as {registeredName(typedName)}.</p>
+              <p className={styles.help}>Registered as <span className={styles.registered}>{registeredName(typedName)}</span>.</p>
             ) : null}
           </div>
 
