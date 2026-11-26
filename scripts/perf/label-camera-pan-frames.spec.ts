@@ -58,6 +58,7 @@
  */
 import { test, expect } from "@playwright/test";
 import { addLayer, createMap, patchLayer, readLayer, seedCsv } from "../../e2e/support";
+import { drawnGlyphs, recordGlyphs } from "../../e2e/label-probes";
 
 const COUNT = 100_000;
 /** Same tick budget as the slider harness, for a direct comparison. */
@@ -113,6 +114,8 @@ test("camera pan only, labelled vs unlabelled, ZERO style changes", async ({
   test.setTimeout(900_000);
   const lines: string[] = [];
 
+  // Every page from here records the glyphs its text atlases draw.
+  await recordGlyphs(page.context());
   await page.goto("/maps");
   const renderer = await page.evaluate(() => {
     const canvas = document.createElement("canvas");
@@ -190,17 +193,35 @@ test("camera pan only, labelled vs unlabelled, ZERO style changes", async ({
           .__DEZFIL_LABEL_SPIKE__ ?? null,
     );
     expect(seenSpike).toBe(arm.spike);
-    const layerRow = page.getByRole("button", { name: new RegExp(table) }).first();
+    // From the name's start: the history's Undo names the layer it added,
+    // and a click there takes the layer away again.
+    const layerRow = page.getByRole("button", { name: new RegExp(`^${table}`) }).first();
     await expect(layerRow).toBeVisible({ timeout: 120_000 });
     await layerRow.click();
 
-    // The render must have landed before the camera drive starts.
-    const rendered = await page.evaluate(async (id) => {
-      const r = await fetch(`/api/layers/${id}/render`);
-      const j = (await r.json()) as { featureCount?: number };
-      return j.featureCount ?? 0;
-    }, layerId);
-    expect(rendered).toBe(COUNT);
+    // The render must have landed before the camera drive starts. A large
+    // upload may still be settling when the first arm makes its layer.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(async (id) => {
+            const r = await fetch(`/api/layers/${id}/render`);
+            if (!r.ok) return 0;
+            const j = (await r.json()) as { featureCount?: number };
+            return j.featureCount ?? 0;
+          }, layerId),
+        { timeout: 120_000 },
+      )
+      .toBe(COUNT);
+    // A labelled arm measures labels only once they draw: their glyphs reach
+    // the text atlas once the data and the label face have both arrived,
+    // which on a large layer can come after the settling dwell below, and
+    // then the arm would time an unlabelled canvas.
+    if (labelled) {
+      await expect
+        .poll(async () => (await drawnGlyphs(page)).length, { timeout: 120_000 })
+        .toBeGreaterThan(0);
+    }
     // Let the first paint and the initial attribute upload settle — same
     // dwell as the slider harness, so both arms start from a warm cache.
     await page.waitForTimeout(4000);
@@ -293,9 +314,16 @@ test("camera pan only, labelled vs unlabelled, ZERO style changes", async ({
       // `instance.on("move", schedule)` → `getBounds()` → the BBox
       // readout — so it is direct evidence the CAMERA moved during THIS
       // loop, not a proxy for it having moved at some other time.
-      const bboxEl = document.querySelector<HTMLElement>(
-        'button[title="Copy bounding box"]',
-      );
+      // The bar drops the readout where it is too narrow to show it; its
+      // hidden measuring copy renders every item from the same camera.
+      const bboxEl =
+        document.querySelector<HTMLElement>(
+          '[data-status-bar] button[data-hint="Copy bounding box"]',
+        ) ??
+        Array.from(document.querySelectorAll<HTMLElement>("button")).find(
+          (b) => b.textContent?.startsWith("BBox"),
+        ) ??
+        null;
       if (!bboxEl) throw new Error("BBox status readout not found");
       const bboxBefore = bboxEl.textContent;
 

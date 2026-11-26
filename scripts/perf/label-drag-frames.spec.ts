@@ -43,6 +43,7 @@ import {
   readLayer,
   seedCsv,
 } from "../../e2e/support";
+import { drawnGlyphs, recordGlyphs } from "../../e2e/label-probes";
 
 /** Feature counts to sweep. */
 const COUNTS = [10_000, 100_000];
@@ -112,6 +113,8 @@ test("labelled vs unlabelled slider drag", async ({ page }) => {
   // describe software rasterization instead of this machine's GPU. The
   // labelled/plain comparison survives either way; the magnitudes do not,
   // so the renderer belongs in the record.
+  // Every page from here records the glyphs its text atlases draw.
+  await recordGlyphs(page.context());
   await page.goto("/maps");
   const renderer = await page.evaluate(() => {
     const canvas = document.createElement("canvas");
@@ -163,21 +166,39 @@ test("labelled vs unlabelled slider drag", async ({ page }) => {
       }
 
       await page.goto(`/maps/${mapId}`);
+      // From the name's start: the history's Undo names the layer it added,
+      // and a click there takes the layer away again.
       const layerRow = page
-        .getByRole("button", { name: new RegExp(table) })
+        .getByRole("button", { name: new RegExp(`^${table}`) })
         .first();
       await expect(layerRow).toBeVisible({ timeout: 120_000 });
       await layerRow.click();
 
       const slider = page.getByRole("slider", { name: "Layer opacity" });
       await expect(slider).toBeVisible({ timeout: 120_000 });
-      // The render must have landed, or the drag measures an empty canvas.
-      const rendered = await page.evaluate(async (id) => {
-        const r = await fetch(`/api/layers/${id}/render`);
-        const j = (await r.json()) as { featureCount?: number };
-        return j.featureCount ?? 0;
-      }, layerId);
-      expect(rendered).toBe(count);
+      // The render must have landed, or the drag measures an empty canvas. A
+      // large upload may still be settling when the first arm makes its layer.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(async (id) => {
+              const r = await fetch(`/api/layers/${id}/render`);
+              if (!r.ok) return 0;
+              const j = (await r.json()) as { featureCount?: number };
+              return j.featureCount ?? 0;
+            }, layerId),
+          { timeout: 120_000 },
+        )
+        .toBe(count);
+      // A labelled arm measures labels only once they draw: their glyphs reach
+      // the text atlas once the data and the label face have both arrived,
+      // which on a large layer can come after the settling dwell below, and
+      // then the arm would time an unlabelled canvas.
+      if (labelled) {
+        await expect
+          .poll(async () => (await drawnGlyphs(page)).length, { timeout: 120_000 })
+          .toBeGreaterThan(0);
+      }
       // Let the first paint and the initial attribute upload settle.
       await page.waitForTimeout(4000);
 
