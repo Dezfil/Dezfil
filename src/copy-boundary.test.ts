@@ -36,6 +36,7 @@ const DEFERRED_FILES = new Set([
   "src/lib/api/openapi-recipe-schemas.ts",
   "src/lib/api/openapi-recipes.ts",
   "src/lib/api/openapi-sketches.ts",
+  "src/lib/api/openapi-style.ts",
   "src/lib/api/openapi-tables.ts",
   "src/lib/operations/catalog.ts",
   "src/lib/tools/tools.ts",

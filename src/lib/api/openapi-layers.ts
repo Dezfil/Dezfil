@@ -602,7 +602,7 @@ export const LAYER_SCHEMAS = {
     properties: {
       name: { type: "string" },
       sql: SQL_QUERY,
-      style: { $ref: "#/components/schemas/Style" },
+      style: { $ref: "#/components/schemas/StyleInput" },
       writtenIn: {
         ...WRITTEN_IN_REF,
         description:
@@ -620,7 +620,7 @@ export const LAYER_SCHEMAS = {
     properties: {
       name: { type: "string" },
       sql: SQL_QUERY,
-      style: { $ref: "#/components/schemas/Style" },
+      style: { $ref: "#/components/schemas/StyleInput" },
       visible: { type: "boolean" },
       tooltip: {
         type: ["array", "null"],

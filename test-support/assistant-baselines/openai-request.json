@@ -5768,7 +5768,7 @@
           "style": {
             "type": "object",
             "additionalProperties": false,
-            "description": "A layer's full visual definition. Constant channels plus data-driven ones: `strokeBy` drives the outline color like `fill` drives the fill; `pointRadiusBy` and `strokeWidthBy` drive the sizes. Absent data-driven members mean the constant siblings apply.",
+            "description": "A layer's full visual definition. Constant channels plus data-driven ones: `strokeBy` drives the outline color like `fill` drives the fill; `pointRadiusBy` and `strokeWidthBy` drive the sizes. Absent data-driven members mean the constant siblings apply. This is the style as a write sends it: the label's paint may be left out, and the text and halo then follow the map.",
             "properties": {
               "fill": {
                 "type": "object",
@@ -6016,7 +6016,7 @@
               },
               "label": {
                 "type": "object",
-                "description": "Text labels on the layer; omit for none. On a simple-feature layer set `attribute` to the column whose value labels each feature (points at the point, lines and polygons at an interior anchor). On an aggregated hex/grid layer omit `attribute` — each cell labels itself with its aggregate value, compactly formatted. Heatmaps cannot be labeled.",
+                "description": "Text labels on the layer; omit for none. On a simple-feature layer set `attribute` to the column whose value labels each feature (points at the point, lines and polygons at an interior anchor). On an aggregated hex/grid layer omit `attribute` — each cell labels itself with its aggregate value, compactly formatted. Heatmaps cannot be labeled. Every label an answer carries has a concrete `color`, `haloWidth` and `haloColor` beside its two choices: for an automatic part, the light-appearance recipe for the map's basemap as saved when it is read (a custom style reads as light). They are fixed fallbacks for a client that draws a label as given, not what any reader saw; saving the style stores them, and reading never changes the stored layer.",
                 "properties": {
                   "attribute": {
                     "type": "string",
@@ -6026,9 +6026,25 @@
                     "type": "number",
                     "description": "Text size, 1-72; 12 is a good default. On simple layers this is screen pixels. On hex/grid layers it scales the label's proportion of its cell — cell labels zoom with the map, like the cells themselves."
                   },
+                  "textPaint": {
+                    "type": "string",
+                    "enum": [
+                      "automatic",
+                      "own"
+                    ],
+                    "description": "How the label's text is painted. \"automatic\" follows the tone of the basemap drawn under the label: dark text on a white halo over light basemaps, light text on a dark halo over dark ones and imagery. \"own\" draws `color`. In a write, absent with no `color` means automatic, and absent with a `color` means the label's own. An explicit \"automatic\" overrides the values sent beside it, which are still checked. Every answer carries it."
+                  },
                   "color": {
                     "type": "object",
-                    "description": "Text color {r, g, b, a}. Pick against the basemap: white reads well on dark styles and imagery, a dark color on light styles."
+                    "description": "Text color {r, g, b, a}: the label's own with `textPaint` \"own\". With \"automatic\", answers carry the fallback described on the label."
+                  },
+                  "haloPaint": {
+                    "type": "string",
+                    "enum": [
+                      "automatic",
+                      "own"
+                    ],
+                    "description": "How the label's halo is painted. \"automatic\" follows the tone of the basemap drawn under the label: dark text on a white halo over light basemaps, light text on a dark halo over dark ones and imagery. \"own\" draws `haloWidth` and `haloColor`. In a write, absent with neither of the two means automatic, and absent with both means the label's own; one of them alone without a choice is refused, and so is \"own\" without both. An explicit \"automatic\" overrides the values sent beside it, which are still checked. Every answer carries it."
                   },
                   "haloWidth": {
                     "type": "number",
@@ -6105,10 +6121,7 @@
                   }
                 },
                 "required": [
-                  "size",
-                  "color",
-                  "haloWidth",
-                  "haloColor"
+                  "size"
                 ]
               }
             }
@@ -6215,7 +6228,7 @@
               "style": {
                 "type": "object",
                 "additionalProperties": false,
-                "description": "A layer's full visual definition. Constant channels plus data-driven ones: `strokeBy` drives the outline color like `fill` drives the fill; `pointRadiusBy` and `strokeWidthBy` drive the sizes. Absent data-driven members mean the constant siblings apply.",
+                "description": "A layer's full visual definition. Constant channels plus data-driven ones: `strokeBy` drives the outline color like `fill` drives the fill; `pointRadiusBy` and `strokeWidthBy` drive the sizes. Absent data-driven members mean the constant siblings apply. This is the style as a write sends it: the label's paint may be left out, and the text and halo then follow the map.",
                 "properties": {
                   "fill": {
                     "type": "object",
@@ -6463,7 +6476,7 @@
                   },
                   "label": {
                     "type": "object",
-                    "description": "Text labels on the layer; omit for none. On a simple-feature layer set `attribute` to the column whose value labels each feature (points at the point, lines and polygons at an interior anchor). On an aggregated hex/grid layer omit `attribute` — each cell labels itself with its aggregate value, compactly formatted. Heatmaps cannot be labeled.",
+                    "description": "Text labels on the layer; omit for none. On a simple-feature layer set `attribute` to the column whose value labels each feature (points at the point, lines and polygons at an interior anchor). On an aggregated hex/grid layer omit `attribute` — each cell labels itself with its aggregate value, compactly formatted. Heatmaps cannot be labeled. Every label an answer carries has a concrete `color`, `haloWidth` and `haloColor` beside its two choices: for an automatic part, the light-appearance recipe for the map's basemap as saved when it is read (a custom style reads as light). They are fixed fallbacks for a client that draws a label as given, not what any reader saw; saving the style stores them, and reading never changes the stored layer.",
                     "properties": {
                       "attribute": {
                         "type": "string",
@@ -6473,9 +6486,25 @@
                         "type": "number",
                         "description": "Text size, 1-72; 12 is a good default. On simple layers this is screen pixels. On hex/grid layers it scales the label's proportion of its cell — cell labels zoom with the map, like the cells themselves."
                       },
+                      "textPaint": {
+                        "type": "string",
+                        "enum": [
+                          "automatic",
+                          "own"
+                        ],
+                        "description": "How the label's text is painted. \"automatic\" follows the tone of the basemap drawn under the label: dark text on a white halo over light basemaps, light text on a dark halo over dark ones and imagery. \"own\" draws `color`. In a write, absent with no `color` means automatic, and absent with a `color` means the label's own. An explicit \"automatic\" overrides the values sent beside it, which are still checked. Every answer carries it."
+                      },
                       "color": {
                         "type": "object",
-                        "description": "Text color {r, g, b, a}. Pick against the basemap: white reads well on dark styles and imagery, a dark color on light styles."
+                        "description": "Text color {r, g, b, a}: the label's own with `textPaint` \"own\". With \"automatic\", answers carry the fallback described on the label."
+                      },
+                      "haloPaint": {
+                        "type": "string",
+                        "enum": [
+                          "automatic",
+                          "own"
+                        ],
+                        "description": "How the label's halo is painted. \"automatic\" follows the tone of the basemap drawn under the label: dark text on a white halo over light basemaps, light text on a dark halo over dark ones and imagery. \"own\" draws `haloWidth` and `haloColor`. In a write, absent with neither of the two means automatic, and absent with both means the label's own; one of them alone without a choice is refused, and so is \"own\" without both. An explicit \"automatic\" overrides the values sent beside it, which are still checked. Every answer carries it."
                       },
                       "haloWidth": {
                         "type": "number",
@@ -6552,10 +6581,7 @@
                       }
                     },
                     "required": [
-                      "size",
-                      "color",
-                      "haloWidth",
-                      "haloColor"
+                      "size"
                     ]
                   }
                 }
@@ -6893,7 +6919,7 @@
           "style": {
             "type": "object",
             "additionalProperties": false,
-            "description": "A layer's full visual definition. Constant channels plus data-driven ones: `strokeBy` drives the outline color like `fill` drives the fill; `pointRadiusBy` and `strokeWidthBy` drive the sizes. Absent data-driven members mean the constant siblings apply.",
+            "description": "A layer's full visual definition. Constant channels plus data-driven ones: `strokeBy` drives the outline color like `fill` drives the fill; `pointRadiusBy` and `strokeWidthBy` drive the sizes. Absent data-driven members mean the constant siblings apply. This is the style as a write sends it: the label's paint may be left out, and the text and halo then follow the map.",
             "properties": {
               "fill": {
                 "type": "object",
@@ -7141,7 +7167,7 @@
               },
               "label": {
                 "type": "object",
-                "description": "Text labels on the layer; omit for none. On a simple-feature layer set `attribute` to the column whose value labels each feature (points at the point, lines and polygons at an interior anchor). On an aggregated hex/grid layer omit `attribute` — each cell labels itself with its aggregate value, compactly formatted. Heatmaps cannot be labeled.",
+                "description": "Text labels on the layer; omit for none. On a simple-feature layer set `attribute` to the column whose value labels each feature (points at the point, lines and polygons at an interior anchor). On an aggregated hex/grid layer omit `attribute` — each cell labels itself with its aggregate value, compactly formatted. Heatmaps cannot be labeled. Every label an answer carries has a concrete `color`, `haloWidth` and `haloColor` beside its two choices: for an automatic part, the light-appearance recipe for the map's basemap as saved when it is read (a custom style reads as light). They are fixed fallbacks for a client that draws a label as given, not what any reader saw; saving the style stores them, and reading never changes the stored layer.",
                 "properties": {
                   "attribute": {
                     "type": "string",
@@ -7151,9 +7177,25 @@
                     "type": "number",
                     "description": "Text size, 1-72; 12 is a good default. On simple layers this is screen pixels. On hex/grid layers it scales the label's proportion of its cell — cell labels zoom with the map, like the cells themselves."
                   },
+                  "textPaint": {
+                    "type": "string",
+                    "enum": [
+                      "automatic",
+                      "own"
+                    ],
+                    "description": "How the label's text is painted. \"automatic\" follows the tone of the basemap drawn under the label: dark text on a white halo over light basemaps, light text on a dark halo over dark ones and imagery. \"own\" draws `color`. In a write, absent with no `color` means automatic, and absent with a `color` means the label's own. An explicit \"automatic\" overrides the values sent beside it, which are still checked. Every answer carries it."
+                  },
                   "color": {
                     "type": "object",
-                    "description": "Text color {r, g, b, a}. Pick against the basemap: white reads well on dark styles and imagery, a dark color on light styles."
+                    "description": "Text color {r, g, b, a}: the label's own with `textPaint` \"own\". With \"automatic\", answers carry the fallback described on the label."
+                  },
+                  "haloPaint": {
+                    "type": "string",
+                    "enum": [
+                      "automatic",
+                      "own"
+                    ],
+                    "description": "How the label's halo is painted. \"automatic\" follows the tone of the basemap drawn under the label: dark text on a white halo over light basemaps, light text on a dark halo over dark ones and imagery. \"own\" draws `haloWidth` and `haloColor`. In a write, absent with neither of the two means automatic, and absent with both means the label's own; one of them alone without a choice is refused, and so is \"own\" without both. An explicit \"automatic\" overrides the values sent beside it, which are still checked. Every answer carries it."
                   },
                   "haloWidth": {
                     "type": "number",
@@ -7230,10 +7272,7 @@
                   }
                 },
                 "required": [
-                  "size",
-                  "color",
-                  "haloWidth",
-                  "haloColor"
+                  "size"
                 ]
               }
             }
