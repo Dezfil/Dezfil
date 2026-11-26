@@ -285,6 +285,33 @@ describe("the mono boundary on seeded trees", () => {
     expect(message(f, "mark")).toContain(`${TSX} :: Panel <code> {query.sql} has no family of its own`);
   });
 
+  /* A rule under a media query a screen never matches sets nothing on a
+   * screen: no face on a code mark, no mono face, no digits. */
+  it("fails on a code mark whose only family is set for print", () => {
+    const f = judged({ css: "@media print { .printCode { font-family: var(--font-ui); } }", extra: `\n      <p>Run <code className={styles.printCode}>npm test</code> first.</p>` });
+    expect(checks(f)).toEqual(["mark"]);
+    expect(message(f, "mark")).toContain(`${TSX} :: Panel <code.printCode> "npm test" has no family of its own`);
+  });
+
+  const MEDIA: [string, number][] = [
+    ["@media print", 0],
+    ["@media only print", 0],
+    ["@media speech", 0],
+    ["@media not screen", 0],
+    ["@media print and (orientation: landscape)", 0],
+    ["@media print, screen", 1],
+    ["@media not print", 1],
+    ["@media (max-width: 600px)", 1],
+    ["@media screen and (max-width: 600px)", 1],
+    ["@media not all and (monochrome)", 1],
+  ];
+  it.each(MEDIA)("reads a mono face and digits set under %s as reaching %i element(s) on a screen", (media, n) => {
+    const seed = { css: `${media} { .label { font-family: var(--font-mono); } .size { font-variant-numeric: tabular-nums; } }`, extra: `\n      <h3 className={styles.label}>Parcels</h3><span className={styles.size}>{formatBytes(t.sizeBytes)}</span>` };
+    const uses = usesOf(tree(seed)).uses;
+    expect(uses.get(`mono :: ${CSS} :: ${media} { .label }`)?.elements.size).toBe(n);
+    expect(uses.get(`digits :: ${CSS} :: ${media} { .size }`)?.elements.size).toBe(n);
+  });
+
   it("fails on a list's numbers without digits of one width: the listed rule loses them", () => {
     const f = judged({ baseCss: BASE_CSS.replace(".count { font-variant-numeric: tabular-nums; }", ".count { color: var(--fg-muted); }") });
     expect(f.map((x) => x.message)).toEqual([`digits :: ${CSS} :: .count: the allowed row outlives its use`]);

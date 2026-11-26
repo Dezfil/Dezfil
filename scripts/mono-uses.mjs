@@ -30,10 +30,15 @@
  *     feature settings back to normal) or a style set in code that sets
  *     them back takes them away.
  *
+ * A rule under a media query a screen never matches (print, speech) sets
+ * nothing on a screen: it gives no element a face or digits, and decides
+ * nothing for another rule. When it names mono or sets digits it is still
+ * a use, reaching no element.
+ *
  * Each use carries what a kind needs to judge it: its selectors and
  * declarations, and the elements it reaches with what they show.
  */
-import { bearsText, cmp, collect as collectSources, compoundMatches, descend, elementIds, elementsMatching, shows, specificity, statesOf } from "./source-collector.mjs";
+import { bearsText, cmp, collect as collectSources, compoundMatches, descend, elementIds, elementsMatching, shows, specificity, splitTop, statesOf } from "./source-collector.mjs";
 
 /** The mono faces' tokens: the app's, and the two loaded faces. */
 export const MONO_TOKENS = ["--font-mono", "--font-dm-mono", "--font-plex-mono"];
@@ -114,6 +119,29 @@ export function isTabular(prop, value) {
   return false;
 }
 
+/** Whether one media query can match a screen: a condition alone can, a
+ * query for the screen or every type can, and so can one that negates
+ * another type, or negates the screen under a condition a screen may
+ * fail. A query for another type (print, speech) never does. */
+function screenQuery(query) {
+  const words = /^(?:(not|only)\s+)?([a-z][\w-]*)(?:\s+and\b|\s*$)/i.exec(query.trim());
+  if (!words || /^(not|only|and|or)$/i.test(words[2])) return true;
+  const screen = /^(screen|all)$/i.test(words[2]);
+  if (words[1]?.toLowerCase() === "not") return !screen || /\band\b/i.test(query);
+  return screen;
+}
+
+/** Whether a rule can hold on a screen: every media query list around it
+ * has a query that can match one. The other at-rules (container,
+ * supports, layer, scope) are taken to be able to hold. */
+export function onScreen(context) {
+  for (const at of (context ?? "").split(/(?=@(?:media|container|supports|layer|scope)\b)/i)) {
+    const media = /^@media\b(.*)$/is.exec(at.trim());
+    if (media && !splitTop(media[1], /,/).some(screenQuery)) return false;
+  }
+  return true;
+}
+
 /** A rule's identity: its file and its selector list, with the at-rules
  * around it when there are any. */
 const ruleId = (sel) => `${sel.file} :: ${sel.context ? sel.context + " { " + sel.prelude + " }" : sel.prelude}`;
@@ -158,15 +186,16 @@ export function monoUses(model) {
   };
   const entry = (el) => ({ id: ids.get(el.index), el, text: textual(el), shows: shows(model, el), field: model.tagsOf(el).some((t) => FIELD_TAGS.has(t)), ...said(el) });
 
-  /* The rules that set a property on an element, outside a pseudo-element
-   * and a state it passes through, each with what decides between them:
-   * the classes and attributes its subject asks for, its specificity, and
-   * whether it holds wherever it matches (no media, container, supports or
-   * scope around it). A rule in a cascade layer loses to one outside it. */
+  /* The rules that set a property on an element, outside a pseudo-element,
+   * a state it passes through and a media query a screen never matches,
+   * each with what decides between them: the classes and attributes its
+   * subject asks for, its specificity, and whether it holds wherever it
+   * matches (no media, container, supports or scope around it). A rule in
+   * a cascade layer loses to one outside it. */
   const tokenOf = (sel, c) => (sel.module ? "m\t" + sel.file + "\t" + c : "g\t" + c);
   /** One rule's say on a property group, or null when it has none. */
   const ruleOf = (sel, props) => {
-    if (sel.subject.pseudoElement) return null;
+    if (sel.subject.pseudoElement || !onScreen(sel.context)) return null;
     const decls = sel.decls.filter((d) => props.has(d.prop));
     if (!decls.length || statesOf(sel.selector).pseudos.length) return null;
     return {
@@ -258,7 +287,9 @@ export function monoUses(model) {
       const lands = u.decls.filter((d) => FAMILY.has(d.prop));
       // A rule that only defines or rebinds a token puts no face on an
       // element: the rules that use the token do, and they are uses here.
-      const matched = sel.subject.document || u.definition ? [] : elementsMatching(model, sel);
+      // One under a media query a screen never matches puts none on a
+      // screen: it is listed, and reaches no element.
+      const matched = sel.subject.document || u.definition || !onScreen(sel.context) ? [] : elementsMatching(model, sel);
       // A stronger rule that sets another face, or `inherit`, takes the
       // element off this one, and so does a family set in code; a rule
       // under a state never decides.
@@ -281,7 +312,7 @@ export function monoUses(model) {
       const byFeature = tabular.every((d) => FEATURES.has(d.prop));
       const index = byFeature ? features : numerics;
       const same = (d) => isTabular(d.prop, d.value);
-      const matched = sel.subject.document ? [] : elementsMatching(model, sel);
+      const matched = sel.subject.document || !onScreen(sel.context) ? [] : elementsMatching(model, sel);
       // A stronger rule, a later `font` shorthand or a style set in code
       // that sets the digits back takes them away.
       const kept = matched.filter((el) => {
