@@ -25,7 +25,10 @@
  *     size, so a mono parent does not reach them;
  *   - digits: every rule or style set in code that sets digits of one
  *     width (tabular-nums, or the tnum feature), the elements that wear it
- *     and keep it, and the text inside one that inherits it.
+ *     and keep it, and the text inside one that inherits it. A stronger
+ *     rule, a `font` shorthand (which sets the numeric variants and the
+ *     feature settings back to normal) or a style set in code that sets
+ *     them back takes them away.
  *
  * Each use carries what a kind needs to judge it: its selectors and
  * declarations, and the elements it reaches with what they show.
@@ -49,6 +52,13 @@ const FEATURES = new Set(["font-feature-settings"]);
 const CODE_FAMILY = new Set(["fontFamily", "font"]);
 const CODE_NUMERIC = new Set(["fontVariantNumeric", "fontVariant"]);
 const CODE_FEATURES = new Set(["fontFeatureSettings"]);
+/** The properties that decide digits in the cascade: the numeric variants
+ * or the feature settings, and the `font` shorthand, which sets both back
+ * to normal while it sets a family. */
+const NUMERIC_CASCADE = new Set([...NUMERIC, "font"]);
+const FEATURES_CASCADE = new Set([...FEATURES, "font"]);
+const CODE_NUMERIC_CASCADE = new Set([...CODE_NUMERIC, "font"]);
+const CODE_FEATURES_CASCADE = new Set([...CODE_FEATURES, "font"]);
 /** The elements the browser sets its own monospace on. */
 const MARK_TAGS = /^(code|pre|kbd|samp)$/i;
 const FIELD_TAGS = new Set(["input", "textarea", "select"]);
@@ -171,8 +181,8 @@ export function monoUses(model) {
     return byEl;
   };
   const families = indexOf(FAMILY);
-  const numerics = indexOf(NUMERIC);
-  const features = indexOf(FEATURES);
+  const numerics = indexOf(NUMERIC_CASCADE);
+  const features = indexOf(FEATURES_CASCADE);
   const setsOf = (el) => (el.wears?.length ? el.wears : [[]]);
   const applies = (rule, set) => rule.tokens.every((t) => set.includes(t));
   /** Whether every attribute a rule's subject asks for is written on the
@@ -188,12 +198,20 @@ export function monoUses(model) {
     return c > 0 || (c === 0 && r.sel.file === rule.sel.file && r.decl.line > rule.decl.line);
   };
   /** Whether an element keeps what a rule gives it in some set of classes
-   * it can wear: no stronger rule that always holds for it gives another. */
+   * it can wear: the rule's own last word on the property group gives it,
+   * and no stronger rule that always holds for it gives another. */
   const keeps = (el, rule, index, same) =>
+    same(rule.decl) &&
     setsOf(el).some((set) => applies(rule, set) && !(index.get(el.index) ?? []).some((r) => r !== rule && r.always && applies(r, set) && literalOn(r, el) && outranks(r, rule) && !same(r.decl)));
   /** The code styles set on an element, by property group. */
   const codeOn = new Map();
   for (const cs of model.codeStyles) for (const owner of cs.owners ?? []) push(codeOn, owner.index, cs);
+  /** Whether a style set in code takes a property group off an element
+   * whatever branch holds: a style set in code outranks every rule but an
+   * important one, and this one always holds, with no value that gives
+   * what `same` asks for. */
+  const codeTakes = (el, codeProps, same) =>
+    (codeOn.get(el.index) ?? []).some((cs) => codeProps.has(cs.prop) && cs.when === null && !cs.none && (cs.values?.length ? cs.values : [cs.value]).every((v) => !same({ prop: cs.prop, value: String(v) })));
   /** Whether an element sets a property group of its own at rest: a rule
    * that always holds for it in every set of classes it can wear, or a
    * style set in code that always holds, with a value that is not a
@@ -204,8 +222,8 @@ export function monoUses(model) {
     return (codeOn.get(el.index) ?? []).some((cs) => codeProps.has(cs.prop) && cs.when === null && !cs.none && [cs.value, ...(cs.values ?? [])].every((v) => !KEYWORD.test(unquote(v))));
   };
   const ownFamily = ownOf(families, CODE_FAMILY);
-  const ownNumeric = ownOf(numerics, CODE_NUMERIC);
-  const ownFeatures = ownOf(features, CODE_FEATURES);
+  const ownNumeric = ownOf(numerics, CODE_NUMERIC_CASCADE);
+  const ownFeatures = ownOf(features, CODE_FEATURES_CASCADE);
   /** Text inside some elements that takes a property group from them. The
    * browser sets a family on code marks itself, so they stop a family. */
   const inheritedFrom = (roots, own) => {
@@ -235,11 +253,14 @@ export function monoUses(model) {
       // element: the rules that use the token do, and they are uses here.
       const matched = sel.subject.document || u.definition ? [] : elementsMatching(model, sel);
       // A stronger rule that sets another face, or `inherit`, takes the
-      // element off this one; a rule under a state never decides.
+      // element off this one, and so does a family set in code; a rule
+      // under a state never decides.
       const kept = matched.filter((el) => {
         if (pseudo || !lands.length) return true;
+        const same = (d) => namesMono(d.prop, d.value, aliases);
+        if (!lands.every((d) => d.important) && codeTakes(el, CODE_FAMILY, same)) return false;
         const own = (families.get(el.index) ?? []).find((r) => r.sel === sel);
-        return !own || keeps(el, own, families, (d) => namesMono(d.prop, d.value, aliases));
+        return !own || keeps(el, own, families, same);
       });
       for (const el of kept) u.elements.set(ids.get(el.index), entry(el));
       if (lands.length && !pseudo) for (const el of inheritedFrom(kept, familyStop)) u.inherits.set(ids.get(el.index), entry(el));
@@ -252,10 +273,14 @@ export function monoUses(model) {
       u.rule = sel;
       const byFeature = tabular.every((d) => FEATURES.has(d.prop));
       const index = byFeature ? features : numerics;
+      const same = (d) => isTabular(d.prop, d.value);
       const matched = sel.subject.document ? [] : elementsMatching(model, sel);
+      // A stronger rule, a later `font` shorthand or a style set in code
+      // that sets the digits back takes them away.
       const kept = matched.filter((el) => {
+        if (!tabular.every((d) => d.important) && codeTakes(el, byFeature ? CODE_FEATURES_CASCADE : CODE_NUMERIC_CASCADE, same)) return false;
         const own = (index.get(el.index) ?? []).find((r) => r.sel === sel);
-        return !own || keeps(el, own, index, (d) => isTabular(d.prop, d.value));
+        return !own || keeps(el, own, index, same);
       });
       for (const el of kept) u.elements.set(ids.get(el.index), entry(el));
       for (const el of inheritedFrom(kept, byFeature ? ownFeatures : ownNumeric)) u.inherits.set(ids.get(el.index), entry(el));

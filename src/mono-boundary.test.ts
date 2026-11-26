@@ -300,6 +300,33 @@ describe("the mono boundary on seeded trees", () => {
     expect(message(f, "digits")).toContain(`listed ${TSX} :: Panel <li> {formatBytes(t.sizeBytes)} no longer inherits digits of one width from it`);
   });
 
+  /* A style set in code outranks every rule, and the font shorthand sets
+   * the numeric variants back to normal (and the feature settings with
+   * them), so either takes digits of one width away. */
+  const SPAN_COUNT = "<span className={styles.count}>";
+  const TAKEN_AWAY: [string, Seed, string][] = [
+    ["an inline numeric style on the number", { body: BASE_BODY.replace(SPAN_COUNT, `<span className={styles.count} style={{ fontVariantNumeric: "proportional-nums" }}>`) }, "wears"],
+    ["an inline font shorthand on the number", { body: BASE_BODY.replace(SPAN_COUNT, `<span className={styles.count} style={{ font: "400 13px var(--font-ui)" }}>`) }, "wears"],
+    ["an inline font shorthand on an inherited number", { body: BASE_BODY.replace("<li>", `<li style={{ font: "400 13px var(--font-ui)" }}>`) }, "inherits"],
+    ["a later font shorthand on the same class", { css: ".count { font: 400 13px var(--font-ui); }" }, "wears"],
+    ["a stronger rule's font shorthand, even one that inherits", { css: "span.count { font: inherit; }" }, "wears"],
+    ["a font shorthand on an inherited number", { css: ".facts li { font: 400 13px var(--font-ui); }" }, "inherits"],
+  ];
+  it.each(TAKEN_AWAY)("fails on a list's numbers without digits of one width: %s", (_name, seed, verb) => {
+    const f = judged(seed);
+    expect(checks(f)).toEqual(["digits"]);
+    expect(message(f, "digits")).toContain(`no longer ${verb} digits of one width from it`);
+  });
+
+  it("fails on numbers set in digits of one width by the feature settings that a later font shorthand sets back", () => {
+    const seed = { css: '.fig { font-feature-settings: "tnum"; }', extra: `\n      <span className={styles.fig}>{formatCount(t.rowCount)}</span>` };
+    const rows = rowsFor(usesOf(tree(seed)), KIND_OF);
+    expect(judge(usesOf(tree(seed)), { allowed: rows })).toEqual([]);
+    const f = judge(usesOf(tree({ ...seed, css: seed.css + "\n.fig { font: 400 13px var(--font-ui); }" })), { allowed: rows });
+    expect(checks(f)).toEqual(["digits"]);
+    expect(message(f, "digits")).toContain("no longer wears digits of one width from it");
+  });
+
   it("fails on new digits of one width that the inventory does not list", () => {
     const f = judged({ css: ".size { font-variant-numeric: tabular-nums; }", extra: `\n      <span className={styles.size}>{formatBytes(t.sizeBytes)}</span>` });
     expect(checks(f)).toEqual(["digits"]);
