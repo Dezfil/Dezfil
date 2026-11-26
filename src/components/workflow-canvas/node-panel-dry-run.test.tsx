@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { OPERATIONS } from "@/lib/operations/catalog";
-import type { DryRunRequest } from "../builder/drawer/use-dry-run";
+import type { DryRunGate, DryRunRequest } from "../builder/drawer/use-dry-run";
 import { NodePanel } from "./NodePanel";
 import type { NodeMember } from "./graph";
 
@@ -13,12 +13,12 @@ import type { NodeMember } from "./graph";
  * as the run reads it, not the caller's own of the same name.
  */
 
-const asked = vi.hoisted(() => ({ request: undefined as DryRunRequest | null | undefined }));
+const asked = vi.hoisted(() => ({ request: undefined as DryRunRequest | null | undefined, gate: { state: "checking" } as DryRunGate }));
 vi.mock("../builder/drawer/use-dry-run", async (original) => ({
   ...(await original<typeof import("../builder/drawer/use-dry-run")>()),
   useDryRun: (request: DryRunRequest | null) => {
     asked.request = request;
-    return { state: "checking" };
+    return asked.gate;
   },
 }));
 const sql = { sql: "SELECT * FROM roads", name: "roads_out" };
@@ -44,5 +44,20 @@ describe("the node panel's dry run", () => {
         operations={OPERATIONS} tables={[]} onClose={() => {}} onRemove={() => {}} />,
     );
     expect(asked.request).toMatchObject({ operation: "sql_step", writtenIn: { kind: "workflow", id: "w1" } });
+  });
+
+  it("names the preview's geometry kind as a plain word", () => {
+    const draw = (geometryType: string | null) => {
+      asked.gate = { state: "ready", preview: { rowCount: 1204, geometry: "classified", geometryType, warnings: [] } };
+      const html = renderToStaticMarkup(
+        <NodePanel recipeId="w1" member={member} graph={{ members: [member], edges: [], presentSourceCount: 0 }}
+          operations={OPERATIONS} tables={[]} onClose={() => {}} onRemove={() => {}} />,
+      );
+      asked.gate = { state: "checking" };
+      return /data-preview-line[^>]*>([\s\S]*?)<\/p>/.exec(html)?.[1].replace(/<[^>]+>/g, "");
+    };
+    expect(draw("MULTIPOLYGON")).toBe("1,204 rows · Polygons");
+    expect(draw("POINT+POLYGON")).toBe("1,204 rows · Mixed");
+    expect(draw(null)).toBe("1,204 rows · Geometry");
   });
 });

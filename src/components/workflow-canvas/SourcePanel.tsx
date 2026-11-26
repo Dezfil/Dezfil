@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
-import { geometryGlyphType } from "../geometry-class";
+import { geometryGlyphType, geometryKindWord } from "../geometry-class";
 import { ExternalIcon, XIcon } from "../ui/icons";
 import { GeometryGlyph } from "../ui/operation-icons";
 import { formatCount } from "../api";
@@ -57,8 +57,8 @@ export function SourcePanel({
   const geometryType = facts
     ? facts.geometryType
     : member.table?.geometryType || null;
-  const geometry =
-    geometryColumn === null ? "none, a table" : geometryType || "unknown";
+  // The kind as the chip says it: a word, No geometry included.
+  const geometry = geometryKindWord(geometryType, geometryColumn !== null);
   return (
     <aside className={styles.inspector} aria-label={`${member.name}, source`} data-source-panel>
       <header className={styles.inspHead}>
@@ -87,7 +87,7 @@ export function SourcePanel({
               </div>
               <div className={styles.kv}>
                 <dt>Geometry</dt>
-                <dd data-plain>{geometry.toLowerCase().replace(/_/g, " ")}</dd>
+                <dd data-plain>{geometry}</dd>
               </div>
               <div className={styles.kv}>
                 <dt>Source</dt>

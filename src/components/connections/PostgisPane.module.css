@@ -526,9 +526,14 @@
 
 .qualified,
 .columnsToggle,
-.spatialFact,
 .columnList,
 .previewTable {
+  font-family: var(--font-mono);
+}
+
+/* A remote table's spatial facts read in the reading face, the kind as a
+   plain word; its column type and SRID stay as the schema has them. */
+.spatialFact code {
   font-family: var(--font-mono);
 }
 

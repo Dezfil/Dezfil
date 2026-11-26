@@ -131,6 +131,8 @@ describe("a template's canvas", () => {
     expect(asked.facts).toEqual([null]);
     expect(html).toContain("this template");
     expect(html).toContain(">6<");
+    // The kind as a word, as the table page's chip says it.
+    expect(html).toContain('<dd data-plain="true">Points</dd>');
     expect(html).not.toContain('aria-label="Columns"');
     expect(html).not.toContain("data-open-explorer");
     asked.facts = [];

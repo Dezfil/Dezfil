@@ -11,7 +11,7 @@ import { CaretIcon } from "@/components/ui/icons";
 import {
   estimateLabel,
   relationKindLabel,
-  spatialLabel,
+  spatialFacts,
 } from "./postgis-catalogue-model";
 import { PostgisPreviewTable } from "./PostgisPreviewTable";
 import { relationKey, type PostgisRemoteRelation } from "./postgis-pane-types";
@@ -50,6 +50,7 @@ export function PostgisRelationDetail({
   // the row stays open whenever either field holds a value.
   const showExtras = extrasOpen || filter.trim() !== "" || limit.trim() !== "";
   const preview = usePostgisPreview(connection.id, relation, filter);
+  const fact = spatialFacts(relation);
 
   const importNow = async () => {
     if (busy) return;
@@ -92,8 +93,22 @@ export function PostgisRelationDetail({
         <h3 className={styles.qualified}>{relationKey(relation)}</h3>
         <span className={styles.kindMark}>{relationKindLabel(relation)}</span>
         {relation.system ? <span className={styles.systemMark}>system</span> : null}
+        {/* The kind as a plain word; the column type and the SRID beside it
+            as the schema has them, in mono. */}
         <span className={styles.spatialFact} data-geography={relation.spatialKind === "geography" || undefined}>
-          {spatialLabel(relation)}
+          {fact ? (
+            <>
+              <code>{fact.type}</code> · {fact.kind}
+              {fact.srid ? (
+                <>
+                  {" · "}
+                  <code>{fact.srid}</code>
+                </>
+              ) : null}
+            </>
+          ) : (
+            "No geometry"
+          )}
         </span>
         <span className={styles.estimateFact} data-unknown={estimateLabel(relation) === "not analyzed" || undefined}>
           {estimateLabel(relation)}

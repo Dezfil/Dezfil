@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { DataTable } from "@/lib/metadata/tables";
-import { geometryLabel } from "./api";
 import { geometryFamilies, geometryKind } from "./gallery-icons";
 import { geometryChipLabel } from "./table-chips";
 import { classOfTable, geometryGlyphType } from "./geometry-class";
@@ -20,8 +19,6 @@ describe("one column-first geometry vocabulary", () => {
   it("distinguishes retained unknown geometry from a non-spatial table", () => {
     expect(classOfTable(retained)).toBe("unknown");
     expect(classOfTable(plain)).toBe("none");
-    expect(geometryLabel(retained)).toBe("geometry unknown");
-    expect(geometryLabel(plain)).toBe("non-spatial");
     expect(geometryKind(retained.geometryType, retained.geometryColumn)).toBe(
       "mixed",
     );
@@ -29,21 +26,22 @@ describe("one column-first geometry vocabulary", () => {
       geometryFamilies(retained.geometryType, retained.geometryColumn),
     ).toEqual(["point", "line", "polygon"]);
     expect(geometryChipLabel(retained)).toBe("Geometry");
+    expect(geometryChipLabel(plain)).toBe("No geometry");
     expect(geometryGlyphType(retained)).toBe("GEOMETRY");
     expect(geometryGlyphType(plain)).toBeNull();
   });
 
   it("is a strict presentation no-op for every classified family", () => {
     const cases = [
-      ["POINT", "point", ["point"]],
-      ["MULTILINESTRING", "line", ["line"]],
-      ["POLYGON", "polygon", ["polygon"]],
-      ["POINT+POLYGON", "mixed", ["point", "polygon"]],
-      ["GEOMETRYCOLLECTION", "mixed", ["point", "line", "polygon"]],
+      ["POINT", "point", ["point"], "Points"],
+      ["MULTILINESTRING", "line", ["line"], "Lines"],
+      ["POLYGON", "polygon", ["polygon"], "Polygons"],
+      ["POINT+POLYGON", "mixed", ["point", "polygon"], "Mixed"],
+      ["GEOMETRYCOLLECTION", "mixed", ["point", "line", "polygon"], "Mixed"],
     ] as const;
-    for (const [type, kind, families] of cases) {
+    for (const [type, kind, families, word] of cases) {
       const classified = table("geom", type);
-      expect(geometryLabel(classified)).toBe(type.toLowerCase());
+      expect(geometryChipLabel(classified)).toBe(word);
       expect(geometryKind(classified.geometryType, classified.geometryColumn)).toBe(
         kind,
       );

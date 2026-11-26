@@ -528,7 +528,7 @@ test("picker, grouped browse, filtered preview, every Add data host, and neighbo
         await expect(dialog.getByRole("heading", { name: "analytics.districts" })).toBeVisible();
         // The fact renders once: the detail panel.
         await expect(
-          dialog.getByText("geography · MULTIPOLYGON · 4326", { exact: true }),
+          dialog.getByText("geography · Polygons · 4326", { exact: true }),
         ).toHaveCount(1);
         // The column chips fold behind the title row's count (08):
         // until they open, only the preview header says GEOGRAPHY;

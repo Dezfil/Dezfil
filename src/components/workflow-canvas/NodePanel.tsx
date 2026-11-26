@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import type { OperationDef, OperationParameter } from "@/lib/operations/catalog";
 import type { TableListing } from "../api";
+import { geometryKindWord } from "../geometry-class";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { XIcon } from "../ui/icons";
@@ -393,7 +394,7 @@ export function NodePanel({
                     ? "no geometry: a table, not a layer"
                     : gate.preview.geometry === "undetermined"
                       ? "spatial, class undetermined: no geometries to classify"
-                      : (gate.preview.geometryType ?? "spatial")}
+                      : geometryKindWord(gate.preview.geometryType)}
                 </p>
                 {gate.preview.warnings.map((w) => (
                   <p key={w} className={styles.help} role="status" data-preview-warning>

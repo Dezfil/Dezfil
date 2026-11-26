@@ -1,5 +1,5 @@
 import type { DataTable } from "./api";
-import { geometryLabel } from "./api";
+import { geometryChipLabel } from "./table-chips";
 import styles from "./GeometryBadge.module.css";
 
 function Glyph({ type }: { type: string | null }) {
@@ -53,7 +53,7 @@ export function GeometryBadge({ table }: { table: DataTable }) {
   return (
     <span className={styles.badge} data-spatial={table.geometryColumn !== null}>
       <Glyph type={table.geometryType} />
-      {geometryLabel(table)}
+      {geometryChipLabel(table)}
     </span>
   );
 }

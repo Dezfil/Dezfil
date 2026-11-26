@@ -2,6 +2,7 @@ import type { DataTable } from "@/components/api";
 import { formatCount } from "@/components/api";
 import type { PgConnection } from "@/lib/metadata/connections";
 import { CheckIcon } from "@/components/ui/icons";
+import { geometryChipLabel } from "@/components/table-chips";
 import { relationKey, type PostgisRemoteRelation } from "./postgis-pane-types";
 import styles from "./PostgisPane.module.css";
 
@@ -20,7 +21,7 @@ export function PostgisCompletionFacts({
   const { connection, relation, table, filter } = completion;
   return (
     <p>
-      {formatCount(table.rowCount)} rows · {table.geometryType ?? "no geometry"}
+      {formatCount(table.rowCount)} rows · {geometryChipLabel(table)}
       {" · snapshot of "}
       <span className={styles.doneRelation}>{relationKey(relation)}</span>
       {` from ${connection.name}`}

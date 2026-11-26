@@ -20,6 +20,7 @@ import {
 import {
   CrsChip,
   GeometryChip,
+  geometryChipLabel,
   HEADER_SUSPECT_TITLE,
   HeaderChip,
   SourceChip,
@@ -217,8 +218,8 @@ export function TableRow({
   /** Someone else's dataset: its owner, marked after the name. */
   owner?: PersonLabel | null;
 }) {
-  const geometry =
-    t.geometryColumn === null ? "—" : t.geometryType || "Geometry";
+  // The kind as the chip says it: a word, No geometry included.
+  const geometry = geometryChipLabel(t);
   return (
     <tr
       tabIndex={0}

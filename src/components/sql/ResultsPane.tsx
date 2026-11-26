@@ -21,6 +21,7 @@ import { LayersIcon } from "../ui/icons";
 import { IconDownload, IconMap, IconTable } from "../gallery-icons";
 import { serverUnreachable } from "../failure-copy";
 import { featureCountReadout } from "../feature-readout";
+import { geometryKindWord } from "../geometry-class";
 import { ResultMap } from "./ResultMap";
 import { ResultTable } from "./ResultTable";
 import { useAnchored } from "./use-anchored";
@@ -479,7 +480,7 @@ export function ResultsPane(p: Props) {
               {features.state.status === "ready" && features.state.value.ok && (
                 <div className={styles.mapReadout}>
                   <span>{featureCountReadout(features.state.value)}</span>
-                  {features.state.value.geometryType && <span>{features.state.value.geometryType}</span>}
+                  {features.state.value.geometryType && <span>{geometryKindWord(features.state.value.geometryType)}</span>}
                 </div>
               )}
             </FeaturePreviewMap>

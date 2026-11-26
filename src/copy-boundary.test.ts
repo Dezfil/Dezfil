@@ -47,7 +47,6 @@ const GLYPH_SITES = new Set([
   'src/components/OsmPane.tsx :: <b>{areaKm2 === null ? "—" : formatKm2(areaKm2)}</b>',
   'src/components/OverturePane.tsx :: <b>{area === null ? "—" : formatKm2(area)}</b>',
   'src/components/connections/ConnectionsLedger.tsx :: <span className={styles.count}>{snapshots.length ? formatCount(snapshots.length) : "—"}</span>',
-  'src/components/data-cards.tsx :: t.geometryColumn === null ? "—" : t.geometryType || "Geometry";',
   'src/components/api.ts :: if (n === null || n === undefined || !Number.isFinite(n)) return "—";',
   // The workflow card's run slot when the history read failed.
   'src/components/projects/home-model.ts :: if (newestRun === "unreadable") return "—";',

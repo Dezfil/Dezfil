@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatCount, type TableListing } from "../../api";
 import { geometryGlyphType } from "../../geometry-class";
+import { geometryChipLabel } from "../../table-chips";
 import {
   acceptsTable,
   geometryClass,
@@ -113,7 +114,7 @@ export function TablePicker({
         <span className={styles.tableName}>{value}</span>
         {chosen && (
           <span className={styles.tableMeta}>
-            {formatCount(chosen.rowCount)} features · {geometryClass(chosen)}
+            {formatCount(chosen.rowCount)} features · {geometryChipLabel(chosen)}
           </span>
         )}
         <button
@@ -265,7 +266,7 @@ export function TableRows({
                 // The glyph is aria-hidden, so the class it shows joins the
                 // accessible name — a screen reader hears what a sighted
                 // user sees before choosing.
-                aria-label={`${table.name}, ${formatCount(table.rowCount)} features, ${geometryClass(table)}`}
+                aria-label={`${table.name}, ${formatCount(table.rowCount)} features, ${geometryChipLabel(table)}`}
                 // Pointer: mousedown only holds focus so the blur that
                 // closes the list waits for the click; the pick itself is
                 // the click, which is also what Enter and Space dispatch —

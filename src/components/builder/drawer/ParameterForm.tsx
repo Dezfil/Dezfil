@@ -19,7 +19,7 @@ import {
   registeredName,
   tablesNamedIn,
 } from "./operation-form";
-
+import { geometryKindWord } from "../../geometry-class";
 import type { RecipeSummary } from "./recipe-model";
 import { ParameterRow } from "./parameter-controls";
 import { TablePicker } from "./TablePicker";
@@ -406,7 +406,7 @@ export function ParameterForm({
             ? "no geometry: a table, not a layer"
             : shown.geometry === "undetermined"
               ? "spatial, class undetermined: no geometries to classify"
-              : (shown.geometryType ?? "spatial")}
+              : geometryKindWord(shown.geometryType)}
         </p>
       )}
       {shown?.warnings.map((warning) => (

@@ -2,9 +2,8 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-family: var(--font-mono);
+  /* A kind, as a plain word, in the reading face. */
   font-size: 10.5px;
-  letter-spacing: 0.06em;
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--border-strong);

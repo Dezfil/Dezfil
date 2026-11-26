@@ -1,7 +1,7 @@
 "use client";
 
 import type { DataTable } from "./api";
-import { classOfTable } from "./geometry-class";
+import { classOfTable, geometryKindWord } from "./geometry-class";
 import { GeometryIcon, geometryKind } from "./gallery-icons";
 import { CaretIcon } from "./ui/icons";
 import { templateSentence } from "./template-sentence";
@@ -136,24 +136,13 @@ export function GeometryChip({ table }: { table: DataTable }) {
   );
 }
 
+/** A table's geometry kind as the plain word every fact shows: the chip's
+ * Points, Lines, Polygons, Mixed, Geometry or No geometry. A column makes a
+ * table spatial; its type names the kind. */
 export function geometryChipLabel(
   table: Pick<DataTable, "geometryType" | "geometryColumn">,
 ): string {
-  const kind = geometryKind(table.geometryType, table.geometryColumn);
-  const geometryClass = classOfTable(table);
-  if (geometryClass === "unknown") return "Geometry";
-  if (geometryClass === "none") return "No geometry";
-  return (
-    kind === "point"
-      ? "Points"
-      : kind === "line"
-        ? "Lines"
-        : kind === "polygon"
-          ? "Polygons"
-          : kind === "mixed"
-            ? "Mixed"
-            : "Geometry"
-  );
+  return geometryKindWord(table.geometryType, classOfTable(table) !== "none");
 }
 
 /** The door variant's drawn tooltip (04): the shipped sentence

@@ -372,15 +372,14 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/connections/PostgisPane.module.css :: .qualified, .columnsToggle, .spatialFact, .columnList, .previewTable",
+    "id": "src/components/connections/PostgisPane.module.css :: .qualified, .columnsToggle, .columnList, .previewTable",
     "kind": "sql-name",
-    "note": "The columns toggle is a count, and the spatial fact names a geometry kind: they move to the reading face, the kind as a plain word, with the column type and the SRID staying mono beside it.",
+    "note": "The columns toggle is a count: it moves to the reading face.",
     "elements": [
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <table.previewTable>",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <button.columnsToggle> {preview.data ? `${preview.data.columns.",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <div.columnList>",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <h3.qualified> {relationKey(relation)}",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span.spatialFact> {spatialLabel(relation)}"
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <h3.qualified> {relationKey(relation)}"
     ],
     "inherits": [
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <small> {column.type}",
@@ -391,13 +390,22 @@
     ],
     "split": {
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <button.columnsToggle> {preview.data ? `${preview.data.columns.": "to-reading-face",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span.spatialFact> {spatialLabel(relation)}": "to-reading-face",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.name}": "structure",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.type}": "structure",
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <th> {column.name}": "structure",
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <td> {previewCell(row[column.name])}": "structure",
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <small> {column.type}": "structure"
     }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .spatialFact code",
+    "kind": "structure",
+    "note": "A remote table's column type (geometry or geography) and its SRID, beside the kind's plain word: schema facts as the schema has them.",
+    "elements": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.srid}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.type}"
+    ]
   },
   {
     "layer": "mono",
@@ -480,15 +488,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/gallery.module.css :: .geomCell",
-    "kind": "to-reading-face",
-    "note": "The Data list's geometry column: a kind, as a plain word.",
-    "elements": [
-      "src/components/data-cards.tsx :: TableRow <td.geomCell> {geometry}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/gallery.module.css :: .numCell",
     "kind": "to-reading-face",
     "note": "The Data list's rows, size and last updated, and the folder rows' totals: counts, sizes and times, keeping digits of one width.",
@@ -499,15 +498,6 @@
       "src/components/data-cards.tsx :: TableRow <td.numCell> {formatBytes(t.sizeBytes)}",
       "src/components/data-cards.tsx :: TableRow <td.numCell> {formatCount(t.rowCount)}",
       "src/components/data-cards.tsx :: TableRow <td.numCell> {formatRelativeTime(updatedAt(t))}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/GeometryBadge.module.css :: .badge",
-    "kind": "to-reading-face",
-    "note": "The Add layer catalog's kind capsule: a kind, as a plain word.",
-    "elements": [
-      "src/components/GeometryBadge.tsx :: GeometryBadge <span.badge> {geometryLabel(table)}"
     ]
   },
   {
@@ -903,7 +893,7 @@
       "src/components/sql/ResultMap.tsx :: ResultMap <span> \"features\" {formatCount(drawn)} {rowCoun",
       "src/components/sql/ResultMap.tsx :: ResultMap <span> {geometryColumn}",
       "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {featureCountReadout(features.state.valu",
-      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {features.state.value.geometryType}"
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {geometryKindWord(features.state.value.g"
     ],
     "split": {
       "src/components/sql/ResultMap.tsx :: ResultMap <span> {geometryColumn}": "structure"
@@ -1758,7 +1748,7 @@
       "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {step.output?.name ?? outputName}",
       "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {table ? formatCount(table.rowCount) : \"",
       "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m",
-      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {geometry.toLowerCase().replace(/_/g, \" ",
+      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {geometry}",
       "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {template ? \"this template\" : facts ? fa"
     ]
   },

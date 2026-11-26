@@ -1572,7 +1572,7 @@
       "src/components/sql/ResultsPane.tsx :: ResultsPane <div> \"Reading the table…\"",
       "src/components/sql/ResultsPane.tsx :: ResultsPane <span.errorCode> {shown.code}",
       "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {featureCountReadout(features.state.valu",
-      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {features.state.value.geometryType}",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {geometryKindWord(features.state.value.g",
       "src/components/ui/Button.tsx :: Button <button.btn> {children}",
       "src/components/ui/ErrorNote.tsx :: ErrorNote <Button> {retryLabel}",
       "src/components/ui/ErrorNote.tsx :: ErrorNote <div.actions> {children}",
