@@ -776,25 +776,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/sql/SqlConsole.module.css :: .mapReadout",
-    "kind": "to-reading-face",
-    "note": "The SQL page's map readouts: counts and a kind. A column name inside a readout stays mono.",
-    "elements": [
-      "src/components/sql/ResultMap.tsx :: ResultMap <div.mapReadout>",
-      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.mapReadout>"
-    ],
-    "inherits": [
-      "src/components/sql/ResultMap.tsx :: ResultMap <span> \"features\" {formatCount(drawn)} {rowCoun",
-      "src/components/sql/ResultMap.tsx :: ResultMap <span> {geometryColumn}",
-      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {featureCountReadout(features.state.valu",
-      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {geometryKindWord(features.state.value.g"
-    ],
-    "split": {
-      "src/components/sql/ResultMap.tsx :: ResultMap <span> {geometryColumn}": "structure"
-    }
-  },
-  {
-    "layer": "mono",
     "id": "src/components/sql/SqlConsole.module.css :: .mapTip",
     "kind": "structure",
     "elements": [
@@ -811,6 +792,15 @@
     "kind": "structure",
     "elements": [
       "src/components/sql/ResultTable.tsx :: ResultTable <pre.peekValue> {peek.value}"
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/sql/SqlConsole.module.css :: .readoutColumn",
+    "kind": "structure",
+    "note": "The geometry column's name inside the SQL result map's readout; the counts beside it are in the reading face.",
+    "elements": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <span.readoutColumn> {geometryColumn}"
     ]
   },
   {
@@ -1506,6 +1496,20 @@
     "id": "src/components/sql/SqlConsole.module.css :: .grid td[data-kind=\"number\"]",
     "elements": [
       "src/components/sql/ResultTable.tsx :: ResultTable <td> {f.text.length > 120 ? f.text.slice(0, 1"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/sql/SqlConsole.module.css :: .mapReadout",
+    "elements": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <div.mapReadout>",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <div.mapReadout>"
+    ],
+    "inherits": [
+      "src/components/sql/ResultMap.tsx :: ResultMap <span.readoutColumn> {geometryColumn}",
+      "src/components/sql/ResultMap.tsx :: ResultMap <span> \"features\" {formatCount(drawn)} {rowCoun",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {featureCountReadout(features.state.valu",
+      "src/components/sql/ResultsPane.tsx :: ResultsPane <span> {geometryKindWord(features.state.value.g"
     ]
   },
   {

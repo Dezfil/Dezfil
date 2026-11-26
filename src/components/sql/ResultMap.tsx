@@ -71,7 +71,7 @@ export function ResultMap({
               {formatCount(drawn)}
               {rowCount > rows.length ? ` of ${formatCount(rowCount)}` : ""} features
             </span>
-            <span>{geometryColumn}</span>
+            <span className={styles.readoutColumn}>{geometryColumn}</span>
           </div>
         )}
         {hover && (

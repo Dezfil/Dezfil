@@ -844,11 +844,15 @@
   padding: 5px 10px;
   border-radius: var(--radius);
   background: var(--surface-overlay-panel-fill);
-  font-family: var(--font-mono);
   font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
   backdrop-filter: var(--surface-overlay-panel-blur);
   box-shadow: var(--surface-overlay-panel-shadow);
+}
+/* A column's name inside the readout stays mono, beside its counts. */
+.readoutColumn {
+  font-family: var(--font-mono);
 }
 .mapTip {
   position: absolute;
