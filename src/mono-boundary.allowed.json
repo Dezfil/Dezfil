@@ -930,18 +930,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/workflow-canvas/NoteNode.module.css :: .label",
-    "kind": "to-reading-face",
-    "note": "A note's label on the workflow canvas, and the unsaved mark drawn in it.",
-    "elements": [
-      "src/components/workflow-canvas/NoteNode.tsx :: NoteNode <span.label> {label}"
-    ],
-    "inherits": [
-      "src/components/builder/UnsavedFields.tsx :: UnsavedMark <span.mark> {children}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/workflow-canvas/NoteNode.module.css :: .placeholder",
     "kind": "code",
     "elements": [
@@ -980,18 +968,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .readout",
-    "kind": "to-reading-face",
-    "note": "The workflow results band's map readout: a count, a kind and a projection.",
-    "elements": [
-      "src/components/workflow-canvas/MapTab.tsx :: MapTab <div.readout>"
-    ],
-    "inherits": [
-      "src/components/workflow-canvas/MapTab.tsx :: MapTab <span> {part}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/workflow-canvas/ResultsBand.module.css :: .sqlText",
     "kind": "sql",
     "elements": [
@@ -1000,18 +976,6 @@
     "inherits": [
       "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text}",
       "src/components/sql/SqlExcerpt.tsx :: SqlExcerpt <span> {p.text} #2"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .ts",
-    "kind": "to-reading-face",
-    "note": "The Messages log's clock times and who ran a step: times and people, keeping digits of one width.",
-    "elements": [
-      "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span.ts> \"·\" {fmt.format(new Date(e.time))}"
-    ],
-    "inherits": [
-      "src/components/sharing/RunInitiator.tsx :: RunInitiator <span> {deleted ? \"Deleted account\" : actor ? f"
     ]
   },
   {
@@ -1050,18 +1014,12 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .kv dd",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .kv dd.kvSql",
     "kind": "sql-name",
-    "note": "The panels' Rows are counts: they move to the reading face, keeping digits of one width.",
+    "note": "The node panel's Dataset: the output as the workflow's SQL reads it. The Rows beside it are in the reading face.",
     "elements": [
-      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {step.output?.name ?? outputName}",
-      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {table ? formatCount(table.rowCount) : \"",
-      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m"
-    ],
-    "split": {
-      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {table ? formatCount(table.rowCount) : \"": "to-reading-face",
-      "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m": "to-reading-face"
-    }
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd.kvSql> {step.output?.name ?? outputName}"
+    ]
   },
   {
     "layer": "mono",
@@ -1105,16 +1063,12 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .tOut",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .tOutName",
     "kind": "sql-name",
-    "note": "On a source node the sub-label is the row count: it moves to the reading face with digits of one width, and the class splits from the operation's output name.",
+    "note": "An operation node's output under its label, as the workflow's SQL reads it. A source node's row count in the same place is in the reading face.",
     "elements": [
-      "src/components/workflow-canvas/BadgeNode.tsx :: BadgeNode <span.tOut> {m.outputName}",
-      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.tOut> {m.missing ? \"missing\" : m.table ? `${fo"
-    ],
-    "split": {
-      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.tOut> {m.missing ? \"missing\" : m.table ? `${fo": "to-reading-face"
-    }
+      "src/components/workflow-canvas/BadgeNode.tsx :: BadgeNode <span.tOut.tOutName> {m.outputName}"
+    ]
   },
   {
     "layer": "mark",
@@ -1609,6 +1563,16 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/workflow-canvas/ResultsBand.module.css :: .readout",
+    "elements": [
+      "src/components/workflow-canvas/MapTab.tsx :: MapTab <div.readout>"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/MapTab.tsx :: MapTab <span> {part}"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/workflow-canvas/ResultsBand.module.css :: .ts",
     "elements": [
       "src/components/workflow-canvas/ResultsBand.tsx :: ResultsBand <span.ts> \"·\" {fmt.format(new Date(e.time))}"
@@ -1621,8 +1585,8 @@
     "layer": "digits",
     "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .kv dd",
     "elements": [
+      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd.kvSql> {step.output?.name ?? outputName}",
       "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {lastRun(step, template)}",
-      "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {step.output?.name ?? outputName}",
       "src/components/workflow-canvas/OutputFacts.tsx :: OutputFacts <dd> {table ? formatCount(table.rowCount) : \"",
       "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m",
       "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {geometry}",
@@ -1651,6 +1615,13 @@
       "src/components/workflow-canvas/RunDock.tsx :: RunDock <b> \"of\" {settledCount(active)} {active.memb",
       "src/components/workflow-canvas/RunDock.tsx :: RunDock <button.dockAction> \"Retry\"",
       "src/components/workflow-canvas/RunDock.tsx :: RunDock <button.dockAction> \"Retry\" #2"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .tOutCount",
+    "elements": [
+      "src/components/workflow-canvas/SourceNode.tsx :: SourceNode <span.tOut.tOutCount> {m.missing ? \"missing\" : m.table ? `${fo"
     ]
   }
 ]

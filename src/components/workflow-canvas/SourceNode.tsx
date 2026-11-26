@@ -42,7 +42,7 @@ export function SourceNode({ data, selected, dragging, isConnectable }: NodeProp
       </span>
       <span className={styles.tLabel} style={{ top: BOX.y + BOX.h + 7 }}>
         <span className={styles.srcName}>{m.name}</span>
-        <span className={styles.tOut}>{m.missing ? "missing" : m.table ? `${formatCount(m.table.rowCount)} rows` : ""}</span>
+        <span className={`${styles.tOut} ${styles.tOutCount}`}>{m.missing ? "missing" : m.table ? `${formatCount(m.table.rowCount)} rows` : ""}</span>
         {data.unsavedPosition && <UnsavedMark>unsaved position</UnsavedMark>}
       </span>
       <Handle

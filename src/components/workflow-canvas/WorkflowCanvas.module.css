@@ -290,13 +290,22 @@
 }
 
 .tOut {
-  font-family: var(--font-mono);
   font-size: var(--text-meta);
   color: var(--fg-muted);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* An operation's output, as the workflow's SQL reads it: mono. */
+.tOutName {
+  font-family: var(--font-mono);
+}
+
+/* A source's row count: the reading face, digits of one width. */
+.tOutCount {
+  font-variant-numeric: tabular-nums;
 }
 
 /* The disclosure: every condition true of it and its last run, shown on
@@ -1339,7 +1348,6 @@ button.tableRow {
 
 .kv dd {
   margin: 0;
-  font-family: var(--font-mono);
   font-size: var(--text-meta);
   color: var(--fg);
   font-variant-numeric: tabular-nums;
@@ -1347,6 +1355,11 @@ button.tableRow {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The Dataset cell: the output as the workflow's SQL reads it, in mono. */
+.kv dd.kvSql {
+  font-family: var(--font-mono);
 }
 
 .kv dd[data-plain] {
