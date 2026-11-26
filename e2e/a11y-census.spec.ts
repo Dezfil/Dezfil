@@ -15,6 +15,7 @@ import {
   addLayer,
   patchLayer,
   patchMap,
+  readLayer,
   routeHouse,
   seedCsv,
   trackConsole,
@@ -167,6 +168,34 @@ async function seedStyledMap(page: Page): Promise<{
     ],
   });
   return { mapId, layerId };
+}
+
+/** The Label section's ways back to Automatic, one per paint row; each
+ * shows only while its part is the label's own. */
+const LABEL_PAINT_BACK = [
+  "Label color back to Automatic",
+  "Halo width back to Automatic",
+  "Label halo color back to Automatic",
+] as const;
+
+/** Give the layer a label whose text and halo are its own, so the rows
+ * offer their ways back. */
+async function ownLabelPaint(page: Page, layerId: string): Promise<void> {
+  const before = await readLayer<{ style: Record<string, unknown> }>(page, layerId);
+  await patchLayer(page, layerId, {
+    style: {
+      ...before.style,
+      label: {
+        attribute: "name",
+        size: 12,
+        textPaint: "own",
+        color: { r: 214, g: 96, b: 77, a: 1 },
+        haloPaint: "own",
+        haloWidth: 1,
+        haloColor: { r: 12, g: 16, b: 24, a: 1 },
+      },
+    },
+  });
 }
 
 /** A workflow with one source and one node: the canvas's
@@ -322,6 +351,14 @@ test.describe("census checks", () => {
       await expect(
         page.getByRole("textbox", { name: "Legend label 1, alpha" }),
       ).toBeVisible();
+    });
+
+    await test.step("label section: each way back to Automatic names its row", async () => {
+      await ownLabelPaint(page, layerId);
+      await page.goto(`/maps/${mapId}?layer=${layerId}`);
+      for (const name of LABEL_PAINT_BACK) {
+        await expect(page.getByRole("button", { name, exact: true })).toBeVisible({ timeout: 30_000 });
+      }
     });
 
     await test.step("widgets: row actions carry the widget's title", async () => {
@@ -544,6 +581,15 @@ test.describe("census checks", () => {
           page.getByRole("slider", { name: "Riders range start" }),
           "the histogram handle",
         );
+        // The Label section's ways back to Automatic: reached by keyboard,
+        // and the ring drawn.
+        await ownLabelPaint(page, layerId);
+        await page.goto(`/maps/${mapId}?layer=${layerId}`);
+        for (const name of LABEL_PAINT_BACK) {
+          const back = page.getByRole("button", { name, exact: true });
+          await expect(back).toBeVisible({ timeout: 30_000 });
+          await expectRing(page, back, `the ${name.toLowerCase()} button`);
+        }
         // Canvas-legend affordance: ring + floor.
         const legendTitle = page.getByRole("button", {
           name: "Edit legend title, alpha",
