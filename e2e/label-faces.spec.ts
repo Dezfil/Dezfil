@@ -505,11 +505,10 @@ test.describe("the face's own arrival", () => {
   });
 
   test("a face that never arrives leaves labels to the fallback within the wait", async ({ page, context }) => {
-    // Known to fail: a font file that stalls holds the document's load, and
-    // the map's WebGL device waits for that load before it draws anything,
-    // marks included, so labels draw only once the request ends, however
-    // long that is. The labels' own wait never gets its turn.
-    test.fail(true, "the map's drawing waits for the page's load, which a stalled font file holds");
+    // A font file that stalls holds the document's load; the map's drawing
+    // must not wait for that load, or labels would draw only once the
+    // request ends, however long that is, and the labels' own wait would
+    // never get its turn.
     const held = await openWithFonts(context, page, async (route) => {
       // Unanswered for three times the wait, then refused: a stalled face.
       await new Promise((resolve) => setTimeout(resolve, 15_000));

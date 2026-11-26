@@ -37,6 +37,7 @@ describe("canvas overlay lifetime", () => {
     expect(order).toEqual(["mount", "capture"]);
     expect(mocks.create).toHaveBeenLastCalledWith({
       interleaved: false, layers: [], ...mocks.handlers,
+      deviceProps: { waitForPageLoad: false },
     });
     expect(instance.addControl).toHaveBeenCalledWith(mounted.overlay);
     expect(mounted.overlay).toBe(mocks.overlay);

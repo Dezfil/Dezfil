@@ -12,6 +12,11 @@ export function attachCanvasOverlay(pointer: PointerContext, capture: CaptureOpt
     interleaved: false,
     layers: [],
     ...pointerHandlers(pointer),
+    // The canvas is already in the page when the map mounts, so the device
+    // need not wait for the document's load: a font file that never answers
+    // would hold that load, and with it every mark and label on the map,
+    // past the labels' own wait for their face.
+    deviceProps: { waitForPageLoad: false },
   });
   pointer.instance.addControl(overlay);
   // Consumers retain handles; capture reads the camera only when invoked.
