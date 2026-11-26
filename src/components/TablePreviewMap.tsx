@@ -4,11 +4,22 @@ import { useEffect, useState } from "react";
 import type { TableFeaturesResult } from "@/lib/table-service";
 import { readApiError } from "./api";
 import { featureCountReadout } from "./feature-readout";
+import { geometryKindWord } from "./geometry-class";
 import { ErrorNote } from "./ui/ErrorNote";
 import { PreviewRefusalPlate } from "./PreviewRefusalPlate";
 import styles from "./TablePreviewMap.module.css";
 import { serverUnreachable } from "./failure-copy";
 import { FeaturePreviewMap } from "./map/FeaturePreviewMap";
+
+/** The preview's readout: the features drawn, the kind as a plain word
+ * when the read names one, and the projection. */
+export function previewReadout(result: TableFeaturesResult, crsAssumed: boolean): string[] {
+  return [
+    featureCountReadout(result),
+    result.geometryType ? geometryKindWord(result.geometryType) : "",
+    crsAssumed ? "WGS84 assumed" : "EPSG:4326",
+  ].filter(Boolean);
+}
 
 /**
  * The dataset detail's map preview: the table's features on a basemap,
@@ -62,13 +73,7 @@ export function TablePreviewMap({
     };
   }, [name, attempt]);
 
-  const readout = result?.ok
-    ? [
-        featureCountReadout(result),
-        result.geometryType ?? "",
-        crsAssumed ? "WGS84 assumed" : "EPSG:4326",
-      ].filter(Boolean)
-    : null;
+  const readout = result?.ok ? previewReadout(result, crsAssumed) : null;
 
   return (
     <div className={styles.pane}>

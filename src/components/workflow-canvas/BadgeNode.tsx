@@ -74,7 +74,7 @@ export function BadgeNode({ data, selected, dragging, isConnectable }: NodeProps
       </span>
       <span className={styles.tLabel} style={{ top: BOX.y + BOX.h + 7 }}>
         <b className={styles.tName}>{m.label}</b>
-        <span className={styles.tOut}>{m.outputName}</span>
+        <span className={`${styles.tOut} ${styles.tOutName}`}>{m.outputName}</span>
         {data.unsavedPosition && <UnsavedMark>unsaved position</UnsavedMark>}
       </span>
       <span id={disclosureId(m.id)} className={styles.disclosure} data-disclosure>

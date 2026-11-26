@@ -141,6 +141,9 @@ export interface ExternalSignInRow {
   /** On or off, drawn as a state. */
   readonly state?: "on" | "off";
   readonly mono?: boolean;
+  /** A count and a time the server recorded: the reading face, at the
+   * size a value written as code takes. */
+  readonly fact?: boolean;
 }
 
 /** The mode's card: on or off, both generations and the last applied reset,
@@ -158,6 +161,6 @@ export function externalSignInRows(read: Pick<InstanceRead, "settings" | "extern
     { id: "sys-external-sign-out-generation", label: "Sign-out generation", keys: "sign everyone out raised", value: String(mode.signOutGeneration) },
     { id: "sys-external-door-generation", label: "Door generation", keys: "floor raised", value: String(mode.doorGeneration) },
     { id: "sys-external-last-reset", label: "Last door generation reset", keys: "reset recovery applied time date",
-      value: mode.lastReset ? `${mode.lastReset.value} · ${mode.lastReset.appliedAt}` : "None", mono: !!mode.lastReset },
+      value: mode.lastReset ? `${mode.lastReset.value} · ${mode.lastReset.appliedAt}` : "None", fact: !!mode.lastReset },
   ];
 }

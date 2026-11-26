@@ -29,7 +29,6 @@
 }
 
 .nameField input {
-  font-family: var(--font-mono);
   font-size: 13px;
   color: var(--fg);
   background: var(--bg-raised);
@@ -144,6 +143,7 @@
 
 .metaVal {
   color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Placement only — the mark and its text are the kit's StatusDot. */

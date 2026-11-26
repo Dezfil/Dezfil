@@ -208,7 +208,7 @@
 }
 
 .name,
-.nameMono {
+.datasetName {
   font-size: var(--text-body);
   font-weight: 600;
   overflow: hidden;
@@ -216,8 +216,7 @@
   white-space: nowrap;
 }
 
-.nameMono {
-  font-family: var(--font-mono);
+.datasetName {
   font-weight: 500;
   font-size: var(--text-label);
 }
@@ -287,9 +286,12 @@
   color: var(--fg);
 }
 
+/* What each path holds, counts and sizes: the reading face beside the
+   mono paths, with digits of one width. */
 .treeNote {
-  font-family: inherit;
+  font-family: var(--font-ui);
   font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
 }
 

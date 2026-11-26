@@ -539,7 +539,9 @@ export function AddToProjectDialog({
                         kind={geometryKind(d.geometryType, d.geometryColumn)}
                       />
                     </span>
-                    <span className={styles.dsName}>{d.qualifiedName ?? d.name}</span>
+                    {/* The plain name; someone else's names its owner on
+                        the line under it. */}
+                    <span className={styles.dsName}>{d.name}</span>
                     <span className={styles.dsMeta}>
                       {SOURCE_WORDS[d.source] ?? d.source} ·{" "}
                       {d.rowCount.toLocaleString("en-US")} row

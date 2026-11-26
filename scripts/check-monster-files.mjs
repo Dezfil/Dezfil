@@ -39,7 +39,7 @@ const CEILINGS = {
   "src/components/builder/StylePanel.tsx": 943,
   // The parameter form, after the catalog-driven parameter controls left
   // for parameter-controls so the workflow canvas composes the same rows.
-  "src/components/builder/drawer/ParameterForm.tsx": 449,
+  "src/components/builder/drawer/ParameterForm.tsx": 445,
   // The workflow canvas, after its right-side furniture left for
   // CanvasFurniture, its interaction and edit wiring for
   // use-canvas-editing beside the lock, and how it opens (the view and the

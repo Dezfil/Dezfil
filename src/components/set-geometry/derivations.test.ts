@@ -69,8 +69,9 @@ describe("what the panel derives from the API's sample", () => {
   });
   it("the readout names the sampled count, the drawn type and the projection the answer was read under", () => {
     expect(readout(answer(["readable", "unreadable"], { choice: { format: "pair", columns: ["column07", "column06"], epsg: 25833 } }), null))
-      .toEqual(["1 of 2 sampled rows", "POINT", "ETRS89 / UTM 33N"]);
-    expect(readout(answer(["readable"], { geometryType: null, choice: { format: "h3", columns: ["cell"] } }), null)).toEqual(["1 of 1 sampled rows", "GEOMETRY", "WGS 84"]);
+      .toEqual(["1 of 2 sampled rows", "Points", "ETRS89 / UTM 33N"]);
+    expect(readout(answer(["readable"], { geometryType: null, choice: { format: "h3", columns: ["cell"] } }), null)).toEqual(["1 of 1 sampled rows", "Geometry", "WGS 84"]);
+    expect(readout(answer(["readable"], { geometryType: "MULTILINESTRING" }), null)?.[1]).toBe("Lines");
     expect(readout(answer(["unreadable"]), null)).toBeNull();
   });
 });

@@ -31,7 +31,7 @@ export function TalkingAbout({ chips }: { chips: TalkingChip[] }) {
           <span key={chip.key} className={styles.chip} data-chip={chip.key} data-tone={chip.tone}>
             <Icon />
             <span className={styles.label}>{chip.label}</span>
-            <span className={chip.mono ? `${styles.value} ${styles.mono}` : styles.value}>{chip.value}</span>
+            <span className={chip.named ? `${styles.value} ${styles.named}` : styles.value}>{chip.value}</span>
           </span>
         );
       })}

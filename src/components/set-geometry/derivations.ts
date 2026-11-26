@@ -1,4 +1,5 @@
 import type { GeometryCandidate, GeometryRecord } from "@/lib/geometry-evidence";
+import { geometryKindWord } from "../geometry-class";
 import { effectiveProjectionName } from "./projection";
 import type { GeometryPreview, PanelChoice } from "./types";
 
@@ -83,12 +84,12 @@ export function markedRows(answer: GeometryPreview): boolean[] {
 }
 
 /** The map's readout while the panel is open: sampled count, the
- * drawn type, the projection the answer was read under; nothing while no
+ * drawn kind as a plain word, the projection the answer was read under; nothing while no
  * row reads. Every part comes from the answer, so a pending replacement
  * never relabels it; the record is the one
  * kept with the answer, never the current inspection's. */
 export function readout(answer: GeometryPreview | null, record: GeometryRecord | null): string[] | null {
   const count = countSentence(answer);
   if (!count || count.readable === 0 || answer === null) return null;
-  return [`${count.readable} of ${count.total} sampled rows`, answer.geometryType ?? "GEOMETRY", effectiveProjectionName(answer.choice, record)];
+  return [`${count.readable} of ${count.total} sampled rows`, geometryKindWord(answer.geometryType), effectiveProjectionName(answer.choice, record)];
 }

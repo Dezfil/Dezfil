@@ -844,11 +844,15 @@
   padding: 5px 10px;
   border-radius: var(--radius);
   background: var(--surface-overlay-panel-fill);
-  font-family: var(--font-mono);
   font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
   backdrop-filter: var(--surface-overlay-panel-blur);
   box-shadow: var(--surface-overlay-panel-shadow);
+}
+/* A column's name inside the readout stays mono, beside its counts. */
+.readoutColumn {
+  font-family: var(--font-mono);
 }
 .mapTip {
   position: absolute;
@@ -929,7 +933,11 @@
   background: var(--danger);
   color: #fff;
 }
+/* The title is the tables the query reads, written as its SQL wrote them:
+   SQL names, in the code face. The app's words beside them, the count of
+   the rest and "Query" for none, read in the reading face. */
 .cardTitle {
+  font-family: var(--font-mono);
   font-size: var(--text-body);
   font-weight: 600;
   color: var(--fg);
@@ -938,6 +946,10 @@
   white-space: nowrap;
   min-width: 0;
 }
+.cardTitle[data-plain],
+.cardRest {
+  font-family: var(--font-ui);
+}
 .cardWhen {
   margin-left: auto;
   font-size: 10.5px;
@@ -945,8 +957,10 @@
   font-variant-numeric: tabular-nums;
   flex: none;
 }
+/* The saved query is SQL, in the code face as the editor sets it; its
+   keywords keep the editor's colour and weight. */
 .cardSql {
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
   font-size: var(--text-label);
   line-height: 1.5;
   color: var(--fg-muted);

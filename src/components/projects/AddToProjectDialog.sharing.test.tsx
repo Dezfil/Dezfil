@@ -135,12 +135,22 @@ describe("the Add-to-project dialog as an Editor", () => {
 
   it("lists Ada's dataset and her workflow as not his to add, with no box to tick", async () => {
     await openMap();
-    for (const r of [row("ada.rents"), producerRow("Rent pressure")]) {
+    for (const r of [row("rents"), producerRow("Rent pressure")]) {
       const name = r.textContent;
       expect(r.hasAttribute("data-not-addable"), name).toBe(true);
       expect(r.textContent).toContain("not yours to add");
       expect(r.querySelector('input[type="checkbox"]')?.disabled ?? true).toBe(true);
     }
+  });
+
+  it("names each dataset by its plain name, someone else's with its owner on the line under it", async () => {
+    await openMap();
+    const nameOf = (r: HostElement) => r.querySelectorAll("span").find((s) => /_dsName_/.test(s.className))!.textContent;
+    expect(nameOf(row("stations"))).toBe("stations");
+    expect(nameOf(row("rents"))).toBe("rents");
+    expect(row("rents").textContent).not.toContain("ada.rents");
+    expect(row("rents").textContent).toContain("Ada Okafor’s · not yours to add");
+    expect(nameOf(producerRow("Rent pressure"))).toBe("Rent pressure");
   });
 
   it("files what is picked and nothing else: a dataset without its workflow", async () => {

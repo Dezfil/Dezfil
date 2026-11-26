@@ -350,7 +350,7 @@ export function AddItemsDialog({
                   )}
                 </span>
                 <span className={styles.text}>
-                  <b className={item.kind === "dataset" ? styles.mono : undefined}>
+                  <b className={item.kind === "dataset" ? styles.dataset : undefined}>
                     {item.name}
                   </b>
                   <small>

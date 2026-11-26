@@ -120,6 +120,13 @@
   color: var(--fg-muted);
 }
 
+/* A name a note quotes as code, such as a variable, in the code face at
+   the size of the note. */
+.note code {
+  font-family: var(--font-mono);
+  font-size: inherit;
+}
+
 /* a way to the row that decides something shown here */
 .link {
   color: var(--accent);

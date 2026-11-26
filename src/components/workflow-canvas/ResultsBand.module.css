@@ -214,7 +214,6 @@
 }
 
 .ts {
-  font-family: var(--font-mono);
   font-size: var(--text-meta);
   color: var(--fg-muted);
   flex: none;
@@ -409,8 +408,8 @@
   backdrop-filter: var(--surface-overlay-panel-blur);
   border-radius: var(--radius-pill);
   box-shadow: var(--surface-overlay-panel-shadow);
-  font-family: var(--font-mono);
   font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
   white-space: nowrap;
   max-width: calc(100% - 24px);

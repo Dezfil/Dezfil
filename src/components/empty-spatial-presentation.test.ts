@@ -2,10 +2,9 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { DataTable } from "@/lib/metadata/tables";
-import { geometryLabel } from "./api";
 import { geometryFamilies, geometryKind } from "./gallery-icons";
 import { geometryChipLabel } from "./table-chips";
-import { classOfTable, geometryGlyphType } from "./geometry-class";
+import { classOfTable, geometryGlyphType, resultKindWord } from "./geometry-class";
 
 const table = (
   geometryColumn: string | null,
@@ -20,8 +19,6 @@ describe("one column-first geometry vocabulary", () => {
   it("distinguishes retained unknown geometry from a non-spatial table", () => {
     expect(classOfTable(retained)).toBe("unknown");
     expect(classOfTable(plain)).toBe("none");
-    expect(geometryLabel(retained)).toBe("geometry unknown");
-    expect(geometryLabel(plain)).toBe("non-spatial");
     expect(geometryKind(retained.geometryType, retained.geometryColumn)).toBe(
       "mixed",
     );
@@ -29,21 +26,22 @@ describe("one column-first geometry vocabulary", () => {
       geometryFamilies(retained.geometryType, retained.geometryColumn),
     ).toEqual(["point", "line", "polygon"]);
     expect(geometryChipLabel(retained)).toBe("Geometry");
+    expect(geometryChipLabel(plain)).toBe("No geometry");
     expect(geometryGlyphType(retained)).toBe("GEOMETRY");
     expect(geometryGlyphType(plain)).toBeNull();
   });
 
   it("is a strict presentation no-op for every classified family", () => {
     const cases = [
-      ["POINT", "point", ["point"]],
-      ["MULTILINESTRING", "line", ["line"]],
-      ["POLYGON", "polygon", ["polygon"]],
-      ["POINT+POLYGON", "mixed", ["point", "polygon"]],
-      ["GEOMETRYCOLLECTION", "mixed", ["point", "line", "polygon"]],
+      ["POINT", "point", ["point"], "Points"],
+      ["MULTILINESTRING", "line", ["line"], "Lines"],
+      ["POLYGON", "polygon", ["polygon"], "Polygons"],
+      ["POINT+POLYGON", "mixed", ["point", "polygon"], "Mixed"],
+      ["GEOMETRYCOLLECTION", "mixed", ["point", "line", "polygon"], "Mixed"],
     ] as const;
-    for (const [type, kind, families] of cases) {
+    for (const [type, kind, families, word] of cases) {
       const classified = table("geom", type);
-      expect(geometryLabel(classified)).toBe(type.toLowerCase());
+      expect(geometryChipLabel(classified)).toBe(word);
       expect(geometryKind(classified.geometryType, classified.geometryColumn)).toBe(
         kind,
       );
@@ -89,16 +87,15 @@ describe("zero-row and all-null agreement copy", () => {
   it.each([
     "builder/drawer/ParameterForm.tsx",
     "workflow-canvas/NodePanel.tsx",
-  ])("%s says there are no geometries to classify", (file) => {
+  ])("%s reads its preview's kind through the shared words", (file) => {
     const source = readFileSync(path.join(process.cwd(), "src/components", file), "utf8");
-    expect({
-      truthful: source.includes(
-        "spatial, class undetermined: no geometries to classify",
-      ),
-      stale: source.includes(
-        "spatial, class undetermined: no rows to classify",
-      ),
-    }).toEqual({ truthful: true, stale: false });
+    expect(source).toMatch(/resultKindWord\([^)]*\{ preview: true \}\)/);
+  });
+
+  it("says there are no geometries to classify, not no rows", () => {
+    expect(resultKindWord("undetermined", null, { preview: true })).toBe("Geometry: no geometries to classify");
+    const source = readFileSync(path.join(process.cwd(), "src/components/geometry-class.ts"), "utf8");
+    expect(source.includes("no rows to classify")).toBe(false);
   });
 
   it("publishes the same truthful meaning for undetermined geometry", () => {

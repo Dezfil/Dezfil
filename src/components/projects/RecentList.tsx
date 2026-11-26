@@ -142,7 +142,7 @@ function RowContent({
       </span>
       <span className={styles.text}>
         <span className={styles.nameLine}>
-          <b className={it.kind === "dataset" ? styles.mono : undefined} data-recent-name>
+          <b className={it.kind === "dataset" ? styles.dataset : undefined} data-recent-name>
             {it.name}
           </b>
           {it.owner && <OwnerPill owner={it.owner} placement="inline" />}

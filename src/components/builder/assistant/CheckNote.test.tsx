@@ -46,8 +46,9 @@ describe("the note's line", () => {
   });
   it("the inspection carries the render identity, the state identity, the appearance and both sizes, and claims no undo or change group", () => {
     const out = html({ ...base, observation: { state: "captured", text: "Seen.", at: 0 } }, true);
-    expect(out).toContain('data-render-id="true">render-1<');
-    expect(out).toMatch(/data-render-state="true">abcdefabcdefabcd, 2 visible layers, 1 widget</);
+    expect(out).toMatch(/<dd class="[^"]*checkId[^"]*" data-render-id="true">render-1</);
+    // The digest is an identity in mono, in its own element; the counts after it read as words.
+    expect(out).toMatch(/data-render-state="true"><span class="[^"]*checkId[^"]*">abcdefabcdefabcd<\/span>, 2 visible layers, 1 widget</);
     expect(out).toContain("dark");
     expect(out).toContain("768 by 480, 300 KiB");
     expect(out).toContain("1024 by 640");
@@ -58,7 +59,7 @@ describe("the note's line", () => {
   });
   it("dropped state detail reads as not kept in the inspection, never as zero layers and widgets", () => {
     const out = html({ ...base, omitted: true, check: { ...check, layers: undefined, widgets: undefined } }, true);
-    expect(out).toMatch(/data-render-state="true">abcdefabcdefabcd, layer and widget detail not kept</);
+    expect(out).toMatch(/data-render-state="true"><span class="[^"]*checkId[^"]*">abcdefabcdefabcd<\/span>, layer and widget detail not kept</);
     expect(out).not.toContain("0 visible layers");
     expect(out).not.toContain("0 widgets");
   });

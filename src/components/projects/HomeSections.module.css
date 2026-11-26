@@ -132,9 +132,8 @@
   width: 40px;
 }
 
-.monoName {
+.datasetName {
   display: block;
-  font-family: var(--font-mono);
   font-weight: 500;
   font-size: var(--text-label);
   white-space: nowrap;

@@ -26,6 +26,13 @@
   font-size: var(--text-label);
 }
 
+/* The browser sets its own monospace on a code element itself, so the
+   block's face reaches its configuration only when the element asks. */
+.configuration code {
+  font-family: var(--font-mono);
+  font-size: inherit;
+}
+
 .status {
   color: var(--fg-muted);
   font-size: var(--text-label);

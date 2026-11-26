@@ -275,8 +275,8 @@
   color: var(--fg-faint);
 }
 
+/* A dataset's or a workflow's name, as a name: the reading face. */
 .dsName {
-  font-family: var(--font-mono);
   font-weight: 500;
   font-size: var(--text-label);
   min-width: 0;
@@ -289,6 +289,7 @@
   font-size: var(--text-meta);
   color: var(--fg-muted);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .dsSub {
