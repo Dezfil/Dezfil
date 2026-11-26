@@ -300,8 +300,9 @@ test("opacity, polygon extrusion, legend editing, and the external-refresh contr
       })
       .toBe(true);
 
-    // A different layer with no remembered styling gets the defaults —
-    // one layer's memory must not leak into another (per-layer isolation).
+    // A different layer with no remembered styling gets the defaults, its
+    // text and halo following the map — one layer's memory must not leak
+    // into another (per-layer isolation).
     const layer2Id = await addLayer(
       page,
       mapId,
@@ -319,12 +320,13 @@ test("opacity, polygon extrusion, legend editing, and the external-refresh contr
     await expect
       .poll(async () => {
         const l = await readLayer<{
-          style: { label?: { size: number; haloWidth: number } };
+          style: { label?: { size: number; textPaint: string; haloPaint: string } };
         }>(page, layer2Id);
         return (
           l.style.label !== undefined &&
           l.style.label.size === 12 &&
-          l.style.label.haloWidth === 0
+          l.style.label.textPaint === "automatic" &&
+          l.style.label.haloPaint === "automatic"
         );
       })
       .toBe(true);

@@ -2,24 +2,27 @@
 
 import type { LabelStyle, LayerStyle } from "@/lib/style/style";
 
-import { LEGACY_HALO_COLOR } from "@/lib/style/style";
+import { LABEL_RECIPES } from "@/lib/style/label-recipe";
 import { onPrivateReset } from "../../auth/private-state";
 
-/** A fresh label (halo as width+color): plain
- * text, no halo — the halo is an opt-in for imagery and busy basemaps. */
+/** A fresh label: its text and its halo follow the map, at size 12. The
+ * colours beside the choices are only placeholders until the save, which
+ * stores the map's own fallbacks in their place. */
 const DEFAULT_LABEL: Omit<LabelStyle, "attribute"> = {
   size: 12,
-  color: { r: 255, g: 255, b: 255, a: 1 },
-  haloWidth: 0,
-  haloColor: LEGACY_HALO_COLOR,
+  textPaint: "automatic",
+  color: { ...LABEL_RECIPES.light.color },
+  haloPaint: "automatic",
+  haloWidth: LABEL_RECIPES.light.haloWidth,
+  haloColor: { ...LABEL_RECIPES.light.haloColor },
 };
 
 /**
  * The label on/off setters, extracted with fix: switching labels off
- * remembers the layer's authored size/color/halo so a comparison toggle
- * costs nothing — only the attribute choice resets. Per layer, in
- * memory, no new persistence. Attribute→attribute switches keep their
- * long-standing preservation.
+ * remembers the layer's authored size, colours, halo and their choices,
+ * so a comparison toggle costs nothing — only the attribute choice
+ * resets. Per layer, in memory, no new persistence. Attribute→attribute
+ * switches keep their long-standing preservation.
  */
 /** Module-level, so the memory survives the panel's own unmounts — tab
  * switches, collapse, layer changes — for the whole session (review

@@ -5,14 +5,14 @@ import {
   LABEL_ANCHORS,
   LABEL_CASES,
   LABEL_CAP,
-  LABEL_HALO_WIDTH_MAX,
   LABEL_MAX_CHARS,
   LABEL_OFFSET_MAX,
   LABEL_ROTATION_MAX,
   type LabelStyle,
   type LayerStyle,
 } from "@/lib/style/style";
-import { ColorRow, SliderRow } from "./rows";
+import { SliderRow } from "./rows";
+import { LabelPaintRows } from "./LabelPaintRows";
 import { SwitchRow } from "../../ui/Switch";
 import styles from "../StylePanel.module.css";
 import own from "./LabelSection.module.css";
@@ -62,10 +62,6 @@ export function LabelSection({
   const [advanced, setAdvanced] = useState(false);
   const set = (partial: Partial<LabelStyle>) =>
     label && patch({ label: { ...label, ...partial } });
-  // A colour or halo width set here is the label's own, so a label that
-  // follows the map keeps the value rather than having it overridden.
-  const owned = (key: string): Partial<LabelStyle> =>
-    key === "haloWidth" ? { haloPaint: "own" } : {};
 
   const mappedHandlers = (
     key:
@@ -79,20 +75,22 @@ export function LabelSection({
       | "zoomFloor"
       | "cap",
     map: (v: number) => number | null = (v) => v,
+    // Written beside the value, as the halo's paint rows need.
+    extra: Partial<LabelStyle> = {},
   ) => ({
     onChange: (value: number) => {
-      set({ [key]: map(value), ...owned(key) });
+      set({ ...extra, [key]: map(value) });
     },
     onPreview: onStylePreview
       ? (value: number) => {
           if (label)
-            onStylePreview({ label: { ...label, [key]: map(value), ...owned(key) } });
+            onStylePreview({ label: { ...label, ...extra, [key]: map(value) } });
         }
       : undefined,
     onCommit: onStyleCommit
       ? (value: number) =>
           label
-            ? onStyleCommit({ label: { ...label, [key]: map(value), ...owned(key) } })
+            ? onStyleCommit({ label: { ...label, ...extra, [key]: map(value) } })
             : Promise.resolve(false)
       : undefined,
   });
@@ -135,25 +133,10 @@ export function LabelSection({
             step={1}
             {...sliderHandlers("size")}
           />
-          <ColorRow
-            label="Color"
-            name="Label color"
-            color={label.color}
-            onChange={(color) => set({ color, textPaint: "own" })}
-          />
-          <SliderRow
-            label="Halo width"
-            value={label.haloWidth}
-            min={0}
-            max={LABEL_HALO_WIDTH_MAX}
-            step={0.05}
-            {...sliderHandlers("haloWidth")}
-          />
-          <ColorRow
-            label="Halo color"
-            name="Label halo color"
-            color={label.haloColor}
-            onChange={(haloColor) => set({ haloColor, haloPaint: "own" })}
+          <LabelPaintRows
+            label={label}
+            set={set}
+            sliderHandlers={(key, extra) => mappedHandlers(key, undefined, extra)}
           />
 
           <button

@@ -1,5 +1,5 @@
-/* The Label section's own pieces: the contextual reveals
-   and the honest count line. */
+/* The Label section's own pieces: the contextual reveals,
+   the honest count line and the ends of the paint rows. */
 
 .reveal {
   border: 0;
@@ -20,4 +20,33 @@
   font-size: var(--text-meta);
   color: var(--fg-muted);
   line-height: 1.45;
+}
+
+/* The end of a paint row: "Automatic" while the part follows the map,
+   the way back to it while the part is the label's own. One width for
+   both, so the three rows end in one column. */
+.paintChoice,
+.paintBack {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 56px;
+  font-size: var(--text-meta);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.paintChoice {
+  color: var(--fg-muted);
+}
+
+.paintBack {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.paintBack:hover {
+  color: var(--accent-bright);
 }

@@ -114,6 +114,7 @@ export function ColorRow({
   color,
   onChange,
   name,
+  after,
 }: {
   label: string;
   color: RgbaColor;
@@ -121,6 +122,8 @@ export function ColorRow({
   /** The accessible name where the visible label repeats
    *  ("Color") — defaults to the label for already-distinct rows. */
   name?: string;
+  /** What the row ends with, after its control. */
+  after?: ReactNode;
 }) {
   return (
     <div className={styles.row}>
@@ -132,6 +135,7 @@ export function ColorRow({
         value={toHex(color)}
         onChange={(e) => onChange(fromHex(e.target.value, color.a))}
       />
+      {after}
     </div>
   );
 }
@@ -145,6 +149,7 @@ export function SliderRow({
   onChange,
   onPreview,
   onCommit,
+  after,
 }: {
   label: string;
   value: number;
@@ -156,6 +161,8 @@ export function SliderRow({
    * are present, moves preview locally and release commits exactly once. */
   onPreview?: (v: number) => void;
   onCommit?: (v: number) => Promise<boolean>;
+  /** What the row ends with, after its value. */
+  after?: ReactNode;
 }) {
   const { shown, begin, preview, finish } = useSliderInteraction({
     value,
@@ -184,6 +191,7 @@ export function SliderRow({
         onChange={(e) => preview(Number(e.target.value))}
       />
       <span className={styles.rowValue}>{shown}</span>
+      {after}
     </div>
   );
 }
