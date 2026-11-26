@@ -239,8 +239,8 @@ test("readouts converge, the two data faces answer, the UI face stays contained"
     // (preparing prose, Retry, alerts) carry no face rule of their own,
     // so this inheritance IS their computed face.
     const rootFont = getComputedStyle(root).fontFamily;
-    // The published code/data token, asked directly where the kept
-    // surfaces (popup values, error details) resolve it.
+    // The published code token, asked directly where the surfaces that
+    // keep it (an error's details) resolve it.
     const probe = document.createElement("span");
     probe.style.fontFamily = "var(--font-mono)";
     root.appendChild(probe);
