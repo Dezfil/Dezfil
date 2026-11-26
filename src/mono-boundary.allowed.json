@@ -230,18 +230,12 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/connections/PostgisPane.module.css :: .doneCard h3 code, .doneRelation",
+    "id": "src/components/connections/PostgisPane.module.css :: .doneRelation",
     "kind": "sql-name",
-    "note": "\"Imported as\" names the new dataset and \"Added to the map as\" names the layer, both as names: they move to the reading face.",
+    "note": "The remote table a snapshot came from. The dataset it was imported as and the layer it was added as are named in the reading face.",
     "elements": [
-      "src/components/connections/PostgisDataDone.tsx :: PostgisCompletionFacts <span.doneRelation> {relationKey(relation)}",
-      "src/components/connections/PostgisDataDone.tsx :: PostgisDataDone <code> {table.name}",
-      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <code> {heading.name}"
-    ],
-    "split": {
-      "src/components/connections/PostgisDataDone.tsx :: PostgisDataDone <code> {table.name}": "to-reading-face",
-      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <code> {heading.name}": "to-reading-face"
-    }
+      "src/components/connections/PostgisDataDone.tsx :: PostgisCompletionFacts <span.doneRelation> {relationKey(relation)}"
+    ]
   },
   {
     "layer": "mono",
@@ -253,12 +247,11 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/connections/PostgisPane.module.css :: .qualified, .columnsToggle, .columnList, .previewTable",
+    "id": "src/components/connections/PostgisPane.module.css :: .qualified, .columnList, .previewTable",
     "kind": "sql-name",
-    "note": "The columns toggle is a count: it moves to the reading face.",
+    "note": "The remote table's qualified name, and its columns and preview as the source has them. The columns toggle, a count, is in the reading face.",
     "elements": [
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <table.previewTable>",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <button.columnsToggle> {preview.data ? `${preview.data.columns.",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <div.columnList>",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <h3.qualified> {relationKey(relation)}"
     ],
@@ -270,12 +263,29 @@
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.type}"
     ],
     "split": {
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <button.columnsToggle> {preview.data ? `${preview.data.columns.": "to-reading-face",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.name}": "structure",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span> {column.type}": "structure",
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <th> {column.name}": "structure",
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <td> {previewCell(row[column.name])}": "structure",
       "src/components/connections/PostgisPreviewTable.tsx :: PostgisPreviewTable <small> {column.type}": "structure"
+    }
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/connections/PostgisPane.module.css :: .relationName, .field input",
+    "kind": "sql-name",
+    "note": "A remote table as its schema names it, and the import box's Table name (a new dataset's name) and filter (SQL). The row estimate and the row limit beside them are in the reading face.",
+    "elements": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationName>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input>",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"updated_at &gt; now() - int"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationLabel> {relation.table}"
+    ],
+    "split": {
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input>": "new-dataset-name",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"updated_at &gt; now() - int": "sql"
     }
   },
   {
@@ -287,28 +297,6 @@
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.srid}",
       "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.type}"
     ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/connections/PostgisPane.module.css :: .relationName, .relationRows, .field input",
-    "kind": "sql-name",
-    "note": "The row estimate beside a remote table and the import box's row limit are a count and a number field: they move to the reading face with digits of one width.",
-    "elements": [
-      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationName>",
-      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationRows> {estimateLabel(relation)}",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input>",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"all rows\"",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"updated_at &gt; now() - int"
-    ],
-    "inherits": [
-      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationLabel> {relation.table}"
-    ],
-    "split": {
-      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationRows> {estimateLabel(relation)}": "to-reading-face",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input>": "new-dataset-name",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"all rows\"": "to-reading-face",
-      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input> placeholder \"updated_at &gt; now() - int": "sql"
-    }
   },
   {
     "layer": "mono",
@@ -328,19 +316,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/DocsScreen.module.css :: .method",
-    "kind": "identifier",
-    "note": "In the operations list the pill shows an operation's category, a kind: it moves to the reading face, and the class splits from the HTTP methods.",
-    "elements": [
-      "src/components/DocsScreen.tsx :: DocsScreen <span.method> {method.toUpperCase()}",
-      "src/components/DocsScreen.tsx :: DocsScreen <span.method> {operation.group}"
-    ],
-    "split": {
-      "src/components/DocsScreen.tsx :: DocsScreen <span.method> {operation.group}": "to-reading-face"
-    }
-  },
-  {
-    "layer": "mono",
     "id": "src/components/DocsScreen.module.css :: .path",
     "kind": "identifier",
     "elements": [
@@ -357,6 +332,15 @@
       "src/components/DocsScreen.tsx :: DocsScreen <code> \"POST /api/operations/run\"",
       "src/components/DocsScreen.tsx :: DocsScreen <code> \"code\"",
       "src/components/DocsScreen.tsx :: DocsScreen <code> \"message\""
+    ]
+  },
+  {
+    "layer": "mono",
+    "id": "src/components/DocsScreen.module.css :: .verb",
+    "kind": "identifier",
+    "note": "An HTTP method. The same pill in the operations list shows a category, a word in the reading face.",
+    "elements": [
+      "src/components/DocsScreen.tsx :: DocsScreen <span.method.verb> {method.toUpperCase()}"
     ]
   },
   {
@@ -553,7 +537,7 @@
     "layer": "mono",
     "id": "src/components/settings/SettingRows.module.css :: .value[data-mono]",
     "kind": "address",
-    "note": "A read-only value: a path, a file name, an address, an environment variable. The last reset's value, a count and a time, reaches the same element through its children and moves to the reading face.",
+    "note": "A read-only value: a path, a file name, an address, an environment variable. The last reset's count and time, in the same rows, have an element of their own in the reading face.",
     "elements": [
       "src/components/settings/SettingRows.tsx :: ValueText <span.value> {children}"
     ],
@@ -1064,6 +1048,20 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/connections/PostgisPane.module.css :: .field input.limit",
+    "elements": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <input.limit> placeholder \"all rows\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/PostgisPane.module.css :: .relationRows",
+    "elements": [
+      "src/components/connections/PostgisCatalogue.tsx :: PostgisCatalogue <span.relationRows> {estimateLabel(relation)}"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/gallery.module.css :: .chipCount",
     "elements": [
       "src/components/MapsScreen.tsx :: MapsScreen <span.chipCount> \"·\" {counts.all}",
@@ -1336,6 +1334,7 @@
     ],
     "inherits": [
       "src/components/settings/AssistantKeyCard.tsx :: AssistantKeyCard <span.mono> {key.lastFour}",
+      "src/components/settings/SystemTab.tsx :: ExternalSignInCard <span.fact> {row.value}",
       "src/components/settings/SystemTab.tsx :: VariableName <Fragment> \"_\" {part}"
     ]
   },

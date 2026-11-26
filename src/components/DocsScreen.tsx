@@ -62,7 +62,7 @@ export function DocsScreen() {
               {ops.map(({ path, method, op }) => (
                 <div key={`${method} ${path}`} className={styles.op}>
                   <div className={styles.opHead}>
-                    <span className={styles.method} data-method={method}>
+                    <span className={`${styles.method} ${styles.verb}`} data-method={method}>
                       {method.toUpperCase()}
                     </span>
                     <code className={styles.path}>{path}</code>

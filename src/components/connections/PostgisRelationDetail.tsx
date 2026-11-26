@@ -183,7 +183,7 @@ export function PostgisRelationDetail({
             </label>
             <label className={`${styles.field} ${styles.narrow}`}>
               <span>Row limit <em>optional</em></span>
-              <input value={limit} onChange={(event) => setLimit(event.target.value)} inputMode="numeric" placeholder="all rows" />
+              <input className={styles.limit} value={limit} onChange={(event) => setLimit(event.target.value)} inputMode="numeric" placeholder="all rows" />
             </label>
           </div>
         ) : null}
