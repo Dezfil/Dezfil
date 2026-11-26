@@ -1,56 +1,76 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 /**
- * The face map labels draw in, and whether it is there to draw with.
+ * The faces a map's text draws in, and whether each is there to draw with.
  *
  * **Labels name their face.** A text layer that names none draws in its
  * library's default, a fixed-width list headed by a font only some systems
  * carry: one face in a browser on one system, another in the server's
  * headless renderer, and a generic fixed-width face in the container. Labels
- * take the product's own interface face instead, which the app serves from
- * its own origin to every page, the render route and air-gapped instances
- * included.
+ * take a face the app serves from its own origin to every page, the render
+ * route and air-gapped instances included, and it is the surface's to say
+ * which: Inter in the workspace and on the render route, Archivo on a
+ * published map and its embed, so the labels match the chrome they sit in.
+ * It is read from the root's own declaration of that face, never from the
+ * reading face, so the Typeface setting leaves labels alone and a map reads
+ * the same for everyone on a given surface. Cluster counts keep their own
+ * face on every surface, Inter at 400, as they always were.
  *
- * **Labels wait for it, every alphabet of it.** A label's glyphs are drawn
- * once into an atlas and kept under the face's name: a glyph drawn before its
- * face has arrived is drawn in a fallback and stays so for the life of the
- * page. The face is declared as one file per subset of the alphabet (Latin,
- * Latin Extended, Cyrillic, Greek, Vietnamese), and a browser fetches a
- * subset only once text needs it; a load by the face's name alone fetches the
- * Latin one. So readiness loads every declared face of the label's families
- * that a label draws with (normal style, a weight labels take), whatever the
- * labels say: "Łódź" or "Москва" then draws whole in the face, and a label
- * added later never meets a subset still on its way. Nothing draws a label
- * until every one of those loads has settled, loaded or failed; a face that
- * never answers is given up after {@link LABEL_FONT_WAIT_MS}, so labels never
- * wait forever.
+ * **Labels wait for their face, every alphabet of it.** A label's glyphs are
+ * drawn once into an atlas and kept under the face's name: a glyph drawn
+ * before its face has arrived is drawn in a fallback and stays so for the
+ * life of the page. A face is declared as one file per subset of the
+ * alphabet (Latin, Latin Extended, Cyrillic, Greek, Vietnamese), and a
+ * browser fetches a subset only once text needs it; a load by the face's
+ * name alone fetches the Latin one. So readiness loads every declared face
+ * of the family that the text draws with (normal style, a weight it takes),
+ * whatever the text says: "Łódź" or "Москва" then draws whole in the face,
+ * and a label added later never meets a subset still on its way.
+ *
+ * Readiness is kept per family and set of weights, so a published map can
+ * wait for Archivo at its label weights and for Inter at the counts' weight
+ * at once, each drawing as soon as its own face is in. Nothing draws until
+ * every load of its face has settled, loaded or failed; a face that never
+ * answers is given up after {@link LABEL_FONT_WAIT_MS}, so nothing waits
+ * forever.
  */
 
-/** The custom property the document's root carries the interface face in. */
-export const LABEL_FONT_PROPERTY = "--font-inter";
-
-/** What labels ask for where the document names no face (a test document). */
-export const LABEL_FONT_FALLBACK = "Inter, sans-serif";
+/** The faces a surface's labels may take: the custom property the
+ * document's root carries each in, and what is asked for where the
+ * document names none (a test document). */
+export const LABEL_FACES = {
+  inter: { property: "--font-inter", fallback: "Inter, sans-serif" },
+  archivo: { property: "--font-archivo", fallback: "Archivo, sans-serif" },
+} as const;
+export type LabelFace = keyof typeof LABEL_FACES;
 
 /** The weights a label draws at: normal and bold. */
-export const LABEL_FONT_WEIGHTS = [400, 700] as const;
+export const LABEL_FONT_WEIGHTS = [600, 700] as const;
 
-/** How long labels wait for their face before drawing with what there is. */
+/** The face and weight cluster counts draw in, on every surface. */
+export const COUNT_FACE: LabelFace = "inter";
+export const COUNT_FONT_WEIGHTS = [400] as const;
+
+/** How long text waits for its face before drawing with what there is. */
 export const LABEL_FONT_WAIT_MS = 5_000;
 
-let family: string | null = null;
-let ready = false;
-let loading: Promise<void> | null = null;
+const families = new Map<LabelFace, string>();
+const ready = new Set<string>();
+const loading = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 
-/** The face labels draw in: the document's interface face, as declared. */
-export function labelFontFamily(): string {
-  if (family) return family;
-  if (typeof document === "undefined") return LABEL_FONT_FALLBACK;
+const keyOf = (face: LabelFace, weights: readonly number[]) => `${face} ${weights.join(" ")}`;
+
+/** The family a face is asked for by: the root's declaration of it. */
+export function faceFamily(face: LabelFace): string {
+  const known = families.get(face);
+  if (known) return known;
+  if (typeof document === "undefined") return LABEL_FACES[face].fallback;
   const declared = getComputedStyle(document.documentElement)
-    .getPropertyValue(LABEL_FONT_PROPERTY)
+    .getPropertyValue(LABEL_FACES[face].property)
     .trim();
-  family = declared || LABEL_FONT_FALLBACK;
+  const family = declared || LABEL_FACES[face].fallback;
+  families.set(face, family);
   return family;
 }
 
@@ -74,55 +94,60 @@ export function faceCoversWeight(declared: string, weight: number): boolean {
   return low <= weight && weight <= high;
 }
 
-/** The declared faces a label draws with: of the label's families, normal
- * style, at a weight labels take. */
-function labelFaces(fonts: FontFaceSet, families: readonly string[]): FontFace[] {
+/** The declared faces text draws with: of the family's names, normal
+ * style, at a weight the text takes. */
+function drawnFaces(fonts: FontFaceSet, names: readonly string[], weights: readonly number[]): FontFace[] {
   if (typeof fonts.forEach !== "function") return [];
-  const wanted = new Set(families.map((name) => name.toLowerCase()));
+  const wanted = new Set(names.map((name) => name.toLowerCase()));
   const found: FontFace[] = [];
   fonts.forEach((declared) => {
     const [family] = fontFamilies(declared.family);
     if (!family || !wanted.has(family.toLowerCase())) return;
     if (declared.style !== "normal") return;
-    if (!LABEL_FONT_WEIGHTS.some((weight) => faceCoversWeight(declared.weight, weight))) return;
+    if (!weights.some((weight) => faceCoversWeight(declared.weight, weight))) return;
     found.push(declared);
   });
   return found;
 }
 
-/** Whether labels may draw: their face has loaded, failed, or timed out. */
-export function labelFontReady(): boolean {
-  return ready;
+/** Whether text in this face at these weights may draw: the face has
+ * loaded, failed, or timed out. */
+export function fontReady(face: LabelFace, weights: readonly number[]): boolean {
+  return ready.has(keyOf(face, weights));
 }
 
-/** Ask for the label face once; settles when labels may draw. */
-export function loadLabelFont(): Promise<void> {
-  if (loading) return loading;
+/** Ask for a face at these weights once; settles when text in it may draw. */
+export function loadFont(face: LabelFace, weights: readonly number[]): Promise<void> {
+  const key = keyOf(face, weights);
+  const started = loading.get(key);
+  if (started) return started;
   const fonts = typeof document === "undefined" ? undefined : document.fonts;
   const settle = () => {
-    if (ready) return;
-    ready = true;
+    if (ready.has(key)) return;
+    ready.add(key);
     for (const listener of listeners) listener();
   };
   if (!fonts || typeof fonts.load !== "function") {
     settle();
-    loading = Promise.resolve();
-    return loading;
+    const done = Promise.resolve();
+    loading.set(key, done);
+    return done;
   }
-  const face = labelFontFamily();
+  const family = faceFamily(face);
   const loads = Promise.allSettled([
-    ...LABEL_FONT_WEIGHTS.map((weight) => fonts.load(`${weight} 64px ${face}`)),
-    ...labelFaces(fonts, fontFamilies(face)).map((declared) => declared.load()),
+    ...weights.map((weight) => fonts.load(`${weight} 64px ${family}`)),
+    ...drawnFaces(fonts, fontFamilies(family), weights).map((declared) => declared.load()),
   ]).then(() => undefined);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const bound = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, LABEL_FONT_WAIT_MS);
   });
-  loading = Promise.race([loads, bound]).then(() => {
+  const done = Promise.race([loads, bound]).then(() => {
     clearTimeout(timer);
     settle();
   });
-  return loading;
+  loading.set(key, done);
+  return done;
 }
 
 function subscribe(listener: () => void): () => void {
@@ -152,19 +177,24 @@ export function documentFontsSettled(): Promise<void> {
   return Promise.race([settled, bound]).then(() => clearTimeout(timer));
 }
 
-/** Whether labels may draw yet; asks for the face on first use. */
-export function useLabelFontReady(): boolean {
-  const isReady = useSyncExternalStore(subscribe, labelFontReady, () => false);
+/**
+ * A face's family once text in it may draw, else null; asks for it on
+ * first use. A layer keyed on it rebuilds its text when it arrives.
+ */
+function useFont(face: LabelFace, weights: readonly number[]): string | null {
+  const isReady = useSyncExternalStore(subscribe, () => fontReady(face, weights), () => false);
   useEffect(() => {
-    void loadLabelFont();
-  }, []);
-  return isReady;
+    void loadFont(face, weights);
+  }, [face, weights]);
+  return isReady ? faceFamily(face) : null;
 }
 
-/**
- * The label face once labels may draw, else null; asks for the face on
- * first use. A component keyed on it rebuilds its labels when it arrives.
- */
-export function useLabelFont(): string | null {
-  return useLabelFontReady() ? labelFontFamily() : null;
+/** The surface's label face once labels may draw, else null. */
+export function useLabelFont(face: LabelFace): string | null {
+  return useFont(face, LABEL_FONT_WEIGHTS);
+}
+
+/** The cluster counts' face once counts may draw, else null. */
+export function useCountFont(): string | null {
+  return useFont(COUNT_FACE, COUNT_FONT_WEIGHTS);
 }

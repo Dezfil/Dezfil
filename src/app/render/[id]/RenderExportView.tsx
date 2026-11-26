@@ -30,7 +30,7 @@ import { buildCompositionMapInputs } from "@/components/builder/export/compositi
 import { renderExportLegendLayers } from "@/components/builder/export/render-export-legend";
 import type { AnswerState } from "@/components/widgets/dashboard-state";
 import { boundToSnapshot } from "./state-binding";
-import { documentFontsSettled, useLabelFont } from "@/components/map/label-font";
+import { documentFontsSettled, useCountFont, useLabelFont } from "@/components/map/label-font";
 
 /**
  * The render route's view: assemble one map's stored state through the
@@ -438,7 +438,10 @@ export function RenderExportView({
     null,
   );
   const [fontsReady, setFontsReady] = useState(false);
-  const labelFont = useLabelFont();
+  // The image's labels draw in the workspace face, its cluster counts in
+  // their own; the composition mounts once both may draw.
+  const labelFont = useLabelFont("inter");
+  const countFont = useCountFont();
   const [legendPlacementReady, setLegendPlacementReady] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -511,7 +514,7 @@ export function RenderExportView({
       </div>
     );
   }
-  if (!def || !stage || !labelFont) {
+  if (!def || !stage || !labelFont || !countFont) {
     return <div data-export-loading="" />;
   }
 

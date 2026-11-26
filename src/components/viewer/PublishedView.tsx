@@ -679,6 +679,8 @@ export function PublishedView({
           onBearingChange={setBearing}
           onPitchChange={setPitch}
           onStatus={statusChannel.emit}
+          // Labels match the published chrome's face, embeds included.
+          labelFace="archivo"
         />
       </div>
 

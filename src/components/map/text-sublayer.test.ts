@@ -207,9 +207,33 @@ describe("the face every text layer names", () => {
     expect(labels.props.fontFamily).toBe(FACE);
   });
 
-  it("is the label face on cluster counts", () => {
+  it("is the counts' own face on cluster counts, at the weight they always had", () => {
+    const COUNTS = '"Inter", "Inter Fallback"';
     const bubble: ClusterBubble = { position: [30, -2], count: 12, value: null, clusterId: 1, expansionZoom: 9, properties: {} };
-    const layer = clusterCountSublayer("points:cluster-counts", [bubble], 1, 1, [7], FACE);
-    expect(layer.props.fontFamily).toBe(FACE);
+    const layer = clusterCountSublayer("points:cluster-counts", [bubble], 1, 1, [7], COUNTS);
+    expect(layer.props.fontFamily).toBe(COUNTS);
+    // The text layer's own default, normal: 400.
+    expect(layer.props.fontWeight).toBe("normal");
+  });
+});
+
+describe("the weight every label draws at", () => {
+  const ARCHIVO = '"Archivo", "Archivo Fallback"';
+  const weightOf = (label: LabelStyle) => ({
+    simple: textSublayer("districts:labels", [feature("Gatsibo")], label, null, null, 1, 1, ARCHIVO).props,
+    // An aggregated cell labels in ground meters, its own road through the same layer.
+    cell: textSublayer("cells:labels", [feature("12")], label, 5_000, null, 1, 1, ARCHIVO).props,
+    tiled: ((mvtRenderSubLayers(label, () => "marks", ARCHIVO)({ id: "tile-0", data: [feature("Gatsibo")] }) as [string, { props: Record<string, unknown> }])[1]).props,
+  });
+
+  it("is 600 for a normal label and 700 for a bold one, on simple, cell and tiled labels, in the surface's face", () => {
+    for (const [weight, expected] of [[undefined, 600], ["normal", 600], ["bold", 700]] as const) {
+      const drawn = weightOf({ ...LABEL, weight });
+      for (const [road, props] of Object.entries(drawn)) {
+        expect(props.fontWeight, `${road} ${weight}`).toBe(expected);
+        expect(props.fontFamily, `${road} ${weight}`).toBe(ARCHIVO);
+      }
+      expect(drawn.cell.sizeUnits).toBe("meters");
+    }
   });
 });

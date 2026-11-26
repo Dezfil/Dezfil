@@ -61,7 +61,7 @@ describe("canvas label-store lifetime", () => {
     // ref is attached, so this does not start MapLibre or claim heap evidence.
     const canvas = new HookHarness(() => MapCanvas({
       layers, liveFilters, onLabelCounts: counts,
-      basemapUrl: "", initialViewport: { lng: 13.2, lat: 52.4, zoom: 0 },
+      basemapUrl: "", initialViewport: { lng: 13.2, lat: 52.4, zoom: 0 }, labelFace: "inter",
     }));
     try {
       expect(bases).toBeDefined();
@@ -111,7 +111,7 @@ describe("canvas label-store lifetime", () => {
     // instance. Assert the store: zoom 0 gates the displayed label count.
     const canvas = new HookHarness(() => MapCanvas({
       layers,
-      basemapUrl: "", initialViewport: { lng: 13.2, lat: 52.4, zoom: 0 },
+      basemapUrl: "", initialViewport: { lng: 13.2, lat: 52.4, zoom: 0 }, labelFace: "inter",
     }));
     try {
       expect(bases).toBeDefined();

@@ -289,4 +289,10 @@ describe("labels", () => {
   it("draws the widest halo as given, unclamped", () => {
     expect(deckLabelProps({ ...label, haloWidth: 3 }).outlineWidth).toBe(3);
   });
+
+  it("draws a normal label at 600 and a bold one at 700", () => {
+    expect(deckLabelProps(label).fontWeight).toBe(600);
+    expect(deckLabelProps({ ...label, weight: "normal" }).fontWeight).toBe(600);
+    expect(deckLabelProps({ ...label, weight: "bold" }).fontWeight).toBe(700);
+  });
 });

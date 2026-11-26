@@ -249,6 +249,9 @@ export function ExportComposition({
           onZoomHandle={onCameraHandle}
           onReadiness={onReadiness}
           onInitialWebGLFailure={onInitialWebGLFailure}
+          // An image's labels draw in the workspace's face on both hosts,
+          // the card's preview and the render route.
+          labelFace="inter"
         />
         {/* Overlays are real DOM — the exact nodes the card's download
             rasterizes and the route's screenshot captures. The rail carries

@@ -163,6 +163,8 @@ export function MapPresentation({
           }}
           onBearingChange={stage.setBearing}
           onPitchChange={stage.setPitch}
+          // The workspace's labels draw in its own face, Inter.
+          labelFace="inter"
           padding={{
             top: 62,
             // Both edges read from the properties that define them, never

@@ -424,7 +424,9 @@ export function deckLabelProps(label: LabelStyle) {
     // deck's getAngle is counter-clockwise positive — the spec states
     // the same convention, so the value passes through unmapped.
     getAngle: label.rotation ?? 0,
-    fontWeight: label.weight === "bold" ? 700 : 400,
+    // Heavier than the interface's reading weight, so a label holds its
+    // own over a busy map; bold steps up once more.
+    fontWeight: label.weight === "bold" ? 700 : 600,
     sizeUnits: "pixels" as const,
     // SDF text with an outline is the halo; width 0 disables it cleanly.
     fontSettings: { sdf: true },

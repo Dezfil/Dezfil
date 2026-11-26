@@ -27,8 +27,9 @@ const CEILINGS = {
   // basemap content-group lifecycle, tiled-layer construction, pointer
   // interaction, camera constraints, the shared paint readout, overlay
   // lifetime, the cluster counts, the glyph fill and the pinned pop-up;
-  // its three label attachments are one. The card picture's snapshot
-  // handle is gone with the builder's capture.
+  // its three label attachments are one, and that one has left for
+  // label-marks. The card picture's snapshot handle is gone with the
+  // builder's capture.
   "src/components/map/MapCanvas.tsx": 1187,
   // Layer service. Extractions so far: layer geometry inspection, the
   // deletion cascade, field/schema/statistics queries, creation, access, rendering and slider previews,

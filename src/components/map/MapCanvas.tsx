@@ -52,9 +52,10 @@ import {
   sizeAccessor,
 } from "@/lib/style/deck-style";
 import { createLabelStore } from "./label-data";
-import { clusterCountSublayer, textSublayer, type LiveWindowing } from "./text-sublayer";
+import { clusterCountSublayer, type LiveWindowing } from "./text-sublayer";
 import { labelStacks } from "./label-collision";
-import { useLabelFont } from "./label-font";
+import { useCountFont, useLabelFont, type LabelFace } from "./label-font";
+import { withLabelLayer } from "./label-marks";
 import { useLabelPreparation } from "./use-label-preparation";
 import type { LabelCount } from "../builder/style-panel/LabelSection";
 
@@ -338,6 +339,8 @@ interface Props {
   /** The one handled startup failure: initial MapLibre WebGL
    * context creation. Later renderer failures keep their normal path. */
   onInitialWebGLFailure?: (message: string) => void;
+  /** This surface's label face: Inter, or Archivo on a published map. */
+  labelFace: LabelFace;
 }
 
 export function MapCanvas({
@@ -370,6 +373,7 @@ export function MapCanvas({
   onReadiness,
   onInitialWebGLFailure,
   padding,
+  labelFace,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -512,8 +516,9 @@ export function MapCanvas({
   }, []);
 
   // The deterministic thinning half lives in its own hook; counts flush
-  // after each build below. Labels draw once their face has loaded.
-  const labelFont = useLabelFont();
+  // after each build below. Labels and counts draw once their faces load.
+  const labelFont = useLabelFont(labelFace);
+  const countFont = useCountFont();
   const { prepareLabels, flushLabelCounts, resetLabelCounts } =
     useLabelPreparation(
     labelStore,
@@ -529,15 +534,10 @@ export function MapCanvas({
       // Every label on the map takes part in one overlap test, ranked by its
       // layer's place in the stack.
       const stacks = labelStacks(shown.filter((l) => l.style.label).map((l) => l.id));
-      /** A layer's marks, with its labels above them when it has any. */
       const withLabels = (l: RenderedLayer, marks: unknown, cellMeters: number | null | undefined,
-        windowing: LiveWindowing | null, suffix: string): DeckLayer | DeckLayer[] => {
-        const label = l.style.label;
-        const labeled = label ? prepareLabels(l, label, windowing) : [];
-        if (!label || !labeled.length || !labelFont) return marks as DeckLayer;
-        return [marks as DeckLayer, textSublayer(`${l.id}:labels${suffix}`, labeled, label, cellMeters, windowing,
-          layerOpacity(l.style.opacity), markScale, labelFont, stacks.get(l.id)) as unknown as DeckLayer];
-      };
+        windowing: LiveWindowing | null, suffix: string) => withLabelLayer(l, marks as DeckLayer,
+        l.style.label ? prepareLabels(l, l.style.label, windowing) : [],
+        { cellMeters, windowing, suffix, markScale, labelFont, stack: stacks.get(l.id) });
       const built = shown
         .flatMap((l): DeckLayer | DeckLayer[] => {
           const windowing = liveWindowing(l);
@@ -705,9 +705,9 @@ export function MapCanvas({
                 getRadius: [maxCount, l.style.pointRadius, zoom],
               },
             } as unknown as ConstructorParameters<typeof ScatterplotLayer>[0]);
-            if (!cViz.showCounts || !labelFont) return bubbleLayer as unknown as DeckLayer;
+            if (!cViz.showCounts || !countFont) return bubbleLayer as unknown as DeckLayer;
             const counts = clusterCountSublayer(`${l.id}:cluster-counts`, bubbles, markScale,
-              layerOpacity(l.style.opacity), [zoom, rangesKey], labelFont);
+              layerOpacity(l.style.opacity), [zoom, rangesKey], countFont);
             return [
               bubbleLayer as unknown as DeckLayer,
               counts as unknown as DeckLayer,
@@ -810,7 +810,7 @@ export function MapCanvas({
       labelStore.sweep();
       return built;
     },
-    [interactive, prepareLabels, resetLabelCounts, labelStore, liveWindowing, markScale, labelFont],
+    [interactive, prepareLabels, resetLabelCounts, labelStore, liveWindowing, markScale, labelFont, countFont],
   );
 
   const paddingKey = padding ? JSON.stringify(padding) : null;

@@ -50,9 +50,9 @@ function spikeMode(): "always-draw" | "cap300" | null {
  * ground-anchored and invariant by construction; and the halo rim is
  * relative to the glyph, so it follows the text wherever it goes.
  *
- * `fontFamily` is the label face, passed only once it has loaded (see
- * `label-font.ts`): every text layer names it, so no label draws in the
- * text library's own fixed-width default.
+ * `fontFamily` is the surface's label face, passed only once it has
+ * loaded (see `label-font.ts`): every text layer names it, so no label
+ * draws in the text library's own fixed-width default.
  */
 
 /**
@@ -207,9 +207,10 @@ export function mvtRenderSubLayers<M>(
   };
 }
 
-/** The counts drawn on cluster bubbles: white on a dark rim in the label
- * face, riding the layer's opacity like the bubbles they sit on. Extracted
- * from MapCanvas when the label face reached it. */
+/** The counts drawn on cluster bubbles: white on a dark rim in their own
+ * face, Inter at the text layer's normal weight on every surface, riding the
+ * layer's opacity like the bubbles they sit on. Extracted from MapCanvas
+ * when the label face reached it. */
 export function clusterCountSublayer(
   id: string,
   bubbles: ClusterBubble[],
