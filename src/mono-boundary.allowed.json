@@ -993,6 +993,7 @@
     "id": "src/components/sql/ResultsPane.tsx :: ResultsPane <code> {savedAs}",
     "kind": "reached",
     "rule": "src/components/sql/SqlConsole.module.css :: .resNotes code",
+    "in": "src/components/sql/ResultsPane.tsx :: ResultsPane <span.why> {n.text}",
     "note": "The SQL page's \"Saved as\" note: its markup is held in a list the collector does not follow; the note's code rule reaches it in the page."
   },
   {
@@ -1000,6 +1001,7 @@
     "id": "src/lib/note-markdown.tsx :: renderInline <code> {m[1]}",
     "kind": "reached",
     "rule": "src/components/workflow-canvas/NoteNode.module.css :: .body code",
+    "in": "src/components/workflow-canvas/NoteNode.tsx :: NoteNode <div.body> {renderNoteBody(body, MARKDOWN)}",
     "note": "Inline code in a workflow note, drawn by a function the note calls from another file; the note's code rule reaches it. Note widgets on maps never ask for inline code."
   },
   {

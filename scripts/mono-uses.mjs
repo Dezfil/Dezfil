@@ -33,7 +33,7 @@
  * Each use carries what a kind needs to judge it: its selectors and
  * declarations, and the elements it reaches with what they show.
  */
-import { bearsText, cmp, collect as collectSources, descend, elementIds, elementsMatching, shows, specificity, statesOf } from "./source-collector.mjs";
+import { bearsText, cmp, collect as collectSources, compoundMatches, descend, elementIds, elementsMatching, shows, specificity, statesOf } from "./source-collector.mjs";
 
 /** The mono faces' tokens: the app's, and the two loaded faces. */
 export const MONO_TOKENS = ["--font-mono", "--font-dm-mono", "--font-plex-mono"];
@@ -131,6 +131,7 @@ const ruleId = (sel) => `${sel.file} :: ${sel.context ? sel.context + " { " + se
 export function monoUses(model) {
   const aliases = monoAliases(model);
   const ids = elementIds(model);
+  const byId = new Map([...ids].map(([index, id]) => [id, model.elements[index]]));
   const uses = new Map();
   const record = (layer, id, base) => {
     const key = layer + " :: " + id;
@@ -163,22 +164,26 @@ export function monoUses(model) {
    * whether it holds wherever it matches (no media, container, supports or
    * scope around it). A rule in a cascade layer loses to one outside it. */
   const tokenOf = (sel, c) => (sel.module ? "m\t" + sel.file + "\t" + c : "g\t" + c);
+  /** One rule's say on a property group, or null when it has none. */
+  const ruleOf = (sel, props) => {
+    if (sel.subject.pseudoElement) return null;
+    const decls = sel.decls.filter((d) => props.has(d.prop));
+    if (!decls.length || statesOf(sel.selector).pseudos.length) return null;
+    return {
+      sel,
+      decl: decls.at(-1),
+      specificity: specificity(sel.selector),
+      tokens: sel.subject.opaque ? [] : [...sel.subject.classes.map((c) => tokenOf(sel, c)), ...sel.subject.globals.map((c) => "g\t" + c)],
+      attrs: sel.subject.attrs,
+      always: !sel.subject.opaque && !/@(media|container|supports|scope)\b/i.test(sel.context ?? ""),
+      layered: /@layer\b/i.test(sel.context ?? ""),
+    };
+  };
   const indexOf = (props) => {
     const byEl = new Map();
     for (const sel of model.selectors) {
-      if (sel.subject.pseudoElement) continue;
-      const decls = sel.decls.filter((d) => props.has(d.prop));
-      if (!decls.length || statesOf(sel.selector).pseudos.length) continue;
-      const rule = {
-        sel,
-        decl: decls.at(-1),
-        specificity: specificity(sel.selector),
-        tokens: sel.subject.opaque ? [] : [...sel.subject.classes.map((c) => tokenOf(sel, c)), ...sel.subject.globals.map((c) => "g\t" + c)],
-        attrs: sel.subject.attrs,
-        always: !sel.subject.opaque && !/@(media|container|supports|scope)\b/i.test(sel.context ?? ""),
-        layered: /@layer\b/i.test(sel.context ?? ""),
-      };
-      for (const el of elementsMatching(model, sel)) push(byEl, el.index, rule);
+      const rule = ruleOf(sel, props);
+      if (rule) for (const el of elementsMatching(model, sel)) push(byEl, el.index, rule);
     }
     return byEl;
   };
@@ -394,6 +399,45 @@ export function monoUses(model) {
     },
     /** Whether a file loads fonts. */
     loadsFonts: (file) => /from\s+["']next\/font\//.test(model.sources.get(file) ?? ""),
+    /**
+     * Why a rule does not give a code mark its face where its markup is
+     * shown, or null when it does. The collector does not follow the
+     * markup there (a list it is held in, a function another file calls),
+     * so the markup the mark sits in is drawn inside the element `hostId`
+     * names for the question, and the rules that set a family on the mark
+     * are read there: the rule must reach it, and no stronger rule that
+     * always holds may set another face.
+     */
+    reaches: (sel, mark, hostId) => {
+      const host = byId.get(hostId);
+      if (!host) return `in names no element: ${hostId}`;
+      const tops = new Set();
+      const up = (e, depth) => {
+        if (!e.parents.length || depth > 24) tops.add(e);
+        else for (const p of e.parents) up(model.elements[p], depth + 1);
+      };
+      up(mark, 0);
+      tops.delete(host);
+      const saved = { cache: model.matchCache, children: host.children, parents: [...tops].map((t) => t.parents) };
+      model.matchCache = new Map();
+      host.children = [...host.children, ...[...tops].map((t) => t.index)];
+      for (const t of tops) t.parents = [...t.parents, host.index];
+      try {
+        const here = model.selectors
+          .map((s) => ruleOf(s, FAMILY))
+          .filter((r) => r && compoundMatches(model, r.sel.subject, mark, r.sel) && elementsMatching(model, r.sel).includes(mark));
+        const cited = here.filter((r) => r.sel.file === sel.file && r.sel.prelude === sel.prelude && r.sel.context === sel.context);
+        const where = `${ruleId(sel)} does not reach it in ${hostId}`;
+        if (!cited.length) return where;
+        const index = new Map([[mark.index, here]]);
+        const same = (d) => namesMono(d.prop, d.value, aliases);
+        return cited.some((r) => keeps(mark, r, index, same)) ? null : `a stronger rule takes its face off it in ${hostId}`;
+      } finally {
+        model.matchCache = saved.cache;
+        host.children = saved.children;
+        [...tops].forEach((t, i) => (t.parents = saved.parents[i]));
+      }
+    },
   };
   return { uses, marks, unread, ids, aliases, context };
 }
@@ -521,10 +565,13 @@ export const KINDS = {
 };
 
 /** The kinds a code mark that the browser sets its own monospace on can
- * have. `to-mono`: a later change gives it the surface's mono face. With
- * `rule`, the collector cannot see the rule that reaches it in the page
- * (markup held in a list, or drawn by a function another file calls): that
- * rule must exist, ask for the mark's tag and set a mono face on it. */
+ * have. `to-mono`: a later change gives it the surface's mono face.
+ * `reached`: the collector cannot see the rule that reaches it in the page
+ * (markup held in a list, or drawn by a function another file calls), so
+ * the row names that rule (`rule`) and the element the markup is shown in
+ * (`in`): the rule must exist, ask for the mark's tag, set a mono face,
+ * and, with the markup drawn in that element, reach the mark and keep its
+ * face there in the cascade. */
 const MARK_KINDS = new Set(["to-mono", "reached"]);
 
 /** Kinds that leave the list as the work moves them. */
@@ -620,6 +667,11 @@ export function judge({ uses, marks, unread = new Map(), context }, { allowed = 
         if (!rule) add("mark", key, `rule names no rule: ${row.rule}`);
         else if (rule.subject.tag !== tag) add("mark", key, `${row.rule} does not ask for <${tag}>`);
         else if (!rule.decls.some((d) => FAMILY.has(d.prop) && isMono(d.value, context.aliases))) add("mark", key, `${row.rule} sets no mono face`);
+        else if (!row.in) add("mark", key, "a reached code mark must name the element it is shown in (in)");
+        else {
+          const why = context.reaches(rule, marks.get(row.id).el, row.in);
+          if (why) add("mark", key, why);
+        }
       }
       continue;
     }

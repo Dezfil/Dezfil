@@ -51,6 +51,7 @@ type Row = {
   note?: string;
   unseen?: string;
   rule?: string;
+  in?: string;
   split?: Record<string, string>;
   elements?: string[];
   inherits?: string[];
@@ -387,15 +388,39 @@ describe("the mono boundary on seeded trees", () => {
     expect(message(f, "mark")).toContain("has a family of its own now; drop its row");
   });
 
-  it("holds a code mark reached by a rule the collector cannot see to that rule", () => {
-    const seed = { top: `\nconst notes = [<code key="a">{"query_result"}</code>];`, extra: `\n      <p className={styles.note}>{notes}</p>` };
+  /* Markup held in a list the collector does not follow, shown in a
+   * paragraph inside the note. */
+  const HELD = `\nconst notes = [<code key="a">{"query_result"}</code>];`;
+  const SHOWN_IN = `${TSX} :: Panel <p>`;
+  const shownIn = (wrapper: string) => ({ top: HELD, extra: `\n      <div${wrapper}><p>{notes}</p></div>` });
+  const HELD_SEED = shownIn(" className={styles.note}");
+  /** The seeded tree's rows, its held code mark listed as reached. */
+  const reachedRows = (seed: Seed, mark: Partial<Row>): Row[] => {
     const uses = usesOf(tree(seed));
     const [id] = [...uses.marks.keys()];
     const others = rowsFor(uses, KIND_OF).filter((r) => r.layer !== "mark");
-    const reached = (rule: string): Row[] => [...others, { layer: "mark", id, kind: "reached", rule, note: "Held in a list the collector does not follow." }];
+    return [...others, { layer: "mark", id, kind: "reached", note: "Held in a list the collector does not follow.", ...mark }];
+  };
+  it("holds a code mark reached by a rule the collector cannot see to that rule", () => {
+    const uses = usesOf(tree(HELD_SEED));
+    expect(uses.marks.size).toBe(1);
+    const reached = (rule: string): Row[] => reachedRows(HELD_SEED, { rule, in: SHOWN_IN });
     expect(judge(uses, { allowed: reached(`${CSS} :: .note code`) })).toEqual([]);
     expect(message(judge(uses, { allowed: reached(`${CSS} :: .keys kbd`) }), "mark")).toContain("does not ask for <code>");
     expect(message(judge(uses, { allowed: reached(`${CSS} :: .missing code`) }), "mark")).toContain("rule names no rule");
+  });
+
+  /* The rule must reach the mark where the list says it is shown, and keep
+   * its face there in the cascade. */
+  const UNREACHED: [string, Seed, Partial<Row>, string][] = [
+    ["the element it is shown in loses the class the rule asks for", shownIn(""), { in: SHOWN_IN }, `does not reach it in ${SHOWN_IN}`],
+    ["a stronger rule sets another face where it is shown", { ...HELD_SEED, css: ".note p code { font-family: var(--font-ui); }" }, { in: SHOWN_IN }, "a stronger rule takes its face off it"],
+    ["the element it is shown in is gone", HELD_SEED, { in: `${TSX} :: Panel <aside>` }, `in names no element: ${TSX} :: Panel <aside>`],
+    ["the row does not say where it is shown", HELD_SEED, {}, "must name the element it is shown in (in)"],
+  ];
+  it.each(UNREACHED)("fails on a reached code mark when %s", (_name, seed, mark, why) => {
+    const rows = reachedRows(HELD_SEED, { rule: `${CSS} :: .note code`, ...mark });
+    expect(message(judge(usesOf(tree(seed)), { allowed: rows }), "mark")).toContain(why);
   });
 
   /* Classes it cannot read, where a module they can come from sets mono or
