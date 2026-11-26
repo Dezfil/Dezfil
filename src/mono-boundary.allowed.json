@@ -1730,13 +1730,6 @@
   },
   {
     "layer": "digits",
-    "id": "src/components/templates/TemplateView.module.css :: .dataHow",
-    "elements": [
-      "src/components/templates/HowItsMade.tsx :: HowItsMade <p.dataHow> {row.made} {row.rowCount === null ? null"
-    ]
-  },
-  {
-    "layer": "digits",
     "id": "src/components/users/UsersScreen.module.css :: .facts b",
     "elements": [
       "src/components/users/UserRow.tsx :: UserRow <b> {day(account.createdAt)}"
