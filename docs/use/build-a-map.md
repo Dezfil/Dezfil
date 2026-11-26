@@ -88,7 +88,7 @@ A new layer starts in one color, the next in your instance's color cycle. The pa
 | **Visualization** | How the layer draws (the types below), **Point size**, **Layer opacity**, and the height of areas and cells in 3D. |
 | **Fill** | The color of points and areas: one **Color**, or **Color by** a column, and **Fill opacity**. |
 | **Outline** (**Stroke** on lines) | The color and **Width** of edges and lines, and **Stroke opacity**. |
-| **Label** | Text from a column on each feature: **Text**, **Size**, **Color** and a halo. **More** holds the rest. |
+| **Label** | Text from a column on each feature: **Text**, **Size**, **Color** and a halo. The text and the halo start **Automatic**: dark on light maps, light on dark maps and imagery. Pick a color or a halo width to set your own, and **Automatic** to go back. **More** holds the rest. |
 | **Filters** | **+ Add filter** keeps the features whose values fall in a range or a list. The layer's query stays as it is. |
 | **Tooltip** | The fields shown when you point at a feature. **Automatic (first fields)** shows the first eight. |
 | **Pop-up** | The fields shown when you click a feature. |
