@@ -135,8 +135,8 @@ export function licencePresence(lines) {
 export const MVT_WORKER_IMAGE_PATH = `/app/${MVT_WORKER_REPO_PATH}`;
 export const BROWSER_WORKER_REPO_PATHS = [
   MVT_WORKER_REPO_PATH,
-  "public/workers/maplibre-gl-6.14.0/maplibre-gl-worker.mjs",
-  "public/workers/maplibre-gl-6.14.0/maplibre-gl-shared.mjs",
+  "public/workers/maplibre-gl-6.18.0/maplibre-gl-worker.mjs",
+  "public/workers/maplibre-gl-6.18.0/maplibre-gl-shared.mjs",
 ];
 
 /** Every path the image may carry at the top of /app. The standalone

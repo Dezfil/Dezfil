@@ -7,8 +7,8 @@ This product may include code adapted from permissively licensed projects.
 Each borrowed file retains its original copyright and license header; the
 originating projects are listed here as they are used:
 
-- MapLibre GL JS 6.14.0 (BSD-3-Clause, © 2023 MapLibre contributors) —
-  unmodified ESM worker and shared chunk in public/workers/maplibre-gl-6.14.0/.
+- MapLibre GL JS 6.18.0 (BSD-3-Clause, © 2023 MapLibre contributors) —
+  unmodified ESM worker and shared chunk in public/workers/maplibre-gl-6.18.0/.
   Their upstream license headers are retained; the full license follows below.
   The shared chunk bundles MapLibre's own dependencies, whose notices follow
   under "Bundled MapLibre chunk notices".
@@ -581,7 +581,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Bundled MapLibre chunk notices
 ------------------------------
 
-The shared chunk (public/workers/maplibre-gl-6.14.0/maplibre-gl-shared.mjs)
+The shared chunk (public/workers/maplibre-gl-6.18.0/maplibre-gl-shared.mjs)
 bundles MapLibre GL JS's runtime dependencies. Their notices, as the
 versions package-lock.json holds publish them:
 

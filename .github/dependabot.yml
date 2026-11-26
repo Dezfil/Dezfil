@@ -29,13 +29,27 @@ updates:
         update-types:
           - minor
           - patch
+      # The two groups below also match the rendering chain, and a renderer
+      # bump has twice landed in the production group instead, holding the
+      # whole week red until the copies were replaced. Leaving the chain out
+      # of them keeps it in its own group.
       production-minor-and-patch:
         dependency-type: production
+        exclude-patterns:
+          - "maplibre-gl"
+          - "@maplibre/*"
+          - "@deck.gl/*"
+          - "pmtiles"
         update-types:
           - minor
           - patch
       development-minor-and-patch:
         dependency-type: development
+        exclude-patterns:
+          - "maplibre-gl"
+          - "@maplibre/*"
+          - "@deck.gl/*"
+          - "pmtiles"
         update-types:
           - minor
           - patch
