@@ -19,6 +19,7 @@ import path from "node:path";
 import { isAllowedConsoleError } from "./console-allowlist";
 import {
   addLayer,
+  consumeExpected,
   createMap,
   patchLayer,
   patchMap,
@@ -368,6 +369,8 @@ test("SQL, the engine's words and the code marks answer in the code face", async
   expect(faces.engine).toMatch(/DM.?Mono/i);
   expect(MONO.test(faces.sentence)).toBe(false);
   expect(faces.size).toBe(faces.sentenceSize);
+  // The refused query's 400 is the console shadow this step asked for.
+  await consumeExpected(consoleErrors, /\/api\/query/, /status of 400/);
 
   // ---- Code marks: the Developer page's parameter names and the MCP
   // card's code take the code face at the size of the text around them,
@@ -385,7 +388,7 @@ test("SQL, the engine's words and the code marks answer in the code face", async
   expect(parameterFace.size).toBe(parameterFace.around);
 
   await page.goto("/settings/tokens");
-  const variable = page.locator("#mcp code", { hasText: "DEZFIL_API_TOKEN" });
+  const variable = page.locator("#mcp code", { hasText: /^DEZFIL_API_TOKEN$/ });
   await expect(variable).toBeVisible();
   const variableFace = await variable.evaluate(markFace);
   expect(variableFace.font).toMatch(/DM.?Mono/i);
