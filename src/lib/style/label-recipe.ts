@@ -1,4 +1,4 @@
-import { basemapTone } from "@/lib/basemap-effective";
+import { labelBasemapTone } from "@/lib/basemap-effective";
 import type { BasemapKey } from "@/lib/basemap";
 import { resolveLabelChoices } from "./label-choices";
 import type { LabelStyle, LayerStyle, RgbaColor } from "./style";
@@ -45,8 +45,7 @@ export interface SavedBasemap {
  */
 export function fallbackLabelTone(map: SavedBasemap): LabelTone {
   const custom = map.customBasemap !== null && map.customBasemap !== undefined;
-  if (!custom && map.basemap === "satellite") return "dark";
-  return basemapTone({ key: map.basemap, custom, theme: "light" });
+  return labelBasemapTone({ key: map.basemap, custom, theme: "light" });
 }
 
 /** The style with each automatic part of its label carrying the tone's

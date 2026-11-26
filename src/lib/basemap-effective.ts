@@ -53,6 +53,53 @@ export function basemapTone(args: {
   return args.theme;
 }
 
+/**
+ * The tone a map's labels follow: that of the basemap actually drawn under
+ * them. It differs from {@link basemapTone} where labels know more than the
+ * credit does: Satellite imagery is dark (it has no names of its own, and
+ * light text on a dark rim is what reads over a photo), and a key this
+ * instance does not draw takes the tone of what is drawn instead, the
+ * deployment default: its own style, whose tone is not known, else the Dark
+ * style. A custom style and a deployment's own style take the surface's
+ * theme, as Auto does. Without a list of what the instance draws, the key
+ * is read as drawn.
+ */
+export function labelBasemapTone(args: {
+  key: BasemapKey | null;
+  /** Whether a custom style is drawn, which wins over the key. */
+  custom: boolean;
+  /** The surface's theme: the person's in the workspace, the reader's on
+   * a published map, the appearance of a server image. */
+  theme: "light" | "dark";
+  /** The styles this instance draws; a key not among them draws the
+   * deployment default. */
+  basemaps?: readonly Pick<BasemapStyle, "key">[];
+  /** Whether the deployment's own style is set: it pins Auto, and it is
+   * the default a key without a style draws. */
+  overridden?: boolean;
+}): "light" | "dark" {
+  const { key, custom, theme } = args;
+  if (custom) return theme;
+  if (key !== null && args.basemaps && !args.basemaps.some((b) => b.key === key)) {
+    // The deployment default is the first built-in style unless the
+    // deployment sets its own.
+    return args.overridden ? theme : labelBasemapTone({ key: BASEMAPS[0].key, custom: false, theme });
+  }
+  if (key === "satellite") return "dark";
+  return basemapTone({ key, custom: false, theme });
+}
+
+/** The tone labels take over what a canvas drew: its style's tone, or the
+ * surface's theme where the style could not load and the canvas drew its
+ * plain background instead, which takes that theme's colour. */
+export function drawnLabelTone(
+  style: "light" | "dark",
+  theme: "light" | "dark",
+  offline: boolean,
+): "light" | "dark" {
+  return offline ? theme : style;
+}
+
 /** What a basemap picker says on a map on Satellite where this instance
  * draws no imagery (none set up, or its template unreadable): the map is
  * drawn on the deployment default instead, and credited as that default. */
