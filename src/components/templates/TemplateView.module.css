@@ -169,7 +169,6 @@
 .dataTop b {
   flex: 1;
   min-width: 0;
-  font-family: var(--font-mono);
   font-size: var(--text-label);
   font-weight: 500;
   overflow: hidden;
@@ -259,8 +258,9 @@
   color: var(--fg);
 }
 
+/* A step's output, named as a name on a reading page. */
 .steps code {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-meta);
   color: var(--fg-muted);
   overflow-wrap: anywhere;

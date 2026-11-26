@@ -37,15 +37,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/AddToMapDialog.module.css :: .nameField input",
-    "kind": "to-reading-face",
-    "note": "The Add to a map dialog's layer-name field: a layer's name.",
-    "elements": [
-      "src/components/AddToMapDialog.tsx :: AddToMapDialog <input>"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .homeLine code",
     "kind": "sql-name",
     "elements": [
@@ -488,20 +479,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/gallery.module.css :: .numCell",
-    "kind": "to-reading-face",
-    "note": "The Data list's rows, size and last updated, and the folder rows' totals: counts, sizes and times, keeping digits of one width.",
-    "elements": [
-      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatBytes(folder.bytes)}",
-      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatCount(folder.rows)}",
-      "src/components/WorkflowFolder.tsx :: FolderRow <td.numCell> {formatRelativeTime(folder.updatedAt)}",
-      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatBytes(t.sizeBytes)}",
-      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatCount(t.rowCount)}",
-      "src/components/data-cards.tsx :: TableRow <td.numCell> {formatRelativeTime(updatedAt(t))}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/GeometryProvenance.module.css :: .record b",
     "kind": "structure",
     "elements": [
@@ -532,16 +509,6 @@
     "inherits": [
       "src/components/map/MapPopup.tsx :: Rows <span.tipKey> {k}",
       "src/components/map/MapPopup.tsx :: Rows <span.tipVal> {String(v)}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/MiniMap.module.css :: .measure",
-    "kind": "to-reading-face",
-    "note": "Distances and areas while drawing on the area picker: measures.",
-    "elements": [
-      "src/components/MiniMap.tsx :: MiniMap <span.areaBadge.measure> {areaBadge.text}",
-      "src/components/MiniMap.tsx :: MiniMap <span.measure> {l.text}"
     ]
   },
   {
@@ -591,15 +558,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/projects/AddItemsDialog.module.css :: .text b.mono",
-    "kind": "to-reading-face",
-    "note": "The Add items picker's dataset names.",
-    "elements": [
-      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <b.mono> {item.name}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/projects/ExportProjectDialog.module.css :: .ext",
     "kind": "address",
     "elements": [
@@ -616,45 +574,14 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/projects/ExportProjectDialog.module.css :: .nameMono",
-    "kind": "to-reading-face",
-    "note": "The export picker's dataset names.",
-    "elements": [
-      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.name.nameMono> {r.name}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/projects/ExportProjectDialog.module.css :: .tree",
     "kind": "address",
-    "note": "The notes beside the archive's paths (what each holds, counts and sizes) move to the reading face; the paths stay mono.",
+    "note": "The archive's paths. The notes beside them, what each holds with its counts and sizes, are in the reading face.",
     "elements": [
       "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <div.tree>"
     ],
     "inherits": [
-      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeDir.treeFile> {row.label}",
-      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeNote> {row.note}"
-    ],
-    "split": {
-      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeNote> {row.note}": "to-reading-face"
-    }
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/projects/HomeSections.module.css :: .monoName",
-    "kind": "to-reading-face",
-    "note": "The project page's dataset names, in list mode.",
-    "elements": [
-      "src/components/projects/HomeSections.tsx :: HomeSections <span.monoName> {t.name}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/projects/RecentList.module.css :: .text b.mono",
-    "kind": "to-reading-face",
-    "note": "A dataset's name in Home's recent rows and an empty project's filing list.",
-    "elements": [
-      "src/components/projects/RecentList.tsx :: RowContent <b.mono> {it.name}"
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeDir.treeFile> {row.label}"
     ]
   },
   {
@@ -669,22 +596,6 @@
       "src/components/ResultGrid.tsx :: ResultGrid <span.colType> {c.type}",
       "src/components/ResultGrid.tsx :: ResultGrid <span.nullCell> \"∅\"",
       "src/components/ResultGrid.tsx :: ResultGrid <td> {value === null || value === undefined ?"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/ResultGrid.module.css :: .resultMeta",
-    "kind": "to-reading-face",
-    "note": "The Add layer preview's rows, columns and time: counts and a time.",
-    "elements": [
-      "src/components/ResultGrid.tsx :: ResultGrid <div.resultMeta>"
-    ],
-    "inherits": [
-      "src/components/ResultGrid.tsx :: ResultGrid <span.truncated> \"showing first\" {formatCount(rows.length",
-      "src/components/ResultGrid.tsx :: ResultGrid <span> \"columns\" {result.columns.length}",
-      "src/components/ResultGrid.tsx :: ResultGrid <span> \"ms\" {result.runtimeMs}",
-      "src/components/ResultGrid.tsx :: ResultGrid <span> \"rows\"",
-      "src/components/ResultGrid.tsx :: ResultGrid <strong> {formatCount(result.rowCount)}"
     ]
   },
   {
@@ -714,29 +625,12 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .head small",
-    "kind": "to-reading-face",
-    "note": "The Set geometry header's dataset name, a name.",
-    "elements": [
-      "src/components/set-geometry/SetGeometryPanel.tsx :: SetGeometryPanel <small> {name}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/set-geometry/SetGeometryPanel.module.css :: .mono",
     "kind": "identifier",
-    "note": "The column pickers are pickers shown to a reader: they move to the reading face. The Other EPSG code field stays mono.",
+    "note": "The Other EPSG code field: a code typed as digits. The column pickers beside it are in the reading face.",
     "elements": [
-      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <Select.field.mono>",
       "src/components/set-geometry/SetGeometryControls.tsx :: OtherCodeField <TextInput.field.mono> placeholder \"EPSG code, for example 3146"
-    ],
-    "inherits": [
-      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <option> \"·\" {c.name} {c.type}"
-    ],
-    "split": {
-      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <Select.field.mono>": "to-reading-face",
-      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <option> \"·\" {c.name} {c.type}": "to-reading-face"
-    }
+    ]
   },
   {
     "layer": "mono",
@@ -956,15 +850,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/TableDetailScreen.module.css :: .title h1",
-    "kind": "to-reading-face",
-    "note": "The table page's title: a dataset's name as a name. An \"In SQL:\" line under the chips takes the SQL name.",
-    "elements": [
-      "src/components/TableDetailScreen.tsx :: TableDetail <h1> {table.name}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/TablePreviewGrid.module.css :: .grid",
     "kind": "structure",
     "elements": [
@@ -979,55 +864,10 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/TablePreviewMap.module.css :: .readout",
-    "kind": "to-reading-face",
-    "note": "The readout under the table page's map preview and in Set geometry: a count, a kind and a projection.",
-    "elements": [
-      "src/components/TablePreviewMap.tsx :: TablePreviewMap <div.readout>",
-      "src/components/set-geometry/ChoicePreviewMap.tsx :: ChoicePreviewMap <div.readout>"
-    ],
-    "inherits": [
-      "src/components/TablePreviewMap.tsx :: TablePreviewMap <span> {part}",
-      "src/components/set-geometry/ChoicePreviewMap.tsx :: ChoicePreviewMap <span> {part}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/TablesScreen.module.css :: .nameCell",
-    "kind": "to-reading-face",
-    "note": "The Data list's name column, and the owner's initials drawn in it: names.",
-    "elements": [
-      "src/components/TablesScreen.tsx :: TablesScreen <FolderRow.nameCell.rowName> {folder.name}",
-      "src/components/data-cards.tsx :: TableRow <td.nameCell> {leading} {t.name}"
-    ],
-    "inherits": [
-      "src/components/sharing/PeopleMarks.tsx :: OwnerPill <Face.face.initials> {!settled && letters}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/templates/TemplateView.module.css :: .dataTop b",
-    "kind": "to-reading-face",
-    "note": "A template's dataset names, on a reading page.",
-    "elements": [
-      "src/components/templates/HowItsMade.tsx :: HowItsMade <b> {row.dataset}"
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/templates/TemplateView.module.css :: .sql",
     "kind": "sql",
     "elements": [
       "src/components/templates/HowItsMade.tsx :: HowItsMade <pre.sql> {layer.sql}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/templates/TemplateView.module.css :: .steps code",
-    "kind": "to-reading-face",
-    "note": "A template's workflow steps' output names, on a reading page.",
-    "elements": [
-      "src/components/templates/HowItsMade.tsx :: HowItsMade <code> \"→\" {step.output}"
     ]
   },
   {
@@ -1516,6 +1356,13 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/projects/ExportProjectDialog.module.css :: .treeNote",
+    "elements": [
+      "src/components/projects/ExportProjectDialog.tsx :: ExportProjectDialog <span.treeNote> {row.note}"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/projects/HomeSections.module.css :: .cnt",
     "elements": [
       "src/components/projects/HomeSections.tsx :: SectionHead <span.cnt> {count}"
@@ -1549,6 +1396,20 @@
     "id": "src/components/ProjectsScreen.module.css :: .exportNote",
     "elements": [
       "src/components/ProjectsScreen.tsx :: ProjectsScreen <p.exportNote> {exportNote}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/ResultGrid.module.css :: .resultMeta",
+    "elements": [
+      "src/components/ResultGrid.tsx :: ResultGrid <div.resultMeta>"
+    ],
+    "inherits": [
+      "src/components/ResultGrid.tsx :: ResultGrid <span.truncated> \"showing first\" {formatCount(rows.length",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"columns\" {result.columns.length}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"ms\" {result.runtimeMs}",
+      "src/components/ResultGrid.tsx :: ResultGrid <span> \"rows\"",
+      "src/components/ResultGrid.tsx :: ResultGrid <strong> {formatCount(result.rowCount)}"
     ]
   },
   {
@@ -1670,6 +1531,18 @@
     "id": "src/components/sql/SqlConsole.module.css :: .rowMeta",
     "elements": [
       "src/components/sql/ConsoleTableBrowser.tsx :: ConsoleTableBrowser <span.rowMeta> {formatCount(t.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/TablePreviewMap.module.css :: .readout",
+    "elements": [
+      "src/components/TablePreviewMap.tsx :: TablePreviewMap <div.readout>",
+      "src/components/set-geometry/ChoicePreviewMap.tsx :: ChoicePreviewMap <div.readout>"
+    ],
+    "inherits": [
+      "src/components/TablePreviewMap.tsx :: TablePreviewMap <span> {part}",
+      "src/components/set-geometry/ChoicePreviewMap.tsx :: ChoicePreviewMap <span> {part}"
     ]
   },
   {

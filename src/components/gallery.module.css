@@ -975,8 +975,8 @@
 .numCell {
   text-align: right;
   font-variant-numeric: tabular-nums;
-  /* Values: full ink, mono. */
-  font-family: var(--font-mono);
+  /* Counts, sizes and times: full ink, the reading face, digits of one
+     width. */
   font-size: var(--text-meta);
   color: var(--fg);
 }

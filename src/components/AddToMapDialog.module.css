@@ -29,7 +29,6 @@
 }
 
 .nameField input {
-  font-family: var(--font-mono);
   font-size: 13px;
   color: var(--fg);
   background: var(--bg-raised);

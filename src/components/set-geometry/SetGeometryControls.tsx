@@ -30,7 +30,7 @@ function ColumnSelect({ value, options, onChange, label }: {
 }) {
   return (
     <span className={styles.select}>
-      <Select className={styles.mono} value={value} aria-label={label} onChange={(e) => onChange(e.target.value)}>
+      <Select className={styles.columnPick} value={value} aria-label={label} onChange={(e) => onChange(e.target.value)}>
         {options.map((c) => (
           <option key={c.name} value={c.name}>{c.name} · {c.type}</option>
         ))}

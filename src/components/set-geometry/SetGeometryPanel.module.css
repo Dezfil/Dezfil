@@ -38,7 +38,6 @@
 .head small {
   color: var(--fg-muted);
   font-size: var(--text-label);
-  font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -103,6 +102,12 @@
   pointer-events: none;
 }
 
+/* The column pickers: a column offered to a reader, in the reading face. */
+.columnPick {
+  font-size: var(--text-label);
+}
+
+/* The Other EPSG code: an identifier typed as digits, in mono. */
 .mono {
   font-family: var(--font-mono);
   font-size: var(--text-label);

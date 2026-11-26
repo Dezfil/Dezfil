@@ -48,8 +48,8 @@
 }
 
 .title h1 {
-  font-family: var(--font-mono);
-  /* The title role — mono stays: this renders a table identifier. */
+  /* The title role, in the reading face: the dataset's name read as a
+     name. The "In SQL:" line under the chips carries the SQL name. */
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: -0.02em;

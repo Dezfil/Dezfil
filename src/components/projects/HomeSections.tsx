@@ -343,7 +343,7 @@ export function HomeSections({
                       </span>
                     </span>
                     <span className={gallery.colName}>
-                      <span className={styles.monoName}>{t.name}</span>
+                      <span className={styles.datasetName}>{t.name}</span>
                       {ownerOf(t) && <OwnerPill owner={ownerOf(t)!} placement="inline" />}
                     </span>
                     <span className={styles.colSrc}>

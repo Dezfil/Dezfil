@@ -17,8 +17,7 @@
 }
 
 .nameCell {
-  /* A table identifier speaks mono. */
-  font-family: var(--font-mono);
+  /* A dataset's name, read as a name: the reading face. */
   font-size: var(--text-label);
   font-weight: 500;
 }

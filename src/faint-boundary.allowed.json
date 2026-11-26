@@ -830,7 +830,7 @@
       "src/components/builder/PaletteControl.tsx :: PaletteControl <TextInput.field.saveName> placeholder \"Save as…\"",
       "src/components/builder/assistant/AssistantComposer.tsx :: AssistantComposer <Textarea.field.input>",
       "src/components/builder/publish/PublishPopover.tsx :: EmbedView <Textarea.field.snippet>",
-      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <Select.field.mono>",
+      "src/components/set-geometry/SetGeometryControls.tsx :: ColumnSelect <Select.columnPick.field>",
       "src/components/set-geometry/SetGeometryControls.tsx :: OtherCodeField <TextInput.field.mono> placeholder \"EPSG code, for example 3146",
       "src/components/settings/BasemapsCard.tsx :: AddStyleForm <TextInput.addressField.field> placeholder \"https://tiles.example.org/s",
       "src/components/settings/LimitsTab.tsx :: LimitsRowView <Select.field.select>",

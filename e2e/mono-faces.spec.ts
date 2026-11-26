@@ -112,13 +112,19 @@ test("readouts converge, the two data faces answer, the UI face stays contained"
   const consoleErrors = trackConsole(page);
   const mapId = await seedMap(page);
 
-  // ---- The workspace code/data face is DM Mono: the
-  // dataset detail's identifier heading. ----
+  // ---- The workspace code/data face is DM Mono: the dataset page's
+  // "In SQL:" name. Its title is the dataset's name read as a name, in
+  // the reading face. ----
   await page.goto(`/tables/${stations}`);
   const tableTitle = page.locator('[class*="title"] h1').first();
   await expect(tableTitle).toBeVisible();
   expect(
-    await tableTitle.evaluate((el) => getComputedStyle(el).fontFamily),
+    MONO.test(await tableTitle.evaluate((el) => getComputedStyle(el).fontFamily)),
+  ).toBe(false);
+  const sqlName = page.locator("[data-sql-name] code").first();
+  await expect(sqlName).toBeVisible();
+  expect(
+    await sqlName.evaluate((el) => getComputedStyle(el).fontFamily),
   ).toMatch(/DM.?Mono/i);
 
   // ---- Builder: the status bar's coordinate readout,

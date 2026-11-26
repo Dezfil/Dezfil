@@ -66,7 +66,7 @@ const ALLOWED: Row[] = JSON.parse(readFileSync(path.join(HERE, "mono-boundary.al
  * browser's monospace. Each move drops its parts from the list and lowers
  * this number with them; a new use that the rule moves is not added here.
  */
-const PENDING = 96;
+const PENDING = 63;
 
 const model = collect({ root: ROOT });
 const found: Uses = monoUses(model);
@@ -82,12 +82,12 @@ describe("the mono boundary", () => {
     const uses = [...found.uses.values()];
     const mono = uses.filter((u) => u.layer === "mono");
     const digits = uses.filter((u) => u.layer === "digits");
-    expect(mono.length).toBeGreaterThanOrEqual(108);
-    expect(mono.reduce((n, u) => n + u.elements.size, 0)).toBeGreaterThanOrEqual(158);
-    expect(mono.reduce((n, u) => n + u.inherits.size, 0)).toBeGreaterThanOrEqual(44);
+    expect(mono.length).toBeGreaterThanOrEqual(96);
+    expect(mono.reduce((n, u) => n + u.elements.size, 0)).toBeGreaterThanOrEqual(137);
+    expect(mono.reduce((n, u) => n + u.inherits.size, 0)).toBeGreaterThanOrEqual(35);
     expect(mono.filter((u) => u.origin === "code").length).toBeGreaterThanOrEqual(2);
-    expect(digits.length).toBeGreaterThanOrEqual(42);
-    expect(digits.reduce((n, u) => n + u.elements.size + u.inherits.size, 0)).toBeGreaterThanOrEqual(112);
+    expect(digits.length).toBeGreaterThanOrEqual(45);
+    expect(digits.reduce((n, u) => n + u.elements.size + u.inherits.size, 0)).toBeGreaterThanOrEqual(121);
     // Representative survivors of distinct roads: a style set in code, a
     // stylesheet rule, a font loader, a code mark, digits of one width.
     expect(found.uses.has('mono :: src/components/SqlEditor.tsx :: editorTheme > ".cm-scroller" > fontFamily')).toBe(true);
