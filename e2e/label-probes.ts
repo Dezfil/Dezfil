@@ -37,10 +37,9 @@ export async function recordGlyphs(context: BrowserContext): Promise<void> {
   await context.addInitScript(() => {
     const drawn: string[] = [];
     (window as unknown as { __glyphsDrawn: string[] }).__glyphsDrawn = drawn;
-    const kinds = [
-      (globalThis as { CanvasRenderingContext2D?: { prototype: CanvasRenderingContext2D } }).CanvasRenderingContext2D,
-      (globalThis as { OffscreenCanvasRenderingContext2D?: { prototype: CanvasRenderingContext2D } }).OffscreenCanvasRenderingContext2D,
-    ];
+    // Both kinds of 2D context draw text the same way; deck may use either.
+    const scope = globalThis as unknown as Record<string, { prototype: CanvasRenderingContext2D } | undefined>;
+    const kinds = [scope.CanvasRenderingContext2D, scope.OffscreenCanvasRenderingContext2D];
     for (const kind of kinds) {
       if (!kind) continue;
       const proto = kind.prototype;
