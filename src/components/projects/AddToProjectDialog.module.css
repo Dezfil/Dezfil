@@ -289,6 +289,7 @@
   font-size: var(--text-meta);
   color: var(--fg-muted);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .dsSub {

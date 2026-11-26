@@ -143,6 +143,7 @@
 
 .metaVal {
   color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Placement only — the mark and its text are the kit's StatusDot. */

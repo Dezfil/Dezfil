@@ -130,6 +130,7 @@
 .meta {
   font-size: 11px;
   color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .errBadge {

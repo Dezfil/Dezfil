@@ -83,12 +83,12 @@ describe("the mono boundary", () => {
     const uses = [...found.uses.values()];
     const mono = uses.filter((u) => u.layer === "mono");
     const digits = uses.filter((u) => u.layer === "digits");
-    expect(mono.length).toBeGreaterThanOrEqual(86);
-    expect(mono.reduce((n, u) => n + u.elements.size, 0)).toBeGreaterThanOrEqual(101);
-    expect(mono.reduce((n, u) => n + u.inherits.size, 0)).toBeGreaterThanOrEqual(26);
+    expect(mono.length).toBeGreaterThanOrEqual(92);
+    expect(mono.reduce((n, u) => n + u.elements.size, 0)).toBeGreaterThanOrEqual(107);
+    expect(mono.reduce((n, u) => n + u.inherits.size, 0)).toBeGreaterThanOrEqual(28);
     expect(mono.filter((u) => u.origin === "code").length).toBeGreaterThanOrEqual(2);
-    expect(digits.length).toBeGreaterThanOrEqual(53);
-    expect(digits.reduce((n, u) => n + u.elements.size + u.inherits.size, 0)).toBeGreaterThanOrEqual(141);
+    expect(digits.length).toBeGreaterThanOrEqual(75);
+    expect(digits.reduce((n, u) => n + u.elements.size + u.inherits.size, 0)).toBeGreaterThanOrEqual(247);
     // Representative survivors of distinct roads: a style set in code, a
     // stylesheet rule, a font loader, a code mark, digits of one width.
     expect(found.uses.has('mono :: src/components/SqlEditor.tsx :: editorTheme > ".cm-scroller" > fontFamily')).toBe(true);

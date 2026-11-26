@@ -1561,6 +1561,7 @@ span.chip {
 .previewLine {
   font-size: var(--text-label);
   color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 
 .previewLine b {

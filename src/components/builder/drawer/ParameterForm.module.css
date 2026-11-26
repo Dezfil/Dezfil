@@ -263,6 +263,11 @@
   white-space: nowrap;
 }
 
+/* A table's row count in the picker, in digits of one width. */
+.tableMeta {
+  font-variant-numeric: tabular-nums;
+}
+
 .tableMeta,
 .stepRef {
   font-size: 11px;
@@ -342,6 +347,7 @@
   margin: 0;
   font-size: 12px;
   color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .warning {

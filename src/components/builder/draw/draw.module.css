@@ -172,6 +172,7 @@
 
 .draftLabel {
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
   fill: var(--fg);
   paint-order: stroke;
   stroke: var(--bg-panel);

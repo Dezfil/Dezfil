@@ -196,6 +196,7 @@
   font-size: var(--text-label);
   line-height: 1.45;
   color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .facts {

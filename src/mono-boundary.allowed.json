@@ -1011,6 +1011,14 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/AddToMapDialog.module.css :: .metaVal",
+    "elements": [
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <span.metaVal> {formatRelativeTime(m.updatedAt)}",
+      "src/components/AddToMapDialog.tsx :: AddToMapDialog <span.metaVal> {m.layerCount}"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/builder/add-layer/AddLayerCatalog.module.css :: .tableMeta",
     "elements": [
       "src/components/builder/add-layer/CatalogTableBrowser.tsx :: CatalogTableBrowser <span.tableMeta> \"rows\" {formatCount(t.rowCount)}"
@@ -1026,10 +1034,46 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/builder/draw/draw.module.css :: .draftLabel",
+    "elements": [
+      "src/components/builder/draw/DrawOverlay.tsx :: DrawOverlay <text.draftLabel> \"r ≈\" {formatDistanceKm(radiusKm)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .dryline",
+    "elements": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <p.dryline> \"Dry run:\" {\" · \"} {shown.geometry === \""
+    ],
+    "inherits": [
+      "src/components/builder/drawer/ParameterForm.tsx :: ParameterForm <strong> \"rows\" {shown.rowCount.toLocaleString()}"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/builder/drawer/ParameterForm.module.css :: .number",
     "elements": [
       "src/components/builder/drawer/parameter-controls.tsx :: NumberControl <input.number>",
       "src/components/builder/drawer/parameter-controls.tsx :: NumberListControl <input.number> placeholder \"—\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .tableMeta",
+    "elements": [
+      "src/components/builder/drawer/TablePicker.tsx :: TablePicker <span.tableMeta> \"features ·\" {formatCount(chosen.rowCoun",
+      "src/components/builder/drawer/TablePicker.tsx :: TableRows <span.tableMeta> \"features\" {formatCount(table.rowCount)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/drawer/SuccessFace.module.css :: .table",
+    "elements": [
+      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <p.table> \"reading\" \"·\" \"rows\" {made.rows.toLocale"
+    ],
+    "inherits": [
+      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <code> {made.table}",
+      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <code> {made.table} #2"
     ]
   },
   {
@@ -1040,6 +1084,18 @@
       "src/components/builder/FilterSection.tsx :: TimeControl <input.bound> #2",
       "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound>",
       "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound> #2"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/LayerList.module.css :: .meta",
+    "elements": [
+      "src/components/builder/LayerList.tsx :: LayerMeta <span.meta> {render && !render.ok ? ( <span classNam"
+    ],
+    "inherits": [
+      "src/components/builder/LayerList.tsx :: LayerMeta <span.errBadge> \"error\"",
+      "src/components/builder/LayerList.tsx :: LayerMeta <span.tileBadge> \"preparing tiles…\"",
+      "src/components/builder/UnsavedFields.tsx :: UnsavedMark <span.mark> {children}"
     ]
   },
   {
@@ -1078,9 +1134,53 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/connections/ConnectionDetail.module.css :: .facts",
+    "elements": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dl.facts>"
+    ],
+    "inherits": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd.identifier> {connection.id}",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {connection.lastCheckedAt ? `${new Date(",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {connection.postgisVersion ?? (connectio",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {connection.ssl ? \"SSL required\" : \"SSL ",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {new Date(connection.createdAt).toLocale",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dd> {shortServerVersion(connection.serverVer",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Created\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Encryption\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Id\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Last check\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"PostGIS\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <dt> \"Server\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/ConnectionDetail.module.css :: .snapshotMeta",
+    "elements": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span.snapshotMeta> \"rows · refreshed\" {formatCount(snapshot"
+    ],
+    "inherits": [
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span.rowBusy> \"refreshing…\"",
+      "src/components/connections/ConnectionDetail.tsx :: ConnectionDetail <span> \"refresh failed\""
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/connections/ConnectionsLedger.module.css :: .count",
     "elements": [
       "src/components/connections/ConnectionsLedger.tsx :: ConnectionsLedger <span.count> {snapshots.length ? formatCount(snapshot"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/connections/PostgisPane.module.css :: .doneCard p",
+    "elements": [
+      "src/components/connections/PostgisDataDone.tsx :: PostgisCompletionFacts <p> \"rows ·\" {formatCount(table.rowCount)} {",
+      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <p.layerOutcome> \"Adding to the map…\"",
+      "src/components/connections/PostgisLayerDone.tsx :: PostgisLayerDone <p.layerOutcome> {completion.outcome.message}"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisDataDone.tsx :: PostgisCompletionFacts <span.doneRelation> {relationKey(relation)}"
     ]
   },
   {
@@ -1099,6 +1199,74 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/connections/PostgisPane.module.css :: .spatialFact, .estimateFact",
+    "elements": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span.estimateFact> {estimateLabel(relation)}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <span.spatialFact> \"·\" {fact ? ( <> <code>{fact.type}</code"
+    ],
+    "inherits": [
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.srid}",
+      "src/components/connections/PostgisRelationDetail.tsx :: PostgisRelationDetail <code> {fact.type}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .cardChips",
+    "elements": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <div.cardChips.cardInfo>",
+      "src/components/WorkflowFolder.tsx :: FolderCard <div.cardChips.cardInfo>",
+      "src/components/data-cards.tsx :: TableCard <div.cardChips.cardInfo>",
+      "src/components/home/HomeLead.tsx :: TemplateLead <div.cardChips.cardInfo>",
+      "src/components/projects/HomeSections.tsx :: DatasetCard <div.cardChips.cardInfo>",
+      "src/components/projects/ItemCards.tsx :: MapCard <div.cardChips.cardInfo>",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <div.cardChips.cardInfo>",
+      "src/components/projects/ProjectCollection.tsx :: ProjectCard <div.cardChips.cardInfo> {mark}",
+      "src/components/templates/TemplateCard.tsx :: TemplateCard <div.cardChips.cardInfo.tags>"
+    ],
+    "inherits": [
+      "src/components/LayerCount.tsx :: LayerCount <span> \"layer\" {count === 1 ? \"\" : \"s\"}",
+      "src/components/TableDetailScreen.tsx :: TableDetail <span.chip> \"updated\" {formatRelativeTime(table.impo",
+      "src/components/WorkflowFolder.tsx :: FolderCard <span.chip.chipGeo.see> {open ? \"Close\" : `See ${folder.outputs.",
+      "src/components/WorkflowFolder.tsx :: FolderCard <span.chip> \"Workflow\"",
+      "src/components/WorkflowStatusChip.tsx :: WorkflowStatusChip <span.chip.stateChip> {chip.label}",
+      "src/components/home/HomeLead.tsx :: TemplateLead <span.chip> {tag}",
+      "src/components/projects/ItemCards.tsx :: MapCard <span.chip> {m.published ? \"Published\" : \"Draft\"}",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <span.chip> {lastRunLabel(lastRun === \"pending\" ? \"u",
+      "src/components/projects/ProjectCollection.tsx :: PublishedChip <span.chip> \"published\" {n}",
+      "src/components/sharing/PeopleMarks.tsx :: PeopleChip <span.chip.peopleChip> \"by\" \"·\" {mark.owner} {mark.role}",
+      "src/components/sharing/PeopleMarks.tsx :: PeopleChip <span> {mark.count}",
+      "src/components/table-chips.tsx :: CrsChip <button.chip.chipDoor.chipWarn> \"WGS84 assumed\"",
+      "src/components/table-chips.tsx :: CrsChip <small> {CRS_DOOR_TIP_ACTION}",
+      "src/components/table-chips.tsx :: CrsChip <span.chip.chipWarn> \"WGS84 assumed\"",
+      "src/components/table-chips.tsx :: CrsChip <span.tip> {CRS_DOOR_TIP}",
+      "src/components/table-chips.tsx :: GeometryChip <span.chip.chipGeo> {label}",
+      "src/components/table-chips.tsx :: HeaderChip <span.chip.chipWarn> \"Header looks broken\"",
+      "src/components/table-chips.tsx :: SourceChip <span.chip> {sourceLabel(table)}",
+      "src/components/templates/TemplateCard.tsx :: TemplateCard <span.chip> {tag}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .cardWhen",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <span.cardWhen>",
+      "src/components/WorkflowFolder.tsx :: FolderCard <span.cardWhen> {formatRelativeTime(folder.updatedAt)}",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.cardWhen>",
+      "src/components/data-cards.tsx :: TableCard <span.cardWhen> {formatRelativeTime(updatedAt(t))}",
+      "src/components/projects/HomeSections.tsx :: DatasetCard <span.cardWhen> {formatRelativeTime(t.importedAt ?? t.cr",
+      "src/components/projects/ItemCards.tsx :: MapCard <span.cardWhen>",
+      "src/components/projects/ItemCards.tsx :: WorkflowCard <span.cardWhen>",
+      "src/components/projects/ProjectCollection.tsx :: ProjectCard <span.cardWhen> {formatRelativeTime(p.updatedAt)}",
+      "src/components/templates/TemplateCard.tsx :: TemplateCard <span.cardWhen>"
+    ],
+    "inherits": [
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.fact.head> {head ? <span className={styles.headText",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.headText> {label}",
+      "src/components/templates/TemplateCard.tsx :: TemplateCard <span> {date}"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/gallery.module.css :: .chipCount",
     "elements": [
       "src/components/MapsScreen.tsx :: MapsScreen <span.chipCount> \"·\" {counts.all}",
@@ -1112,9 +1280,44 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/gallery.module.css :: .colWhen",
+    "elements": [
+      "src/components/MapsScreen.tsx :: MapsScreen <span.colWhen.num>",
+      "src/components/MapsScreen.tsx :: MapsScreen <span.colWhen> \"Last edited\"",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.colWhen.num>",
+      "src/components/WorkflowsScreen.tsx :: WorkflowsScreen <span.colWhen> \"Last edited\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen>",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> \"Last edited\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> \"Last edited\" #2",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> \"Last run\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> \"Last updated\"",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> #2",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> {cell.text}",
+      "src/components/projects/HomeSections.tsx :: HomeSections <span.colWhen> {formatRelativeTime(t.importedAt ?? t.cr",
+      "src/components/projects/ProjectCollection.tsx :: ProjectRow <span.colWhen> {formatRelativeTime(p.updatedAt)}",
+      "src/components/projects/ProjectCollection.tsx :: ProjectsListHead <span.colWhen> \"Updated\""
+    ],
+    "inherits": [
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.fact.head> {head ? <span className={styles.headText",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.headText> {label}"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/gallery.module.css :: .limitMark",
     "elements": [
       "src/components/ListHeading.tsx :: ListHeading <span.limitMark> {mark}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/gallery.module.css :: .manifest b",
+    "elements": [
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {formatBytes(manifest.bytes)}",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {formatCompactCount(manifest.rows)}",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {manifest.crsAssumed}",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {manifest.refreshable}",
+      "src/components/TablesScreen.tsx :: TablesScreen <b> {manifest.tables}"
     ]
   },
   {
@@ -1206,9 +1409,50 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/OsmPane.module.css :: .runStats",
+    "elements": [
+      "src/components/OsmPane.tsx :: OsmPane <div.runStats> \"Showing\" \"features on the map\" {runResu"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/OverturePane.module.css :: .levelHead i",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <i> {l.count.toLocaleString()}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/OverturePane.module.css :: .runStats",
+    "elements": [
+      "src/components/OverturePane.tsx :: OverturePane <div.runStats> \"Showing\" \"features on the map\" {runResu"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/projects/AddItemsDialog.module.css :: .status",
     "elements": [
       "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <span.status> {pickerStatus(composed.summary)} {pendin"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/AddItemsDialog.module.css :: .text small",
+    "elements": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <small.sub> {sub}",
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <small> {item.fact}"
+    ],
+    "inherits": [
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <i> \"·\"",
+      "src/components/projects/AddItemsDialog.tsx :: AddItemsDialog <span> {whereLine(item.where)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/AddToProjectDialog.module.css :: .dsMeta",
+    "elements": [
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.dsMeta> \"Workflow\"",
+      "src/components/projects/AddToProjectDialog.tsx :: AddToProjectDialog <span.dsMeta> \"·\" \"row\" {SOURCE_WORDS[d.source] ?? d.s"
     ]
   },
   {
@@ -1282,6 +1526,20 @@
     "id": "src/components/projects/ProjectHome.module.css :: .exportNote",
     "elements": [
       "src/components/projects/ProjectHomeScreen.tsx :: ProjectHomeVisit <p.exportNote> {exportNote}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/projects/RecentList.module.css :: .text small",
+    "elements": [
+      "src/components/projects/RecentList.tsx :: RowContent <small> {it.fact} {it.kind === \"dataset\" ? forma"
+    ],
+    "inherits": [
+      "src/components/projects/RecentList.tsx :: RowContent <i> \"·\"",
+      "src/components/projects/RecentList.tsx :: RowContent <i> \"·\" #2",
+      "src/components/projects/RecentList.tsx :: RowContent <span> {whereLine(it.where)}",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.fact.head> {head ? <span className={styles.headText",
+      "src/components/sharing/LastChanged.tsx :: LastChanged <span.headText> {label}"
     ]
   },
   {
@@ -1443,6 +1701,16 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/TableDetailScreen.module.css :: .previewNote",
+    "elements": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <p.previewNote> \"Showing the first\" \"of\" \"rows ·\" \"colum"
+    ],
+    "inherits": [
+      "src/components/TableDetailScreen.tsx :: TableDetail <Link.sqlLink> \"Open in SQL workspace\""
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/TablePreviewMap.module.css :: .readout",
     "elements": [
       "src/components/TablePreviewMap.tsx :: TablePreviewMap <div.readout>",
@@ -1458,6 +1726,13 @@
     "id": "src/components/TablesScreen.module.css :: .storageLine",
     "elements": [
       "src/components/TablesScreen.tsx :: TablesScreen <p.storageLine> {storageLine}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/templates/TemplateView.module.css :: .dataHow",
+    "elements": [
+      "src/components/templates/HowItsMade.tsx :: HowItsMade <p.dataHow> {row.made} {row.rowCount === null ? null"
     ]
   },
   {
@@ -1482,6 +1757,32 @@
     ],
     "inherits": [
       "src/components/viewer/CursorReadout.tsx :: CursorReadout <span.flash> {flash === \"ok\" ? \"copied\" : \"couldn't c"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/widgets/Widgets.module.css :: .axis",
+    "elements": [
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <div.axis>"
+    ],
+    "inherits": [
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <span> {formatCount(domain.max)}",
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <span> {formatCount(domain.min)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/widgets/Widgets.module.css :: .cnum",
+    "elements": [
+      "src/components/widgets/WidgetRail.tsx :: CategoryCard <span.cnum> {formatCount(row.n)}",
+      "src/components/widgets/WidgetRail.tsx :: CategoryCard <span.cnum> {formatCount(value.other)}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/widgets/Widgets.module.css :: .range",
+    "elements": [
+      "src/components/widgets/WidgetRail.tsx :: HistogramCard <span.range> \"–\" {formatCount(lo)} {formatCount(hi)}"
     ]
   },
   {
@@ -1541,6 +1842,16 @@
       "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {facts ? formatCount(facts.rowCount) : m",
       "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {geometry}",
       "src/components/workflow-canvas/SourcePanel.tsx :: SourcePanel <dd> {template ? \"this template\" : facts ? fa"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/workflow-canvas/WorkflowCanvas.module.css :: .previewLine",
+    "elements": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <p.previewLine> {\" · \"} {gate.preview.geometry === \"none"
+    ],
+    "inherits": [
+      "src/components/workflow-canvas/NodePanel.tsx :: NodePanel <b> \"rows\" {gate.preview.rowCount.toLocaleSt"
     ]
   },
   {

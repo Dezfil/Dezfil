@@ -507,6 +507,7 @@
   color: var(--fg-muted);
   font-size: var(--text-meta);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   transition: opacity var(--dur-micro);
 }
 
@@ -527,6 +528,7 @@
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* A map's or workflow's footer: the status pill, then the project it is
@@ -877,6 +879,7 @@
   color: var(--fg-muted);
   font-size: var(--text-meta);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .colActs {
@@ -1006,7 +1009,8 @@
   background: var(--bg-raised);
   border-top: 1px solid var(--border);
   font-size: var(--text-label);
-  /* Prose reads muted; its figures full ink in mono. */
+  /* Prose reads muted; its figures full ink, in the reading face with
+     digits of one width. */
   color: var(--fg-muted);
   flex-wrap: wrap;
 }
@@ -1014,6 +1018,7 @@
 .manifest b {
   color: var(--fg);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .manifestFlag {
