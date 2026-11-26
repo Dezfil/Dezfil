@@ -64,11 +64,12 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/builder/assistant/TalkingAbout.module.css :: .mono",
-    "kind": "to-reading-face",
-    "note": "The assistant's chip that names a layer.",
+    "id": "src/components/builder/AssistantPanel.module.css :: .checkId",
+    "kind": "identifier",
+    "note": "A map check's render identity and its state's digest; the counts beside the digest are in the reading face.",
     "elements": [
-      "src/components/builder/assistant/TalkingAbout.tsx :: TalkingAbout <span.mono.value> {chip.value}"
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd.checkId> {check.renderId}",
+      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <span.checkId> {check.stateDigest}"
     ]
   },
   {
@@ -83,54 +84,19 @@
     "layer": "mono",
     "id": "src/components/builder/AssistantPanel.module.css :: .inspectionInput dd",
     "kind": "identifier",
-    "note": "A map check's facts (sizes, counts, the appearance, the credit, what failed) move to the reading face; its render identity stays mono, and so does the state's digest beside the counts. An action's argument values stay mono.",
+    "note": "An action's argument values, as it sent them. A map check's facts are in the reading face, in rows of their own.",
     "elements": [
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {`${check.abandoned.length} request${che",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {`${check.source.width} by ${check.sourc",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.appearance}",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.attribution}",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.failures.join(\"; \")}",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.image ? `${check.image.width} by ",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.renderId}",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.stateDigest} {check.layers !== un",
       "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <dd> {value}"
-    ],
-    "split": {
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.stateDigest} {check.layers !== un": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.appearance}": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.image ? `${check.image.width} by ": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {`${check.source.width} by ${check.sourc": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.attribution}": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {check.failures.join(\"; \")}": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dd> {`${check.abandoned.length} request${che": "to-reading-face"
-    }
+    ]
   },
   {
     "layer": "mono",
     "id": "src/components/builder/AssistantPanel.module.css :: .inspectionInput dt",
     "kind": "identifier",
-    "note": "A map check's labels (render, state, image and the rest) are words: they move to the reading face. An action's argument names stay mono.",
+    "note": "An action's argument names. A map check's labels are in the reading face, in rows of their own.",
     "elements": [
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"appearance\"",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"credit\"",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"image\"",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"in the picture\"",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"not answered\"",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"render\"",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"rendered at\"",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"state\"",
       "src/components/builder/assistant/RecordEntryRow.tsx :: RecordEntryRow <dt> {key}"
-    ],
-    "split": {
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"appearance\"": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"credit\"": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"image\"": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"in the picture\"": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"not answered\"": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"render\"": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"rendered at\"": "to-reading-face",
-      "src/components/builder/assistant/CheckNote.tsx :: CheckInspection <dt> \"state\"": "to-reading-face"
-    }
+    ]
   },
   {
     "layer": "mono",
@@ -158,12 +124,6 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/builder/AssistantPanel.module.css :: .tool",
-    "kind": "unused",
-    "note": "No element wears it: a later change deletes the rule."
-  },
-  {
-    "layer": "mono",
     "id": "src/components/builder/AssistantPanel.module.css :: .toolId",
     "kind": "identifier",
     "elements": [
@@ -172,39 +132,10 @@
   },
   {
     "layer": "mono",
-    "id": "src/components/builder/draw/draw.module.css :: .draftLabel",
-    "kind": "to-reading-face",
-    "note": "The radius while drawing a circle: a measure.",
-    "elements": [
-      "src/components/builder/draw/DrawOverlay.tsx :: DrawOverlay <text.draftLabel> \"r ≈\" {formatDistanceKm(radiusKm)}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/builder/drawer/ParameterForm.module.css :: .number",
-    "kind": "to-reading-face",
-    "note": "The tool drawer's number fields.",
-    "elements": [
-      "src/components/builder/drawer/parameter-controls.tsx :: NumberControl <input.number>",
-      "src/components/builder/drawer/parameter-controls.tsx :: NumberListControl <input.number> placeholder \"—\""
-    ]
-  },
-  {
-    "layer": "mono",
     "id": "src/components/builder/drawer/ParameterForm.module.css :: .textarea",
     "kind": "sql",
     "elements": [
       "src/components/builder/drawer/parameter-controls.tsx :: ParameterRow <textarea.textarea>"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/builder/drawer/SuccessFace.module.css :: .table code",
-    "kind": "to-reading-face",
-    "note": "The dataset a tool made, named as a name.",
-    "elements": [
-      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <code> {made.table}",
-      "src/components/builder/drawer/SuccessFace.tsx :: SuccessFace <code> {made.table} #2"
     ]
   },
   {
@@ -221,45 +152,6 @@
     "elements": [
       "src/components/builder/FilterSection.tsx :: AddFilterPicker <span.badge> {typeBadge(f)}",
       "src/components/builder/FilterSection.tsx :: FilterSection <span.badge> {typeBadge(field)}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/builder/FilterSection.module.css :: .bound",
-    "kind": "to-reading-face",
-    "note": "A filter's typed bounds: number fields.",
-    "elements": [
-      "src/components/builder/FilterSection.tsx :: TimeControl <input.bound>",
-      "src/components/builder/FilterSection.tsx :: TimeControl <input.bound> #2",
-      "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound>",
-      "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound> #2"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/builder/FilterSection.module.css :: .fieldName",
-    "kind": "to-reading-face",
-    "note": "A filter's field name, shown to the map's reader.",
-    "elements": [
-      "src/components/builder/FilterSection.tsx :: FilterSection <span.fieldName> {f.field}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/builder/LegendTab.module.css :: .attrInput",
-    "kind": "to-reading-face",
-    "note": "The legend's display label: text the legend shows.",
-    "elements": [
-      "src/components/builder/LegendTab.tsx :: LegendEditor <input.attrInput>"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/builder/PaletteControl.module.css :: .stopPos",
-    "kind": "to-reading-face",
-    "note": "A colour stop's position: a number field.",
-    "elements": [
-      "src/components/builder/PaletteControl.tsx :: PaletteControl <NumberInput.field.stopPos>"
     ]
   },
   {
@@ -284,26 +176,6 @@
     "kind": "address",
     "elements": [
       "src/components/builder/publish/PublishPopover.tsx :: PublishPopover <div.url> {url.replace(/^https?:\\/\\//, \"\")}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/builder/StylePanel.module.css :: .breakInput",
-    "kind": "to-reading-face",
-    "note": "A class boundary: a number field.",
-    "elements": [
-      "src/components/builder/style-panel/rows.tsx :: BreakInput <input.breakInput>"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/builder/StylePanel.module.css :: .num",
-    "kind": "to-reading-face",
-    "note": "Radius and cell size: number fields.",
-    "elements": [
-      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <input.num>",
-      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <input.num> #2",
-      "src/components/builder/style-panel/size-rows.tsx :: CellSizeRow <input.num>"
     ]
   },
   {
@@ -483,32 +355,6 @@
     "kind": "structure",
     "elements": [
       "src/components/GeometryProvenance.tsx :: GeometryProvenance <b> {record.columns.join(\", \")}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/map/MapCanvas.module.css :: .popup",
-    "kind": "to-reading-face",
-    "note": "A map's pop-up: field names and values shown to a reader.",
-    "elements": [
-      "src/components/map/MapPopup.tsx :: MapPopup <div.popup>"
-    ],
-    "inherits": [
-      "src/components/map/MapPopup.tsx :: Rows <span.tipKey> {k}",
-      "src/components/map/MapPopup.tsx :: Rows <span.tipVal> {String(v)}"
-    ]
-  },
-  {
-    "layer": "mono",
-    "id": "src/components/map/MapCanvas.module.css :: .tooltip",
-    "kind": "to-reading-face",
-    "note": "A map's hover: field names and values shown to a reader.",
-    "elements": [
-      "src/components/map/MapPopup.tsx :: MapTooltip <div.tooltip>"
-    ],
-    "inherits": [
-      "src/components/map/MapPopup.tsx :: Rows <span.tipKey> {k}",
-      "src/components/map/MapPopup.tsx :: Rows <span.tipVal> {String(v)}"
     ]
   },
   {
@@ -1132,6 +978,31 @@
   },
   {
     "layer": "digits",
+    "id": "src/components/builder/drawer/ParameterForm.module.css :: .number",
+    "elements": [
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberControl <input.number>",
+      "src/components/builder/drawer/parameter-controls.tsx :: NumberListControl <input.number> placeholder \"—\""
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/FilterSection.module.css :: .bound",
+    "elements": [
+      "src/components/builder/FilterSection.tsx :: TimeControl <input.bound>",
+      "src/components/builder/FilterSection.tsx :: TimeControl <input.bound> #2",
+      "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound>",
+      "src/components/builder/filters/NumericControl.tsx :: NumericControl <input.bound> #2"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/PaletteControl.module.css :: .stopPos",
+    "elements": [
+      "src/components/builder/PaletteControl.tsx :: PaletteControl <NumberInput.field.stopPos>"
+    ]
+  },
+  {
+    "layer": "digits",
     "id": "src/components/builder/StatusBar.module.css :: .val",
     "elements": [
       "src/components/builder/StatusBar.tsx :: StatusBar <span.val> \"unavailable\"",
@@ -1139,6 +1010,22 @@
       "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {records.count < records.total ? `${reco",
       "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {status ? formatZoom(status.zoom) : \"—\"}",
       "src/components/builder/StatusBar.tsx :: StatusBar <span.val> {text ?? \"—\"}"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/StylePanel.module.css :: .breakInput",
+    "elements": [
+      "src/components/builder/style-panel/rows.tsx :: BreakInput <input.breakInput>"
+    ]
+  },
+  {
+    "layer": "digits",
+    "id": "src/components/builder/StylePanel.module.css :: .num",
+    "elements": [
+      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <input.num>",
+      "src/components/builder/style-panel/SizeControl.tsx :: SizeControl <input.num> #2",
+      "src/components/builder/style-panel/size-rows.tsx :: CellSizeRow <input.num>"
     ]
   },
   {

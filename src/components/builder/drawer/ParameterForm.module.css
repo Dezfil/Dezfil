@@ -484,6 +484,6 @@
   background: var(--bg-panel);
   color: var(--fg);
   font-size: 12px;
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }

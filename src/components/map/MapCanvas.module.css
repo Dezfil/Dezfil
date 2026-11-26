@@ -96,7 +96,6 @@
   padding: 8px 10px;
   box-shadow: var(--surface-menu-shadow);
   max-width: 280px;
-  font-family: var(--font-mono);
   font-size: 11px;
 }
 
@@ -111,7 +110,6 @@
   padding: 9px 26px 8px 10px;
   box-shadow: var(--surface-menu-shadow);
   max-width: 300px;
-  font-family: var(--font-mono);
   font-size: 11px;
 }
 

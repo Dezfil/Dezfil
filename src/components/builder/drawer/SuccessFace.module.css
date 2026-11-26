@@ -24,8 +24,9 @@
   overflow-wrap: break-word;
 }
 
+/* The dataset a tool made, named as a name. */
 .table code {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-ui);
 }
 
 .notice {

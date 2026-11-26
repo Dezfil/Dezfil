@@ -173,12 +173,6 @@
   justify-content: space-between;
 }
 
-.tool {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--accent);
-}
-
 .actionStatus {
   font-size: 11px;
   color: var(--fg-muted);
@@ -491,6 +485,28 @@
   font-family: var(--font-mono);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* A map check's facts, laid out as an action's arguments: the labels,
+   sizes, counts and words in the reading face; the render's and the
+   state's identities in mono. */
+.checkFact {
+  display: contents;
+}
+
+.checkFact dt {
+  color: var(--fg-muted);
+}
+
+.checkFact dd {
+  margin: 0;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.checkId {
+  font-family: var(--font-mono);
 }
 
 .omitted,

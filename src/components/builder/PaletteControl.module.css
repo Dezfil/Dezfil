@@ -336,8 +336,8 @@
   width: 52px;
   height: 22px;
   padding: 0 6px;
-  font-family: var(--font-mono);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
   color: var(--fg);
   background: var(--bg-panel);
   border: 1px solid var(--border);

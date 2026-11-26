@@ -171,7 +171,6 @@
 }
 
 .draftLabel {
-  font-family: var(--font-mono, monospace);
   font-size: 11px;
   fill: var(--fg);
   paint-order: stroke;

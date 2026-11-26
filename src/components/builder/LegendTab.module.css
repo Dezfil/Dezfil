@@ -148,7 +148,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--fg);
-  font-family: var(--font-mono);
   font-size: 11px;
   padding: 5px 8px;
   min-width: 0;
