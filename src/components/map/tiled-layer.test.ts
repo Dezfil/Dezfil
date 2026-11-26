@@ -135,6 +135,7 @@ describe("createTiledLayer", () => {
     const result = createTiledLayer(tiled, {
       interactive: true,
       markScale: 1,
+      labelTone: "light",
     }) as MVTLayer;
     const props = result.props as typeof result.props & {
       loaders: Array<{
@@ -202,7 +203,7 @@ describe("createTiledLayer", () => {
           },
         },
       },
-      { interactive: false, markScale: 2, windowing },
+      { interactive: false, markScale: 2, windowing, labelTone: "light" },
     ) as MVTLayer;
     const props = result.props as typeof result.props & {
       extensions: unknown[];
@@ -233,8 +234,52 @@ describe("createTiledLayer", () => {
     expect(() =>
       createTiledLayer(
         { ...tiled, tiles: null },
-        { interactive: true, markScale: 1 },
+        { interactive: true, markScale: 1, labelTone: "light" },
       ),
     ).toThrow("requires a tile URL");
+  });
+});
+
+/**
+ * A tile's labels take the same paint a feature layer's do: an automatic part
+ * follows the tone of the basemap under the tiles, an own part keeps its
+ * colour, and the tiled layer's opacity reaches them as it is, once.
+ */
+describe("a tile's labels over the basemap's tone", () => {
+  const source = {
+    id: "districts",
+    style: {
+      ...defaultStyle("POLYGON"),
+      opacity: 0.5,
+      label: {
+        attribute: "name", size: 12, textPaint: "automatic" as const, color: { r: 36, g: 50, b: 48, a: 1 },
+        haloPaint: "own" as const, haloWidth: 2, haloColor: { r: 200, g: 40, b: 40, a: 0.5 },
+      },
+    },
+    tiles: { url: "/api/tiles/districts/{z}/{x}/{y}.pbf" },
+  };
+  type Built = { props: { opacity: number; renderSubLayers: (props: Record<string, unknown>) => unknown; updateTriggers: Record<string, unknown> } };
+  const labelsOf = (tone: "light" | "dark") => {
+    const layer = createTiledLayer(source, { interactive: false, markScale: 1, labelFont: '"Inter"', labelTone: tone }) as unknown as Built;
+    const drawn = layer.props.renderSubLayers({
+      id: "tile-0", opacity: layer.props.opacity,
+      data: [{ type: "Feature", properties: { name: "Gatsibo" }, geometry: { type: "Point", coordinates: [30, -2] } }],
+    }) as [unknown, { props: { getColor: number[]; outlineColor: number[]; outlineWidth: number; opacity: number } }];
+    return { layer, text: drawn[1].props };
+  };
+
+  it("paints the automatic text for the tone and keeps the halo of the label's own", () => {
+    expect(labelsOf("dark").text).toMatchObject({ getColor: [0xe9, 0xec, 0xf3, 255], outlineWidth: 2, outlineColor: [200, 40, 40, 128] });
+    expect(labelsOf("light").text).toMatchObject({ getColor: [0x24, 0x32, 0x30, 255], outlineWidth: 2, outlineColor: [200, 40, 40, 128] });
+  });
+
+  it("draws them at the tiled layer's opacity, as it is", () => {
+    const { layer, text } = labelsOf("dark");
+    expect(text.opacity).toBe(layer.props.opacity);
+  });
+
+  it("repaints the tiles already drawn when the tone under them changes", () => {
+    expect(labelsOf("light").layer.props.updateTriggers.renderSubLayers)
+      .not.toEqual(labelsOf("dark").layer.props.updateTriggers.renderSubLayers);
   });
 });

@@ -210,7 +210,7 @@ describe("a missing value on a continuous ramp", () => {
     expect((props.getLineColor as Accessor)(feature(null))).toEqual(noData());
     const tiled = createTiledLayer(
       { id: "trips", style, viz: { type: "points" }, tiles: { url: "/api/layers/trips/tiles/{z}/{x}/{y}", minZoom: 2, maxZoom: 14 } },
-      { interactive: false, markScale: 1 },
+      { interactive: false, markScale: 1, labelTone: "light" },
     );
     const tiledProps = tiled.props as unknown as { getFillColor: Accessor; getLineColor: Accessor };
     expect(tiledProps.getFillColor(feature(null))).toEqual(noData());

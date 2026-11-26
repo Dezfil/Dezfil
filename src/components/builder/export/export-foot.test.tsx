@@ -39,7 +39,7 @@ function Host({ onCard }: { onCard: (card: ReturnType<typeof useExportCard>) => 
   useEffect(() => onCard(card));
   if (!card.seed) return null;
   return <ExportImageCard onClose={() => {}} stage={buildExportStage({ map, appearance: "light", layers: [],
-    basemapUrl: "https://tiles.example.test/style.json", basemapKind: "vector", fallbackColor: "#f4f1ea", liveFilters: null,
+    basemapUrl: "https://tiles.example.test/style.json", basemapKind: "vector", labelTone: "light", fallbackColor: "#f4f1ea", liveFilters: null,
     seed: card.seed, legendLayers: [], widgets: [], values: null, valuesState: { status: "current", error: null },
     selections: [], attribution: [] })} />;
 }

@@ -8,6 +8,7 @@ import type { AttributionLine, BasemapKind } from "@/lib/basemap";
 import type { BasemapLayers } from "@/lib/basemap-layers";
 import type { WidgetValues } from "@/lib/widget-service";
 import type { LiveDim } from "@/lib/live-filters";
+import type { LabelTone } from "@/lib/style/label-recipe";
 import {
   EXPORT_MAX_DIMENSION,
   EXPORT_WIDTH_PRESETS,
@@ -71,6 +72,8 @@ export interface ExportStage {
   basemapUrl: string;
   basemapLayers: BasemapLayers | null;
   basemapKind: BasemapKind;
+  /** The tone of the builder's basemap, which the labels follow. */
+  labelTone: LabelTone;
   fallbackColor: string;
   liveFilters: Record<string, LiveDim[]> | null;
   camera: Viewport;
@@ -516,6 +519,7 @@ export function ExportImageCard({
                       basemapUrl: stage.basemapUrl,
                       basemapKind: stage.basemapKind,
                       customBasemap: stage.map.customBasemap !== null,
+                      labelTone: stage.labelTone,
                       fallbackColor: stage.fallbackColor,
                       layers: stage.layers,
                       liveFilters: stage.liveFilters,

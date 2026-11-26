@@ -414,6 +414,7 @@ export function RenderExportView({
         kind: eff.kind,
         custom: eff.custom,
         attribution: eff.attribution,
+        labelTone: eff.labelTone,
         // Resolution happens at the shared composition-input boundary,
         // beside the card's identical decision.
         layers: m.basemapLayers,
@@ -540,6 +541,7 @@ export function RenderExportView({
           basemapUrl: stage.basemap.url,
           basemapKind: stage.basemap.kind,
           customBasemap: stage.basemap.custom,
+          labelTone: stage.basemap.labelTone,
           fallbackColor: BASEMAP_FALLBACKS[def.appearance],
           layers: stage.layers,
           liveFilters: null,

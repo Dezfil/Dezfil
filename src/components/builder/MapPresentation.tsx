@@ -60,6 +60,8 @@ export interface CanvasAuthoring {
   onLabelCounts?: CanvasProps["onLabelCounts"];
   onBasemapGroups?: CanvasProps["onBasemapGroups"];
   onCameraHandle?: CanvasProps["onZoomHandle"];
+  /** The tone the canvas paints labels for, as it actually drew. */
+  onLabelTone?: CanvasProps["onLabelTone"];
 }
 
 /**
@@ -163,8 +165,10 @@ export function MapPresentation({
           }}
           onBearingChange={stage.setBearing}
           onPitchChange={stage.setPitch}
-          // The workspace's labels draw in its own face, Inter.
-          labelFace="inter"
+          // The workspace's labels draw in its own face, Inter, and follow
+          // the basemap's tone, the theme's where its tone is not known.
+          labels={{ face: "inter", tone: basemap.labelTone, theme }}
+          onLabelTone={canvas?.onLabelTone}
           padding={{
             top: 62,
             // Both edges read from the properties that define them, never

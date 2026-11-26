@@ -54,8 +54,8 @@ import {
 import { createLabelStore } from "./label-data";
 import { clusterCountSublayer, type LiveWindowing } from "./text-sublayer";
 import { labelStacks } from "./label-collision";
-import { useCountFont, useLabelFont, type LabelFace } from "./label-font";
-import { withLabelLayer } from "./label-marks";
+import { useLabelLook, type LabelSurface } from "./use-label-look";
+import { labelAttachment } from "./label-marks";
 import { useLabelPreparation } from "./use-label-preparation";
 import type { LabelCount } from "../builder/style-panel/LabelSection";
 
@@ -339,8 +339,11 @@ interface Props {
   /** The one handled startup failure: initial MapLibre WebGL
    * context creation. Later renderer failures keep their normal path. */
   onInitialWebGLFailure?: (message: string) => void;
-  /** This surface's label face: Inter, or Archivo on a published map. */
-  labelFace: LabelFace;
+  /** The surface's labels: their face, the tone of the style asked for,
+   * and the theme they take where it cannot load. */
+  labels: LabelSurface;
+  /** Receives the tone the labels are painted for whenever it changes. */
+  onLabelTone?: (tone: LabelSurface["tone"]) => void;
 }
 
 export function MapCanvas({
@@ -373,7 +376,7 @@ export function MapCanvas({
   onReadiness,
   onInitialWebGLFailure,
   padding,
-  labelFace,
+  labels, onLabelTone,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -516,9 +519,9 @@ export function MapCanvas({
   }, []);
 
   // The deterministic thinning half lives in its own hook; counts flush
-  // after each build below. Labels and counts draw once their faces load.
-  const labelFont = useLabelFont(labelFace);
-  const countFont = useCountFont();
+  // after each build below. Labels paint for the tone actually drawn, and
+  // draw, as counts do, once their faces load.
+  const { tone, labelFont, countFont } = useLabelLook(labels, basemapFailed, onLabelTone);
   const { prepareLabels, flushLabelCounts, resetLabelCounts } =
     useLabelPreparation(
     labelStore,
@@ -534,10 +537,7 @@ export function MapCanvas({
       // Every label on the map takes part in one overlap test, ranked by its
       // layer's place in the stack.
       const stacks = labelStacks(shown.filter((l) => l.style.label).map((l) => l.id));
-      const withLabels = (l: RenderedLayer, marks: unknown, cellMeters: number | null | undefined,
-        windowing: LiveWindowing | null, suffix: string) => withLabelLayer(l, marks as DeckLayer,
-        l.style.label ? prepareLabels(l, l.style.label, windowing) : [],
-        { cellMeters, windowing, suffix, markScale, labelFont, stack: stacks.get(l.id) });
+      const withLabels = labelAttachment<RenderedLayer>({ prepare: prepareLabels, stacks, markScale, labelFont, tone });
       const built = shown
         .flatMap((l): DeckLayer | DeckLayer[] => {
           const windowing = liveWindowing(l);
@@ -551,7 +551,7 @@ export function MapCanvas({
           // on update triggers.
           const suffix = windowing ? ":windowed" : "";
           if (l.tiles?.url) {
-            return createTiledLayer(l, { interactive, markScale, windowing, labelFont });
+            return createTiledLayer(l, { interactive, markScale, windowing, labelFont, labelTone: tone });
           }
           if (l.viz?.type === "heatmap") {
             // Density surface over the layer's points. Not pickable — a
@@ -810,7 +810,7 @@ export function MapCanvas({
       labelStore.sweep();
       return built;
     },
-    [interactive, prepareLabels, resetLabelCounts, labelStore, liveWindowing, markScale, labelFont, countFont],
+    [interactive, prepareLabels, resetLabelCounts, labelStore, liveWindowing, markScale, labelFont, countFont, tone],
   );
 
   const paddingKey = padding ? JSON.stringify(padding) : null;
@@ -1163,7 +1163,7 @@ export function MapCanvas({
   useSearchMarker(map, searchMarker, onSearchMarkerDismiss);
 
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} data-label-tone={tone}>
       <div ref={container} className={styles.map} />
       {initialWebGLFailure && (
         <div

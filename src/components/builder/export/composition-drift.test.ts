@@ -93,6 +93,11 @@ describe("export composition — one component, two hosts", () => {
     expect(call(route)).toMatch(/\bbasemapKey: stage\.basemap\.key,/);
     expect(call(route)).toMatch(/\bappearance: def\.appearance,/);
     expect(route).toMatch(/\bkey: m\.basemap,/);
+    // The labels' tone is the tone of the basemap each host draws: the
+    // card's from the builder's effective basemap, the route's from its own.
+    expect(call(card)).toMatch(/\blabelTone: stage\.labelTone,/);
+    expect(call(route)).toMatch(/\blabelTone: stage\.basemap\.labelTone,/);
+    expect(route).toMatch(/\blabelTone: eff\.labelTone,/);
   });
 
   it("keeps Dezfil's default look on the nodes the download rasterizes", () => {

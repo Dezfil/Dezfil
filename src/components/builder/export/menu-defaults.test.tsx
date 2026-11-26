@@ -97,7 +97,7 @@ function BuilderPage({ builder }: { builder: Builder }) {
         imageExportAvailable={card.available} layerDataDownloads={DOWNLOADS} />
       {card.seed && <span data-seed={`${card.seed.size.width}x${card.seed.size.height} ${card.seed.mapStep}`} />}
       {card.seed && <ExportImageCard onClose={card.close} stage={buildExportStage({ map: mapAt(builder.camera), appearance: "light",
-        layers: [], basemapUrl: "https://tiles.example.test/style.json", basemapKind: "vector", fallbackColor: "#f4f1ea",
+        layers: [], basemapUrl: "https://tiles.example.test/style.json", basemapKind: "vector", labelTone: "light", fallbackColor: "#f4f1ea",
         liveFilters: null, seed: card.seed, legendLayers, widgets: [], values: null,
         valuesState: { status: "current", error: null }, selections: [], attribution: [] })} />}
     </>

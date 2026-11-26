@@ -103,7 +103,7 @@ function Host({ builder, onOpen }: { builder: Builder; onOpen: (opens: boolean) 
   const map = mapOf(builder);
   const legendLayers: NamedStyle[] = [{ id: "stations", name: "Stations", style: STYLE, visible: builder.legendShown }];
   return <ExportImageCard onClose={() => {}} stage={buildExportStage({ map, appearance: builder.appearance,
-    layers: [], basemapUrl: "https://tiles.example.test/style.json", basemapKind: "vector", fallbackColor: "#f4f1ea",
+    layers: [], basemapUrl: "https://tiles.example.test/style.json", basemapKind: "vector", labelTone: "light", fallbackColor: "#f4f1ea",
     liveFilters: null, seed, legendLayers, widgets: map.widgets, values: null,
     valuesState: { status: "current", error: null }, selections: [], attribution: [] })} />;
 }

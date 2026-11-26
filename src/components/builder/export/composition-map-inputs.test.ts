@@ -21,6 +21,7 @@ function assembled(
     appearance: "light",
     basemapUrl: "/style.json",
     basemapKind: "vector",
+    labelTone: "light",
     fallbackColor: "#fff",
     layers: [],
     liveFilters: null,

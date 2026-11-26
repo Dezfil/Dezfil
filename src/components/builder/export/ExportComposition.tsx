@@ -14,7 +14,8 @@ import type { AttributionLine, BasemapKind } from "@/lib/basemap";
 import type { BasemapLayers } from "@/lib/basemap-layers";
 import type { WidgetValues } from "@/lib/widget-service";
 import type { LiveDim } from "@/lib/live-filters";
-import type { ExportImageDefinition } from "@/lib/export/image-definition";
+import type { Appearance, ExportImageDefinition } from "@/lib/export/image-definition";
+import type { LabelTone } from "@/lib/style/label-recipe";
 import { pinMarksForSpace } from "@/lib/export/pin-marks";
 import {
   REFERENCE_SPACE_WIDTH,
@@ -76,6 +77,11 @@ export interface CompositionMapInputs {
   /** Whether the basemap drawn is light or dark: the credit, which has no
    * card of its own, takes this tone's default look. */
   basemapTone: "light" | "dark";
+  /** The tone of the style drawn, which the labels follow. */
+  labelTone: LabelTone;
+  /** The image's appearance, which the labels take where the style
+   * cannot load, as the plain background does. */
+  appearance: Appearance;
   fallbackColor: string;
   layers: RenderedLayer[];
   liveFilters: Record<string, LiveDim[]> | null;
@@ -251,7 +257,7 @@ export function ExportComposition({
           onInitialWebGLFailure={onInitialWebGLFailure}
           // An image's labels draw in the workspace's face on both hosts,
           // the card's preview and the render route.
-          labelFace="inter"
+          labels={{ face: "inter", tone: map.labelTone, theme: map.appearance }}
         />
         {/* Overlays are real DOM — the exact nodes the card's download
             rasterizes and the route's screenshot captures. The rail carries

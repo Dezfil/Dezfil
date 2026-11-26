@@ -8,6 +8,8 @@ import {
   extrusionProps,
   extrusionScale,
 } from "@/lib/style/deck-style";
+import { paintedLabel } from "@/lib/style/label-paint";
+import type { LabelTone } from "@/lib/style/label-recipe";
 import type { LayerStyle } from "@/lib/style/style";
 import type { LayerViz } from "@/lib/viz";
 import { mvtRenderSubLayers, type LiveWindowing } from "./text-sublayer";
@@ -34,6 +36,9 @@ export interface TiledLayerRuntime {
   windowing?: LiveWindowing | null;
   /** The label face once it has loaded; tiles draw no labels before it. */
   labelFont?: string | null;
+  /** The tone of the basemap under the tiles, which a label's automatic
+   * paint follows. */
+  labelTone: LabelTone;
 }
 
 /**
@@ -43,7 +48,7 @@ export interface TiledLayerRuntime {
  */
 export function createTiledLayer(
   layer: TiledLayerDefinition,
-  { interactive, markScale, windowing = null, labelFont = null }: TiledLayerRuntime,
+  { interactive, markScale, windowing = null, labelFont = null, labelTone }: TiledLayerRuntime,
 ): DeckLayer {
   const tiles = layer.tiles;
   if (!tiles?.url) {
@@ -51,7 +56,9 @@ export function createTiledLayer(
   }
 
   const suffix = windowing ? ":windowed" : "";
-  const label = layer.style.label;
+  // A tile's labels take the tiled layer's opacity as it is; the paint
+  // keeps the label's own alpha.
+  const label = layer.style.label && paintedLabel(layer.style.label, labelTone);
   const tiledExtrusion = extrusionScale(layer.style, layer.viz);
 
   return new MVTLayer({
@@ -80,8 +87,9 @@ export function createTiledLayer(
       ...deckUpdateTriggers(layer.style),
       ...(tiledExtrusion ? { getElevation: [tiledExtrusion] } : null),
       ...(windowing ? { getFilterValue: windowing.trigger } : null),
-      // Tiles already drawn take their labels once the face arrives.
-      ...(label ? { renderSubLayers: [labelFont] } : null),
+      // Tiles already drawn take their labels once the face arrives, and
+      // repaint them when the tone under them changes.
+      ...(label ? { renderSubLayers: [labelFont, labelTone] } : null),
     },
     // Tiled labels remain exempt from global thinning because each sublayer
     // only sees one tile.

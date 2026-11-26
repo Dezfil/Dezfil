@@ -33,6 +33,8 @@ export interface EffectiveBasemap {
    * no custom style, no key, no deployment override. Such a map carries
    * one card image per theme; every other map keeps one. */
   followsTheme: boolean;
+  /** The tone of the style answered, which labels follow while it draws. */
+  labelTone: "light" | "dark";
 }
 
 /** Whether the basemap a map draws is light or dark, for what is drawn
@@ -143,6 +145,7 @@ export function effectiveBasemap(args: {
 }): EffectiveBasemap {
   const { key, custom, theme, overrideUrl, defaultUrl } = args;
   const basemaps = args.basemaps ?? BASEMAPS;
+  const labelTone = labelBasemapTone({ key, custom: custom !== null, theme, basemaps, overridden: overrideUrl !== null });
   if (custom) {
     return {
       url: custom.url,
@@ -150,6 +153,7 @@ export function effectiveBasemap(args: {
       attribution: custom.attribution,
       custom: true,
       followsTheme: false,
+      labelTone,
     };
   }
   if (key) {
@@ -160,6 +164,7 @@ export function effectiveBasemap(args: {
       attribution: chosen?.attribution ?? defaultCredit(overrideUrl, args.overrideAttribution),
       custom: false,
       followsTheme: false,
+      labelTone,
     };
   }
   return {
@@ -170,5 +175,6 @@ export function effectiveBasemap(args: {
     attribution: defaultCredit(overrideUrl, args.overrideAttribution),
     custom: false,
     followsTheme: overrideUrl === null,
+    labelTone,
   };
 }

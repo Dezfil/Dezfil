@@ -25,7 +25,7 @@ import {
   type LayerViz,
   type OdViz,
 } from "@/lib/viz";
-import { BASEMAPS, BASEMAP_FALLBACKS, type AttributionLine, type BasemapStyle } from "@/lib/basemap";
+import { BASEMAPS, type AttributionLine, type BasemapStyle } from "@/lib/basemap";
 import { builderBasemap } from "./builder-basemap";
 import type { BasemapLayerGroup } from "@/lib/basemap-layers";
 import type { Corner } from "@/lib/corners";
@@ -60,7 +60,8 @@ import { CatalogHost } from "./add-layer/CatalogHost";
 import { HeaderChrome } from "./BuilderChrome";
 import { BuilderHelpers, useBuilderHelpers } from "./BuilderHelpers";
 import { ExportImageCard } from "./export/ExportImageCard";
-import { buildExportStage } from "./export/export-stage";
+import { builderExportStage } from "./export/export-stage";
+import { builderLabelTone, LabelToneContext, useReportedLabelTone } from "./label-tone";
 import { useExportCard } from "./export/use-export-card";
 import { useWidgetListActions } from "./use-widget-list-actions";
 import { LayerList } from "./LayerList";
@@ -229,6 +230,7 @@ function BuilderEditor({
   const appearanceDraftRef = useRef<Record<string, AppearanceDraft>>({});
   const appearancePreviewVersionRef = useRef<Record<string, number>>({});
   const { labelCounts, onLabelCounts } = useLabelCounts();
+  const [reportedLabelTone, onLabelTone] = useReportedLabelTone();
   // Which groups the loaded style yields — the panel marks the rest
   // "not in this style" while a custom style is active.
   const [loadedBasemapGroups, setLoadedBasemapGroups] = useState<
@@ -762,13 +764,10 @@ function BuilderEditor({
   if (!map) return <BuilderLoading />;
 
   const effBasemap = builderBasemap(map, { theme, basemapUrl, basemapOverrideUrl, basemapOverrideAttribution, basemaps });
-  const effectiveBasemapUrl = effBasemap.url;
-  const effectiveBasemapKind = effBasemap.kind;
-  const basemapCredit = effBasemap.attribution;
-
 
   return (
     <DocumentEditorContext.Provider value={mutations}>
+    <LabelToneContext.Provider value={builderLabelTone(reportedLabelTone, effBasemap.labelTone)}>
     <BuilderSavedState value={{ stale: mutations.stale, saved: mutations.savedMap }}>
     <div className={styles.builder}>
       <HeaderChrome
@@ -994,6 +993,7 @@ function BuilderEditor({
           onLabelCounts,
           onBasemapGroups: setLoadedBasemapGroups,
           onCameraHandle: setDrawCamera,
+          onLabelTone,
         }}
         controls={
           <BuilderStageControls
@@ -1013,22 +1013,7 @@ function BuilderEditor({
 
       {exportCard.seed && (
         <ExportImageCard
-          stage={buildExportStage({
-            map,
-            appearance: theme,
-            layers: presentation.stagedLayers,
-            basemapUrl: effectiveBasemapUrl,
-            basemapKind: effectiveBasemapKind,
-            fallbackColor: BASEMAP_FALLBACKS[theme],
-            liveFilters: presentation.canvasDims,
-            seed: exportCard.seed,
-            legendLayers: presentation.legendLayers,
-            widgets: presentation.resolvableWidgets,
-            values: presentation.dash.values,
-            valuesState: presentation.dash.valuesState,
-            selections: presentation.dash.selections,
-            attribution: basemapCredit,
-          })}
+          stage={builderExportStage({ map, theme, basemap: effBasemap, presentation, seed: exportCard.seed })}
           onClose={exportCard.close}
         />
       )}
@@ -1042,6 +1027,7 @@ function BuilderEditor({
 
     </div>
     </BuilderSavedState>
+    </LabelToneContext.Provider>
     </DocumentEditorContext.Provider>
   );
 }

@@ -30,6 +30,7 @@ describe("effective basemap", () => {
         attribution: custom.attribution,
         custom: true,
         followsTheme: false,
+        labelTone: theme,
       });
     }
   });
@@ -178,6 +179,31 @@ describe("the tone labels follow", () => {
         expect(drawnLabelTone(style, theme, true), `${style} on ${theme}`).toBe(theme);
         expect(drawnLabelTone(style, theme, false), `${style} on ${theme}`).toBe(style);
       }
+    }
+  });
+});
+
+describe("the effective basemap's tone for labels", () => {
+  const SATELLITE = { key: "satellite" as const, label: "Satellite", url: "https://imagery.example/style.json", kind: "imagery" as const, attribution: [] };
+  it("is the tone of the style it answers, as the label rule reads it", () => {
+    for (const theme of ["light", "dark"] as const) {
+      expect(effectiveBasemap({ ...base, theme, key: "light" }).labelTone).toBe("light");
+      expect(effectiveBasemap({ ...base, theme, key: "streets" }).labelTone).toBe("light");
+      expect(effectiveBasemap({ ...base, theme, key: "dark" }).labelTone).toBe("dark");
+      expect(effectiveBasemap({ ...base, theme, key: "satellite", basemaps: [...BASEMAPS, SATELLITE] }).labelTone).toBe("dark");
+      expect(effectiveBasemap({ ...base, theme }).labelTone).toBe(theme);
+      expect(effectiveBasemap({ ...base, theme, key: "dark", custom }).labelTone).toBe(theme);
+    }
+  });
+
+  it("is the default's tone where the answer is the default in the key's place", () => {
+    const own = { ...base, overrideUrl: "https://pin.test/s.json", defaultUrl: "https://pin.test/s.json" };
+    for (const theme of ["light", "dark"] as const) {
+      // Satellite with no imagery set up draws the Dark default...
+      expect(effectiveBasemap({ ...base, theme, key: "satellite", basemaps: BASEMAPS })).toMatchObject({ url: BASEMAPS[0].url, labelTone: "dark" });
+      // ...or the deployment's own style, whose tone is the theme's.
+      expect(effectiveBasemap({ ...own, theme, key: "satellite", basemaps: BASEMAPS })).toMatchObject({ url: own.defaultUrl, labelTone: theme });
+      expect(effectiveBasemap({ ...own, theme }).labelTone).toBe(theme);
     }
   });
 });

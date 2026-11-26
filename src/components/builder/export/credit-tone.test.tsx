@@ -110,6 +110,7 @@ function drawn(appearance: Appearance, key: BasemapKey | null, custom = false, p
           basemapUrl: "https://tiles.example.test/style.json",
           basemapKind: "vector",
           customBasemap: custom,
+          labelTone: "light",
           fallbackColor: "#e9ecef",
           layers: [],
           liveFilters: null,

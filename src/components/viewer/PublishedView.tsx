@@ -46,6 +46,7 @@ import {
   type BasemapKey,
   type BasemapStyle,
 } from "@/lib/basemap";
+import { labelBasemapTone } from "@/lib/basemap-effective";
 import { useSyncViewTheme, useViewTheme } from "./use-view-theme";
 import { BasemapCredit } from "../map/BasemapCredit";
 import { BasemapPicker } from "../map/BasemapPicker";
@@ -568,6 +569,15 @@ export function PublishedView({
   const effAttribution = readerMovedBasemap
     ? basemapCreditIn(basemaps, themedKey)
     : (view.basemapAttribution ?? basemapCreditIn(basemaps, themedKey));
+  // Labels follow the basemap the reader actually sees: their pick over
+  // the saved one, on the reader's theme where its tone is not known.
+  const labelTone = labelBasemapTone({
+    key: themedKey,
+    custom: customActive,
+    theme: effTheme,
+    basemaps,
+    overridden: view.basemapPinned,
+  });
 
   // Which optional controls this publication exposes. An older cached
   // payload carries none, and every control reads on — the same reading
@@ -680,7 +690,7 @@ export function PublishedView({
           onPitchChange={setPitch}
           onStatus={statusChannel.emit}
           // Labels match the published chrome's face, embeds included.
-          labelFace="archivo"
+          labels={{ face: "archivo", tone: labelTone, theme: effTheme }}
         />
       </div>
 
