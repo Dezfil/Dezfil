@@ -19,7 +19,7 @@ import {
   registeredName,
   tablesNamedIn,
 } from "./operation-form";
-import { geometryKindWord } from "../../geometry-class";
+import { resultKindWord } from "../../geometry-class";
 import type { RecipeSummary } from "./recipe-model";
 import { ParameterRow } from "./parameter-controls";
 import { TablePicker } from "./TablePicker";
@@ -402,11 +402,7 @@ export function ParameterForm({
         <p className={styles.dryline} data-dry-run role="status">
           Dry run: <strong>{shown.rowCount.toLocaleString()} rows</strong>
           {" · "}
-          {shown.geometry === "none"
-            ? "no geometry: a table, not a layer"
-            : shown.geometry === "undetermined"
-              ? "spatial, class undetermined: no geometries to classify"
-              : geometryKindWord(shown.geometryType)}
+          {resultKindWord(shown.geometry === "classified" ? shown.geometryType : null, shown.geometry !== "none", { preview: true })}
         </p>
       )}
       {shown?.warnings.map((warning) => (

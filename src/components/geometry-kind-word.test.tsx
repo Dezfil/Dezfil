@@ -6,7 +6,7 @@ import { SuccessFace, type RunSuccess } from "./builder/drawer/SuccessFace";
 import { PostgisCompletionFacts, type PostgisDataCompletion } from "./connections/PostgisDataDone";
 import { TableRow } from "./data-cards";
 import { GeometryBadge } from "./GeometryBadge";
-import { geometryKindWord } from "./geometry-class";
+import { geometryKindWord, resultKindWord } from "./geometry-class";
 import { geometryChipLabel } from "./table-chips";
 import { previewReadout } from "./TablePreviewMap";
 
@@ -61,6 +61,16 @@ describe("one kind word", () => {
   });
 });
 
+describe("the kind of a table a tool or a step makes", () => {
+  it("reads as the same words, with the one surprise a preview names", () => {
+    expect(resultKindWord("MULTIPOLYGON", true)).toBe("Polygons");
+    expect(resultKindWord(null, false)).toBe("No geometry");
+    expect(resultKindWord(null, false, { preview: true })).toBe("No geometry: a table, not a layer");
+    expect(resultKindWord(null, true)).toBe("Geometry: no geometries to classify");
+    expect(resultKindWord(null, true, { preview: true })).toBe("Geometry: no geometries to classify");
+  });
+});
+
 describe("the surfaces that show a kind as a fact", () => {
   it.each(KINDS)("the Data list's Geometry column reads %s as %s", (type, word) => {
     const noop = () => {};
@@ -94,6 +104,9 @@ describe("the surfaces that show a kind as a fact", () => {
     expect(text(picked)).toContain("1,234 features · Polygons");
     const made: RunSuccess = { tool: "Buffer", table: "stations_buffer", rows: 12, geometryType: "MULTIPOLYGON", spatial: true, layerName: null, notice: "Done." };
     expect(text(renderToStaticMarkup(<SuccessFace made={made} onRunAnother={() => {}} onDone={() => {}} />))).toContain("12 rows · Polygons");
+    const face = (m: RunSuccess) => text(renderToStaticMarkup(<SuccessFace made={m} onRunAnother={() => {}} onDone={() => {}} />));
+    expect(face({ ...made, geometryType: null, spatial: false })).toContain("12 rows · No geometry");
+    expect(face({ ...made, geometryType: null, spatial: true })).toContain("12 rows · Geometry: no geometries to classify");
   });
 
   it("a PostGIS import's completion reads the kind as a word", () => {

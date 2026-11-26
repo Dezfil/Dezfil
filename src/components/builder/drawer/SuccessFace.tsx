@@ -1,6 +1,6 @@
 "use client";
 
-import { geometryKindWord } from "../../geometry-class";
+import { resultKindWord } from "../../geometry-class";
 import styles from "./SuccessFace.module.css";
 
 /**
@@ -53,11 +53,7 @@ export function SuccessFace({
         )}
         {made.rows !== null && <> · {made.rows.toLocaleString()} rows</>}
         {" · "}
-        {made.geometryType
-          ? geometryKindWord(made.geometryType)
-          : made.spatial
-            ? "spatial: no geometries to classify"
-            : "table only"}
+        {resultKindWord(made.geometryType, made.spatial)}
       </p>
       <p className={styles.notice} data-run-notice role="status">
         {made.notice}

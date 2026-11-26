@@ -4,7 +4,7 @@ import path from "node:path";
 import type { DataTable } from "@/lib/metadata/tables";
 import { geometryFamilies, geometryKind } from "./gallery-icons";
 import { geometryChipLabel } from "./table-chips";
-import { classOfTable, geometryGlyphType } from "./geometry-class";
+import { classOfTable, geometryGlyphType, resultKindWord } from "./geometry-class";
 
 const table = (
   geometryColumn: string | null,
@@ -87,16 +87,15 @@ describe("zero-row and all-null agreement copy", () => {
   it.each([
     "builder/drawer/ParameterForm.tsx",
     "workflow-canvas/NodePanel.tsx",
-  ])("%s says there are no geometries to classify", (file) => {
+  ])("%s reads its preview's kind through the shared words", (file) => {
     const source = readFileSync(path.join(process.cwd(), "src/components", file), "utf8");
-    expect({
-      truthful: source.includes(
-        "spatial, class undetermined: no geometries to classify",
-      ),
-      stale: source.includes(
-        "spatial, class undetermined: no rows to classify",
-      ),
-    }).toEqual({ truthful: true, stale: false });
+    expect(source).toMatch(/resultKindWord\([^)]*\{ preview: true \}\)/);
+  });
+
+  it("says there are no geometries to classify, not no rows", () => {
+    expect(resultKindWord(null, true, { preview: true })).toBe("Geometry: no geometries to classify");
+    const source = readFileSync(path.join(process.cwd(), "src/components/geometry-class.ts"), "utf8");
+    expect(source.includes("no rows to classify")).toBe(false);
   });
 
   it("publishes the same truthful meaning for undetermined geometry", () => {

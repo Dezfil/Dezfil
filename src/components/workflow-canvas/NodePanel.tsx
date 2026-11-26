@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import type { OperationDef, OperationParameter } from "@/lib/operations/catalog";
 import type { TableListing } from "../api";
-import { geometryKindWord } from "../geometry-class";
+import { resultKindWord } from "../geometry-class";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { XIcon } from "../ui/icons";
@@ -390,11 +390,7 @@ export function NodePanel({
                 <p className={styles.previewLine} role="status" data-preview-line>
                   <b>{gate.preview.rowCount.toLocaleString()} rows</b>
                   {" · "}
-                  {gate.preview.geometry === "none"
-                    ? "no geometry: a table, not a layer"
-                    : gate.preview.geometry === "undetermined"
-                      ? "spatial, class undetermined: no geometries to classify"
-                      : geometryKindWord(gate.preview.geometryType)}
+                  {resultKindWord(gate.preview.geometry === "classified" ? gate.preview.geometryType : null, gate.preview.geometry !== "none", { preview: true })}
                 </p>
                 {gate.preview.warnings.map((w) => (
                   <p key={w} className={styles.help} role="status" data-preview-warning>

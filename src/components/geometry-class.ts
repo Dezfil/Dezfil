@@ -59,3 +59,19 @@ export function geometryKindWord(
   if (type.includes("POLYGON")) return "Polygons";
   return "Geometry";
 }
+
+/**
+ * The kind of a table a tool or a workflow step makes, or would make: the
+ * kind word, and for spatial output with no geometry to classify, why it
+ * reads Geometry. A preview of a table without geometry also says it will
+ * not be a layer.
+ */
+export function resultKindWord(
+  geometryType: string | null | undefined,
+  spatial: boolean,
+  options: { preview?: boolean } = {},
+): string {
+  if (!spatial) return options.preview ? "No geometry: a table, not a layer" : "No geometry";
+  if (!geometryType) return "Geometry: no geometries to classify";
+  return geometryKindWord(geometryType);
+}
